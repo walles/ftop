@@ -3,11 +3,13 @@ package processes
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
 	"os/user"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -250,6 +252,15 @@ func GetAll() ([]*Process, error) {
 		"pid=,ppid=,rss=,lstart=,uid=,pcpu=,time=,%mem=,command=",
 	}
 	cmd := exec.Command(command[0], command[1:]...)
+
+	env := []string{}
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "LANG") || strings.HasPrefix(e, "LC_") {
+			continue
+		}
+		env = append(env, e)
+	}
+	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
