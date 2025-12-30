@@ -1,7 +1,9 @@
 package processes
 
 import (
+	"bufio"
 	"fmt"
+	"os/exec"
 	"os/user"
 	"regexp"
 	"slices"
@@ -247,6 +249,52 @@ func GetAll() ([]*Process, error) {
 		"-o",
 		"pid=,ppid=,rss=,lstart=,uid=,pcpu=,time=,%mem=,command=",
 	}
+	cmd := exec.Command(command[0], command[1:]...)
 
-	// FIXME: Spawn ps, then iterate the
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get stdout pipe for ps: %v", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("Failed to start ps: %v", err)
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	var readErr error
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		proc, err := psLineToProcess(line)
+		if err != nil {
+			if readErr == nil {
+				readErr = fmt.Errorf("Failed to parse ps line: %v", err)
+			}
+			continue
+		}
+
+		processes = append(processes, proc)
+	}
+
+	if err := scanner.Err(); err != nil {
+		if readErr == nil {
+			readErr = fmt.Errorf("Error reading ps output: %v", err)
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		if readErr == nil {
+			readErr = fmt.Errorf("ps command failed: %v", err)
+		}
+	}
+
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	// FIXME: Resolve parent-child relationships
+
+	// FIXME: Censor out ourselves
+
+	return processes, nil
 }
