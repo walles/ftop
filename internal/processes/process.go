@@ -3,6 +3,7 @@ package processes
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -38,6 +39,48 @@ func (p *Process) String() string {
 	return fmt.Sprintf("%s(%d)", p.command, p.pid)
 }
 
+// Parse a local date from ps into a datetime.datetime object.
+//
+// Example inputs:
+//
+//	Wed Dec 16 12:41:43 2020
+//	Sat Jan  9 14:20:34 2021
+func parseTime(time_string string) (time.Time, error) {
+	monthLetters := time_string[4:7]
+	monthNames := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+	monthIndex := slices.Index(monthNames, monthLetters) // Zero based
+	if monthIndex == -1 {
+		return time.Time{}, fmt.Errorf("Failed to parse month <%s> from time string <%s>", monthLetters, time_string)
+	}
+
+	dayOfMonth, err := strconv.Atoi(time_string[8:10])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Failed to parse day of month <%s> from time string <%s>: %v", time_string[8:10], time_string, err)
+	}
+
+	hour, err := strconv.Atoi(time_string[11:13])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Failed to parse hour <%s> from time string <%s>: %v", time_string[11:13], time_string, err)
+	}
+
+	minute, err := strconv.Atoi(time_string[14:16])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Failed to parse minute <%s> from time string <%s>: %v", time_string[14:16], time_string, err)
+	}
+
+	second, err := strconv.Atoi(time_string[17:19])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Failed to parse second <%s> from time string <%s>: %v", time_string[17:19], time_string, err)
+	}
+
+	year, err := strconv.Atoi(time_string[20:24])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("Failed to parse year <%s> from time string <%s>: %v", time_string[20:24], time_string, err)
+	}
+
+	return time.Date(year, time.Month(monthIndex+1), dayOfMonth, hour, minute, second, 0, time.Local), nil
+}
+
 func psLineToProcess(line string) (*Process, error) {
 	match := PS_LINE.FindStringSubmatch(line)
 	if match == nil {
@@ -60,7 +103,7 @@ func psLineToProcess(line string) (*Process, error) {
 	}
 
 	start_time_string := match[4]
-	start_time, err := parse_time(start_time_string)
+	start_time, err := parseTime(start_time_string)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse start_time <%s> from line <%s>: %v", match[4], line, err)
 	}
