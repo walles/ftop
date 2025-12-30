@@ -69,27 +69,27 @@ func parseTime(time_string string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("Failed to parse month <%s> from time string <%s>", monthLetters, time_string)
 	}
 
-	dayOfMonth, err := strconv.Atoi(time_string[8:10])
+	dayOfMonth, err := strconv.Atoi(strings.TrimSpace(time_string[8:10]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("Failed to parse day of month <%s> from time string <%s>: %v", time_string[8:10], time_string, err)
 	}
 
-	hour, err := strconv.Atoi(time_string[11:13])
+	hour, err := strconv.Atoi(strings.TrimSpace(time_string[11:13]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("Failed to parse hour <%s> from time string <%s>: %v", time_string[11:13], time_string, err)
 	}
 
-	minute, err := strconv.Atoi(time_string[14:16])
+	minute, err := strconv.Atoi(strings.TrimSpace(time_string[14:16]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("Failed to parse minute <%s> from time string <%s>: %v", time_string[14:16], time_string, err)
 	}
 
-	second, err := strconv.Atoi(time_string[17:19])
+	second, err := strconv.Atoi(strings.TrimSpace(time_string[17:19]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("Failed to parse second <%s> from time string <%s>: %v", time_string[17:19], time_string, err)
 	}
 
-	year, err := strconv.Atoi(time_string[20:24])
+	year, err := strconv.Atoi(strings.TrimSpace(time_string[20:24]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("Failed to parse year <%s> from time string <%s>: %v", time_string[20:24], time_string, err)
 	}
