@@ -1,3 +1,14 @@
 module github.com/walles/ptop
 
 go 1.25.5
+
+require github.com/walles/moor/v2 v2.9.6
+
+require (
+	github.com/alecthomas/chroma/v2 v2.21.0 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/sirupsen/logrus v1.8.3 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/term v0.0.0-20210503060354-a79de5458b56 // indirect
+)
