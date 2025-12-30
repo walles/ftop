@@ -23,16 +23,16 @@ type Process struct {
 	command          string // "git"
 	lowercaseCommand string // "git"
 
-	start_time time.Time
+	startTime time.Time
 
 	username string
 
-	rss_kb         int
-	memory_percent *float64
+	rss_kb        int
+	memoryPercent *float64
 
-	cpu_percent         *float64
-	cpu_time            *time.Duration
-	aggregated_cpu_time time.Duration
+	cpuPercent        *float64
+	cpuTime           *time.Duration
+	aggregatedCpuTime time.Duration
 }
 
 // Match + group: " 7708 1 Mon Mar  7 09:33:11 2016  netbios 0.1 0:00.08  0.0 /usr/sbin/netbiosd hj"
@@ -234,11 +234,11 @@ func psLineToProcess(line string) (*Process, error) {
 		pid:              pid,
 		ppid:             &ppid,
 		rss_kb:           rss_kb,
-		start_time:       start_time,
+		startTime:        start_time,
 		username:         username,
-		cpu_percent:      &cpu_percent,
-		cpu_time:         &cpu_time,
-		memory_percent:   &memory_percent,
+		cpuPercent:       &cpu_percent,
+		cpuTime:          &cpu_time,
+		memoryPercent:    &memory_percent,
 		cmdline:          cmdline,
 		command:          command,
 		lowercaseCommand: strings.ToLower(command),
