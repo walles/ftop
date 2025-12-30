@@ -318,5 +318,38 @@ func (p *Process) CpuPercentString() string {
 		return "--"
 	}
 
-	return fmt.Sprintf("%.0f", *p.cpuPercent)
+	return fmt.Sprintf("%.0f%%", *p.cpuPercent)
+}
+
+// Converts cpuTime to a string. Example outputs:
+//
+//	45s
+//	39m02s
+//	2h09m
+//	1d04h
+func (p *Process) CpuTimeString() string {
+	if p.cpuTime == nil {
+		return "--"
+	}
+
+	totalSeconds := int(p.cpuTime.Seconds())
+	if totalSeconds < 60 {
+		return fmt.Sprintf("%ds", totalSeconds)
+	}
+
+	if totalSeconds < 3600 {
+		minutes := totalSeconds / 60
+		seconds := totalSeconds % 60
+		return fmt.Sprintf("%dm%02ds", minutes, seconds)
+	}
+
+	if totalSeconds < 86400 {
+		hours := totalSeconds / 3600
+		minutes := (totalSeconds % 3600) / 60
+		return fmt.Sprintf("%dh%02dm", hours, minutes)
+	}
+
+	days := totalSeconds / 86400
+	hours := (totalSeconds % 86400) / 3600
+	return fmt.Sprintf("%dd%02dh", days, hours)
 }
