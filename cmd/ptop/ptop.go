@@ -21,7 +21,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	processes.Render(allProcesses, screen)
+	processes.Render(processes.ByCpuPercent(allProcesses), screen)
 
 	<-screen.Events()
 
