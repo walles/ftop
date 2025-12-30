@@ -2,6 +2,7 @@ package processes
 
 import (
 	"fmt"
+	"os/user"
 	"regexp"
 	"slices"
 	"strconv"
@@ -34,6 +35,8 @@ type Process struct {
 var PS_LINE = regexp.MustCompile(
 	" *([0-9]+) +([0-9]+) +([0-9]+) +([A-Za-z0-9: ]+) +([^ ]+) +([0-9.]+) +([-0-9.:]+) +([0-9.]+) +(.*)",
 )
+
+var uidToUsernameCache = map[int]string{}
 
 func (p *Process) String() string {
 	return fmt.Sprintf("%s(%d)", p.command, p.pid)
@@ -81,6 +84,23 @@ func parseTime(time_string string) (time.Time, error) {
 	return time.Date(year, time.Month(monthIndex+1), dayOfMonth, hour, minute, second, 0, time.Local), nil
 }
 
+func uidToUsername(uid int) string {
+	if userName, found := uidToUsernameCache[uid]; found {
+		return userName
+	}
+
+	uidString := strconv.FormatInt(int64(uid), 10)
+	userName := uidString // Fallback when lookup fails
+
+	user, err := user.LookupId(uidString)
+	if err == nil {
+		userName = user.Username
+	}
+
+	uidToUsernameCache[uid] = userName
+	return userName
+}
+
 func psLineToProcess(line string) (*Process, error) {
 	match := PS_LINE.FindStringSubmatch(line)
 	if match == nil {
@@ -112,7 +132,7 @@ func psLineToProcess(line string) (*Process, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse UID <%s> from line <%s>: %v", match[5], line, err)
 	}
-	username := uid_to_username(uid)
+	username := uidToUsername(uid)
 
 	cpu_percent, err := strconv.ParseFloat(match[6], 64)
 	if err != nil {
