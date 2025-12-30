@@ -254,6 +254,10 @@ FIXME: Turn `proc_get_all` instructions into a Go benchmark test
   themes logic as `ptop`.
 - Decide on what to do with `pxtree`. It should probably use the same color
   depth + themes logic as `ptop`.
+- Make sure everything in the `README-new-ui.md` file is covered by this README
+  and other files, and remove that file.
+- Verify all descriptions in this file + screenshots match the actual behaviors
+  of our binaries.
 - Replace the `python` branch as the main branch
 - Make a release.
 - Make sure we are implementing the memory leak use case.
