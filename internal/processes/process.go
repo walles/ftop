@@ -1,6 +1,9 @@
 package processes
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Process struct {
 	pid      int
@@ -27,4 +30,12 @@ type Process struct {
 	cpu_time_s            string
 	aggregated_cpu_time   time.Duration
 	aggregated_cpu_time_s string
+}
+
+func (p *Process) String() string {
+	return fmt.Sprintf("%s(%d)", p.command, p.pid)
+}
+
+func GetAll() ([]*Process, error) {
+	FIXME
 }
