@@ -321,6 +321,14 @@ func (p *Process) CpuPercentString() string {
 	return fmt.Sprintf("%.0f%%", *p.cpuPercent)
 }
 
+func (p *Process) RamPercentString() string {
+	if p.memoryPercent == nil {
+		return "--"
+	}
+
+	return fmt.Sprintf("%.0f%%", *p.memoryPercent)
+}
+
 // Converts cpuTime to a string. Example outputs:
 //
 //	45s

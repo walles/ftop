@@ -16,7 +16,14 @@ func Render(processes []*Process, screen twin.Screen) {
 			break
 		}
 
-		line := fmt.Sprintf("%-5d %-28s %-14s %-3s %-3s", p.pid, p.command, p.username, p.CpuPercentString(), p.CpuTimeString())
+		line := fmt.Sprintf("%5d %-28s %-14s %3s %10s %3s",
+			p.pid,
+			p.command,
+			p.username,
+			p.CpuPercentString(),
+			p.CpuTimeString(),
+			p.RamPercentString(),
+		)
 
 		for x, char := range line {
 			screen.SetCell(x, i, twin.StyledRune{Rune: char})
