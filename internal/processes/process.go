@@ -19,9 +19,9 @@ type Process struct {
 	children []*Process
 	parent   *Process
 
-	cmdline           string // "git clone git@github.com:walles/px.git"
-	command           string // "git"
-	lowercase_command string // "git"
+	cmdline          string // "git clone git@github.com:walles/px.git"
+	command          string // "git"
+	lowercaseCommand string // "git"
 
 	start_time time.Time
 
@@ -228,17 +228,20 @@ func psLineToProcess(line string) (*Process, error) {
 	}
 
 	cmdline := match[9]
+	command := cmdlineToCommand(cmdline)
 
 	return &Process{
-		pid:            pid,
-		ppid:           &ppid,
-		rss_kb:         rss_kb,
-		start_time:     start_time,
-		username:       username,
-		cpu_percent:    &cpu_percent,
-		cpu_time:       &cpu_time,
-		memory_percent: &memory_percent,
-		cmdline:        cmdline,
+		pid:              pid,
+		ppid:             &ppid,
+		rss_kb:           rss_kb,
+		start_time:       start_time,
+		username:         username,
+		cpu_percent:      &cpu_percent,
+		cpu_time:         &cpu_time,
+		memory_percent:   &memory_percent,
+		cmdline:          cmdline,
+		command:          command,
+		lowercaseCommand: strings.ToLower(command),
 	}, nil
 }
 
