@@ -312,3 +312,11 @@ func GetAll() ([]*Process, error) {
 
 	return processes, nil
 }
+
+func (p *Process) CpuPercentString() string {
+	if p.cpuPercent == nil {
+		return "--"
+	}
+
+	return fmt.Sprintf("%.0f", *p.cpuPercent)
+}
