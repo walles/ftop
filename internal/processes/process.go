@@ -36,6 +36,15 @@ var PS_LINE = regexp.MustCompile(
 	" *([0-9]+) +([0-9]+) +([0-9]+) +([A-Za-z0-9: ]+) +([^ ]+) +([0-9.]+) +([-0-9.:]+) +([0-9.]+) +(.*)",
 )
 
+// Match + group: "1:02.03"
+var CPU_DURATION_OSX = regexp.MustCompile(`^([0-9]+):([0-9][0-9]\.[0-9]+)$`)
+
+// Match + group: "01:23:45"
+var CPU_DURATION_LINUX = regexp.MustCompile(`^([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
+
+// Match + group: "123-01:23:45"
+var CPU_DURATION_LINUX_DAYS = regexp.MustCompile(`^([0-9]+)-([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
+
 var uidToUsernameCache = map[int]string{}
 
 func (p *Process) String() string {
@@ -101,6 +110,71 @@ func uidToUsername(uid int) string {
 	return userName
 }
 
+// Convert a CPU duration string returned by ps to a Duration
+func parseDuration(durationString string) (time.Duration, error) {
+	if match := CPU_DURATION_OSX.FindStringSubmatch(durationString); match != nil {
+		minutes, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse minutes <%s> from duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		seconds, err := strconv.ParseFloat(match[2], 64)
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse seconds <%s> from duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		totalSeconds := float64(minutes*60) + seconds
+		return time.Duration(totalSeconds * float64(time.Second)), nil
+	}
+
+	if match := CPU_DURATION_LINUX.FindStringSubmatch(durationString); match != nil {
+		hours, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse hours <%s> from duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		minutes, err := strconv.Atoi(match[2])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse minutes <%s> from duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		seconds, err := strconv.Atoi(match[3])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse seconds <%s> from duration string <%s>: %v", match[3], durationString, err)
+		}
+
+		totalSeconds := (hours * 3600) + (minutes * 60) + seconds
+		return time.Duration(totalSeconds * int(time.Second)), nil
+	}
+
+	if match := CPU_DURATION_LINUX_DAYS.FindStringSubmatch(durationString); match != nil {
+		days, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse days <%s> from duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		hours, err := strconv.Atoi(match[2])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse hours <%s> from duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		minutes, err := strconv.Atoi(match[3])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse minutes <%s> from duration string <%s>: %v", match[3], durationString, err)
+		}
+
+		seconds, err := strconv.Atoi(match[4])
+		if err != nil {
+			return 0, fmt.Errorf("Failed to parse seconds <%s> from duration string <%s>: %v", match[4], durationString, err)
+		}
+
+		totalSeconds := (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
+		return time.Duration(totalSeconds * int(time.Second)), nil
+	}
+
+	return 0, fmt.Errorf("Failed to parse duration string <%s>", durationString)
+}
+
 func psLineToProcess(line string) (*Process, error) {
 	match := PS_LINE.FindStringSubmatch(line)
 	if match == nil {
@@ -139,7 +213,7 @@ func psLineToProcess(line string) (*Process, error) {
 		return nil, fmt.Errorf("Failed to parse cpu_percent <%s> from line <%s>: %v", match[6], line, err)
 	}
 
-	cpu_time, err := parse_duration(match[7])
+	cpu_time, err := parseDuration(match[7])
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse cpu_time <%s> from line <%s>: %v", match[7], line, err)
 	}
