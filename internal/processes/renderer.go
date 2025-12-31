@@ -40,8 +40,15 @@ func Render(processes []*Process, screen twin.Screen) {
 		line := fmt.Sprintf(formatString,
 			row[0], row[1], row[2], row[3], row[4], row[5],
 		)
+
+		var style twin.Style
+		if rowIndex == 0 {
+			// Header row, header style
+			style = twin.StyleDefault.WithAttr(twin.AttrBold)
+		}
+
 		for x, char := range line {
-			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char})
+			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char, Style: style})
 		}
 	}
 
