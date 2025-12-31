@@ -40,7 +40,7 @@ func (tracker *Tracker) update() {
 		procsMap[p.pid] = p
 	}
 
-	// FIXME: Compare with baseline to compute time-used-since-ptop-started
+	tracker.adjustTimesSinceBaseline(procsMap)
 
 	tracker.mutex.Lock()
 	if tracker.baseline == nil {
@@ -54,6 +54,33 @@ func (tracker *Tracker) update() {
 	select {
 	case tracker.OnUpdate <- struct{}{}:
 	default:
+	}
+}
+
+// For processes already running when we launched, adjust their times to be
+// relative to our start time.
+func (tracker *Tracker) adjustTimesSinceBaseline(procs map[int]*Process) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+
+	for pid, proc := range procs {
+		baseProc, ok := tracker.baseline[pid]
+		if !ok {
+			// New process, no adjustment needed
+			continue
+		}
+
+		if !proc.startTime.Equal(baseProc.startTime) {
+			// This is a new process reusing an old PID
+			continue
+		}
+
+		if proc.cpuTime == nil || baseProc.cpuTime == nil {
+			continue
+		}
+
+		adjusted := *proc.cpuTime - *baseProc.cpuTime
+		proc.cpuTime = &adjusted
 	}
 }
 

@@ -2,7 +2,7 @@ package processes
 
 import "sort"
 
-func ByCpuPercent(processes []*Process) []*Process {
+func ByCpuUsage(processes []*Process) []*Process {
 	sorted := make([]*Process, len(processes))
 	copy(sorted, processes)
 
@@ -10,15 +10,16 @@ func ByCpuPercent(processes []*Process) []*Process {
 		pi := sorted[i]
 		pj := sorted[j]
 
-		var cpuI, cpuJ float64
-		if pi.cpuPercent != nil {
-			cpuI = *pi.cpuPercent
-		}
-		if pj.cpuPercent != nil {
-			cpuJ = *pj.cpuPercent
+		if pi.cpuTime != nil && pj.cpuTime != nil {
+			// For a stable(r) sort, compare by how much CPU time they've used
+			if *pi.cpuTime != *pj.cpuTime {
+				return *pi.cpuTime > *pj.cpuTime
+			}
 		}
 
-		return cpuI > cpuJ
+		// Unknown CPU usage, sort by RAM usage. We could go for CPU percentage,
+		// but that's very unstable and makes for a jarring user experience.
+		return pi.rss_kb > pj.rss_kb
 	})
 
 	return sorted

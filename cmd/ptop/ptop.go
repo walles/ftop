@@ -40,7 +40,7 @@ func main() {
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.GetProcesses()
-			processes.Render(processes.ByCpuPercent(allProcesses), screen)
+			processes.Render(processes.ByCpuUsage(allProcesses), screen)
 		}
 
 		if event, ok := event.(twin.EventRune); ok {
