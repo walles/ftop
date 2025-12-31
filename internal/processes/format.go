@@ -41,16 +41,31 @@ func formatMemory(bytes int64) string {
 		TB = 1024 * GB
 	)
 
+	var number float64
+	var unit string
 	switch {
-	case bytes >= 2*TB:
-		return fmt.Sprintf("%.1fT", float64(bytes)/float64(TB))
-	case bytes >= 2*GB:
-		return fmt.Sprintf("%.1fG", float64(bytes)/float64(GB))
-	case bytes >= 2*MB:
-		return fmt.Sprintf("%.1fM", float64(bytes)/float64(MB))
-	case bytes >= 2*KB:
-		return fmt.Sprintf("%.1fK", float64(bytes)/float64(KB))
+	case bytes >= TB:
+		number = float64(bytes) / float64(TB)
+		unit = "T"
+	case bytes >= GB:
+		number = float64(bytes) / float64(GB)
+		unit = "G"
+	case bytes >= MB:
+		number = float64(bytes) / float64(MB)
+		unit = "M"
+	case bytes >= KB:
+		number = float64(bytes) / float64(KB)
+		unit = "K"
 	default:
-		return fmt.Sprintf("%dB", bytes)
+		number = float64(bytes)
+		unit = "B"
 	}
+
+	if number < 10 {
+		// Add decimals to smaller numbers
+		return fmt.Sprintf("%.1f%s", number, unit)
+	}
+
+	// No decimals for larger numbers
+	return fmt.Sprintf("%.0f%s", number, unit)
 }
