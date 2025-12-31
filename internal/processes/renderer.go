@@ -37,10 +37,15 @@ func Render(processes []Process, screen twin.Screen) {
 		widths[0], widths[1], widths[2], widths[3], widths[4], widths[5],
 	)
 
-	bgColor := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
-		bgColor = *screen.TerminalBackground()
+		colorBg = *screen.TerminalBackground()
 	}
+
+	colorTop := twin.NewColorHex(0xffffff) // FIXME: Get this from the theme
+	colorBottom := colorTop.Mix(colorBg, 0.66)
+	// 1.0 = ignore the header line
+	topBottomRamp := ui.NewColorRamp(colorTop, colorBottom, 1.0, float64(len(table)-1))
 
 	maxCpuTime := time.Duration(0)
 	for _, p := range processes {
@@ -49,16 +54,15 @@ func Render(processes []Process, screen twin.Screen) {
 		}
 	}
 
-	colorHot := twin.NewColorHex(0xff8888)  // FIXME: Get this from the theme
-	colorCold := twin.NewColorHex(0xffffff) // FIXME: Get this from the theme
-	var heatRamp ui.ColorRamp
+	colorHot := twin.NewColorHex(0xff0000) // FIXME: Get this from the theme
+	colorHot = colorBg.Mix(colorHot, 0.5)
+	var temperatureRamp ui.ColorRamp
 	if maxCpuTime == 0 {
 		// All-cold ramp when all times are zero
-		heatRamp = ui.NewColorRamp(colorCold, colorCold, 0.0, 1.0)
+		temperatureRamp = ui.NewColorRamp(colorBg, colorBg, 0.0, 1.0)
 	} else {
 		// Show everything below this threshold as all cold
-		allCold := maxCpuTime.Seconds() * 0.25
-		heatRamp = ui.NewColorRamp(colorCold, colorHot, allCold, maxCpuTime.Seconds())
+		temperatureRamp = ui.NewColorRamp(colorBg, colorHot, 0.0, maxCpuTime.Seconds())
 	}
 
 	for rowIndex, row := range table {
@@ -71,15 +75,10 @@ func Render(processes []Process, screen twin.Screen) {
 			// Header row, header style
 			style = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
-			temperatureColor := heatRamp.AtValue(processes[rowIndex-1].cpuTime.Seconds())
-
-			// Fade towards this color rather than the background, we want the
-			// last lines to still be visible
-			colorMin := temperatureColor.Mix(bgColor, 0.5)
-
-			// 1.0 means ignoring the header line when picking the color
-			ramp := ui.NewColorRamp(temperatureColor, colorMin, 1.0, float64(len(table)-1))
-			style = twin.StyleDefault.WithForeground(ramp.AtInt(rowIndex))
+			temperatureColor := temperatureRamp.AtValue(processes[rowIndex-1].cpuTime.Seconds())
+			style = twin.StyleDefault
+			style = style.WithForeground(topBottomRamp.AtInt(rowIndex))
+			style = style.WithBackground(temperatureColor)
 		}
 
 		for x, char := range line {
