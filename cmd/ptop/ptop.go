@@ -3,16 +3,23 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
 )
 
+type processListUpdated struct{}
+
 func main() {
 	screen, err := twin.NewScreen()
 	if err != nil {
 		fmt.Println("Error creating screen:", err)
+		os.Exit(1)
+	}
+
+	procsTracker, err := processes.NewTracker()
+	if err != nil {
+		fmt.Println("Error creating process tracker:", err)
 		os.Exit(1)
 	}
 
@@ -23,21 +30,18 @@ func main() {
 		}
 	}()
 	go func() {
-		for tick := range time.NewTicker(time.Second).C {
-			events <- tick
+		for range procsTracker.OnUpdate {
+			events <- processListUpdated{}
 		}
 	}()
 
 	for {
-		allProcesses, err := processes.GetAll()
-		if err != nil {
-			fmt.Println("Error retrieving processes:", err)
-			os.Exit(1)
-		}
-
-		processes.Render(processes.ByCpuPercent(allProcesses), screen)
-
 		event := <-events
+
+		if _, ok := event.(processListUpdated); ok {
+			allProcesses := procsTracker.GetProcesses()
+			processes.Render(processes.ByCpuPercent(allProcesses), screen)
+		}
 
 		if event, ok := event.(twin.EventRune); ok {
 			if event.Rune() == 'q' {

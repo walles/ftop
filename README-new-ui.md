@@ -130,6 +130,9 @@ First, consider redoing in Go using:
 
 1. Get the UI structure right with plain text only. Verify it works with
    terminal window resizing. Pressing ESC / q should exit.
+1. Consider all FIXMEs
+1. Make sure goroutine panics are logged
+1. Implement a crash reporting screen
 1. Implement filtering
 1. Implement section switching with TAB
 1. Implement process picking with arrow keys
