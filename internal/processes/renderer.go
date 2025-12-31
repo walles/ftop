@@ -44,7 +44,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			p.username,
 			p.CpuPercentString(),
 			p.CpuTimeString(),
-			p.RamPercentString(),
+			formatMemory(int64(p.rssKb) * 1024),
 		})
 	}
 
