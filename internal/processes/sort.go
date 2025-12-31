@@ -2,8 +2,8 @@ package processes
 
 import "sort"
 
-func ByCpuUsage(processes []*Process) []*Process {
-	sorted := make([]*Process, len(processes))
+func ByCpuUsage(processes []Process) []Process {
+	sorted := make([]Process, len(processes))
 	copy(sorted, processes)
 
 	sort.Slice(sorted, func(i, j int) bool {

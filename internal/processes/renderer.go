@@ -8,7 +8,7 @@ import (
 )
 
 // Render the given processes to the given screen
-func Render(processes []*Process, screen twin.Screen) {
+func Render(processes []Process, screen twin.Screen) {
 	_, height := screen.Size()
 
 	screen.Clear()

@@ -40,8 +40,6 @@ func (tracker *Tracker) update() {
 		procsMap[p.pid] = p
 	}
 
-	tracker.adjustTimesSinceBaseline(procsMap)
-
 	tracker.mutex.Lock()
 	if tracker.baseline == nil {
 		// First iteration
@@ -57,39 +55,30 @@ func (tracker *Tracker) update() {
 	}
 }
 
-// For processes already running when we launched, adjust their times to be
-// relative to our start time.
-func (tracker *Tracker) adjustTimesSinceBaseline(procs map[int]*Process) {
+func (tracker *Tracker) GetProcesses() []Process {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 
-	for pid, proc := range procs {
-		baseProc, ok := tracker.baseline[pid]
-		if !ok {
-			// New process, no adjustment needed
-			continue
-		}
-
-		if !proc.startTime.Equal(baseProc.startTime) {
-			// This is a new process reusing an old PID
-			continue
-		}
-
-		if proc.cpuTime == nil || baseProc.cpuTime == nil {
-			continue
-		}
-
-		adjusted := *proc.cpuTime - *baseProc.cpuTime
-		proc.cpuTime = &adjusted
-	}
-}
-
-func (tracker *Tracker) GetProcesses() []*Process {
-	tracker.mutex.Lock()
-	procs := make([]*Process, 0, len(tracker.current))
+	procs := make([]Process, 0, len(tracker.current))
 	for _, p := range tracker.current {
-		procs = append(procs, p)
+		proc := *p
+		if tracker.baseline == nil {
+			// No baseline yet, all processes are new
+			zero := time.Duration(0)
+			proc.cpuTime = &zero
+		} else {
+			// For processes already running when we launched, report their
+			// times relative to our start time.
+			baseProc, ok := tracker.baseline[proc.pid]
+
+			// The start time check protects against reused PIDs. If the start
+			// times are different, then they are different processes.
+			if ok && proc.startTime.Equal(baseProc.startTime) && proc.cpuTime != nil && baseProc.cpuTime != nil {
+				adjusted := *proc.cpuTime - *baseProc.cpuTime
+				proc.cpuTime = &adjusted
+			}
+		}
+		procs = append(procs, proc)
 	}
-	tracker.mutex.Unlock()
 	return procs
 }
