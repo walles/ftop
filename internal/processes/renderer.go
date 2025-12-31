@@ -10,7 +10,7 @@ import (
 
 // Render the given processes to the given screen
 func Render(processes []Process, screen twin.Screen) {
-	_, height := screen.Size()
+	width, height := screen.Size()
 
 	screen.Clear()
 
@@ -32,9 +32,18 @@ func Render(processes []Process, screen twin.Screen) {
 		})
 	}
 
-	widths := ui.ColumnWidths(table)
-	formatString := fmt.Sprintf("%%%ds %%-%ds %%-%ds %%%ds %%%ds %%%ds",
-		widths[0], widths[1], widths[2], widths[3], widths[4], widths[5],
+	// "-5" = the number of between-column-spaces we need
+	widths := ui.ColumnWidths(table, width-5)
+
+	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
+	// 5", and the "-" means left-align.
+	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
+		widths[0], widths[0],
+		widths[1], widths[1],
+		widths[2], widths[2],
+		widths[3], widths[3],
+		widths[4], widths[4],
+		widths[5], widths[5],
 	)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
