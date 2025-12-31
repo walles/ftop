@@ -54,17 +54,6 @@ func Render(processes []Process, screen twin.Screen) {
 		}
 	}
 
-	colorHot := twin.NewColorHex(0xff0000) // FIXME: Get this from the theme
-	colorHot = colorBg.Mix(colorHot, 0.5)
-	var temperatureRamp ui.ColorRamp
-	if maxCpuTime == 0 {
-		// All-cold ramp when all times are zero
-		temperatureRamp = ui.NewColorRamp(colorBg, colorBg, 0.0, 1.0)
-	} else {
-		// Show everything below this threshold as all cold
-		temperatureRamp = ui.NewColorRamp(colorBg, colorHot, 0.0, maxCpuTime.Seconds())
-	}
-
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
 			row[0], row[1], row[2], row[3], row[4], row[5],
@@ -75,10 +64,8 @@ func Render(processes []Process, screen twin.Screen) {
 			// Header row, header style
 			style = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
-			temperatureColor := temperatureRamp.AtValue(processes[rowIndex-1].cpuTime.Seconds())
 			style = twin.StyleDefault
 			style = style.WithForeground(topBottomRamp.AtInt(rowIndex))
-			style = style.WithBackground(temperatureColor)
 		}
 
 		for x, char := range line {
