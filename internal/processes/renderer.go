@@ -2,6 +2,7 @@ package processes
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/ui"
@@ -36,18 +37,29 @@ func Render(processes []Process, screen twin.Screen) {
 		widths[0], widths[1], widths[2], widths[3], widths[4], widths[5],
 	)
 
-	colorMin := twin.NewColor24Bit(255, 255, 255) // FIXME: Get this from the theme
-	bgColor := twin.NewColor24Bit(0, 0, 0)        // FIXME: Get this fallback from the theme
+	bgColor := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
 		bgColor = *screen.TerminalBackground()
 	}
-	colorMax := bgColor.Mix(colorMin, 0.5)
-	ramp := ui.NewColorRamp(
-		colorMin,
-		colorMax,
-		1.0, // Skip header row 0, it doesn't need coloring
-		float64(len(table)-1),
-	)
+
+	maxCpuTime := time.Duration(0)
+	for _, p := range processes {
+		if p.cpuTime != nil && *p.cpuTime > maxCpuTime {
+			maxCpuTime = *p.cpuTime
+		}
+	}
+
+	colorHot := twin.NewColorHex(0xff8888)  // FIXME: Get this from the theme
+	colorCold := twin.NewColorHex(0xffffff) // FIXME: Get this from the theme
+	var heatRamp ui.ColorRamp
+	if maxCpuTime == 0 {
+		// All-cold ramp when all times are zero
+		heatRamp = ui.NewColorRamp(colorCold, colorCold, 0.0, 1.0)
+	} else {
+		// Show everything below this threshold as all cold
+		allCold := maxCpuTime.Seconds() * 0.25
+		heatRamp = ui.NewColorRamp(colorCold, colorHot, allCold, maxCpuTime.Seconds())
+	}
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -59,6 +71,14 @@ func Render(processes []Process, screen twin.Screen) {
 			// Header row, header style
 			style = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
+			temperatureColor := heatRamp.AtValue(processes[rowIndex-1].cpuTime.Seconds())
+
+			// Fade towards this color rather than the background, we want the
+			// last lines to still be visible
+			colorMin := temperatureColor.Mix(bgColor, 0.5)
+
+			// 1.0 means ignoring the header line when picking the color
+			ramp := ui.NewColorRamp(temperatureColor, colorMin, 1.0, float64(len(table)-1))
 			style = twin.StyleDefault.WithForeground(ramp.AtInt(rowIndex))
 		}
 
