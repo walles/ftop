@@ -1,4 +1,4 @@
-package layout
+package ui
 
 // Given some rows with some number of columns, return the widths required for
 // each column.
