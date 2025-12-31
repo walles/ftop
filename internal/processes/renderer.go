@@ -105,6 +105,11 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		widths[8], widths[8],
 	)
 
+	// FIXME: Why "+1" here? Shouldn't it be "+6" to account for the spaces
+	// between the columns?
+	dividerColumn := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5] + 1
+	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
+
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
 		colorBg = *screen.TerminalBackground()
@@ -139,10 +144,8 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		x := 0
 		for _, char := range line {
 			style := rowStyle
-			if char == '│' {
-				// Divider, make it less prominent and don't fade it out
-				// FIXME: Get the divider color from the theme
-				style = style.WithForeground(twin.NewColorHex(0x404080))
+			if x == dividerColumn {
+				style = style.WithForeground(colorDivider)
 			}
 			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char, Style: style})
 			x++
