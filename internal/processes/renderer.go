@@ -110,7 +110,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		colorBg = *screen.TerminalBackground()
 	}
 
-	colorTop := twin.NewColorHex(0xffffff) // FIXME: Get this from the theme
+	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// 1.0 = ignore the header line
 	topBottomRamp := ui.NewColorRamp(colorTop, colorBottom, 1.0, float64(len(table)-1))
