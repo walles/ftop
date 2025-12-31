@@ -342,7 +342,10 @@ func (p *Process) CpuTimeString() string {
 
 	totalSeconds := int(p.cpuTime.Seconds())
 	if totalSeconds < 60 {
-		return fmt.Sprintf("%ds", totalSeconds)
+		// FIXME: Don't show decimals here unless we know we're getting
+		// sub-second precision from ps. macOS provides decimals, unsure about
+		// Linux.
+		return fmt.Sprintf("%.2fs", p.cpuTime.Seconds())
 	}
 
 	if totalSeconds < 3600 {
