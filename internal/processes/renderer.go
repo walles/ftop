@@ -27,9 +27,9 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	table := [][]string{
 		{
 			// These first ones are for the per-process table
-			"PID", "COMMAND", "USERNAME", "CPU", "CPUTIME", "RAM",
+			"PID", "Command", "User name", "CPU", "Time", "RAM",
 			// These columns are for the per-user table
-			"USERNAME", "CPU", "RAM"},
+			"User name", "CPU", "RAM"},
 	}
 
 	// Fill in the per-process columns
