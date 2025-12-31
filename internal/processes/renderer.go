@@ -87,13 +87,13 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		}
 	}
 
-	// "-9" = the number of between-column-spaces we need, see format string
+	// "-10" = the number of between-column-spaces we need, see format string
 	// below
-	widths := ui.ColumnWidths(table, width-9)
+	widths := ui.ColumnWidths(table, width-10)
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
-	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds  %%%d.%ds %%%d.%ds %%%d.%ds",
+	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds │ %%-%d.%ds %%%d.%ds %%%d.%ds",
 		widths[0], widths[0],
 		widths[1], widths[1],
 		widths[2], widths[2],
@@ -127,17 +127,25 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
 		)
 
-		var style twin.Style
+		var rowStyle twin.Style
 		if rowIndex == 0 {
 			// Header row, header style
-			style = twin.StyleDefault.WithAttr(twin.AttrBold)
+			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
-			style = twin.StyleDefault
-			style = style.WithForeground(topBottomRamp.AtInt(rowIndex))
+			rowStyle = twin.StyleDefault
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
 		}
 
-		for x, char := range line {
+		x := 0
+		for _, char := range line {
+			style := rowStyle
+			if char == '│' {
+				// Divider, make it less prominent and don't fade it out
+				// FIXME: Get the divider color from the theme
+				style = style.WithForeground(twin.NewColorHex(0x404080))
+			}
 			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char, Style: style})
+			x++
 		}
 	}
 
