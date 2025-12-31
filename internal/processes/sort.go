@@ -19,7 +19,7 @@ func ByCpuUsage(processes []Process) []Process {
 
 		// Unknown CPU usage, sort by RAM usage. We could go for CPU percentage,
 		// but that's very unstable and makes for a jarring user experience.
-		return pi.rss_kb > pj.rss_kb
+		return pi.rssKb > pj.rssKb
 	})
 
 	return sorted

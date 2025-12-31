@@ -1,22 +1,38 @@
 package processes
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/ui"
 )
 
-// Render the given processes to the given screen
-func Render(processes []Process, screen twin.Screen) {
+type userStats struct {
+	username     string
+	cpuTime      time.Duration
+	rssKb        int
+	processCount int
+}
+
+// Render the given processes to the given screen, ordered by CPU usage.
+func RenderByCpu(processes []Process, screen twin.Screen) {
+	processes = ByCpuUsage(processes)
 	width, height := screen.Size()
 
 	screen.Clear()
 
 	table := [][]string{
-		{"PID", "COMMAND", "USERNAME", "CPU", "CPUTIME", "RAM"},
+		{
+			// These first ones are for the per-process table
+			"PID", "COMMAND", "USERNAME", "CPU", "CPUTIME", "RAM",
+			// These columns are for the per-user table
+			"USERNAME", "CPU", "RAM"},
 	}
+
+	// Fill in the per-process columns
 	for i, p := range processes {
 		if i >= height {
 			break
@@ -32,18 +48,61 @@ func Render(processes []Process, screen twin.Screen) {
 		})
 	}
 
-	// "-5" = the number of between-column-spaces we need
-	widths := ui.ColumnWidths(table, width-5)
+	byUser := aggregateByUser(processes)
+	slices.SortFunc(byUser, func(i, j userStats) int {
+		byCpuTime := cmp.Compare(i.cpuTime, j.cpuTime)
+		if byCpuTime != 0 {
+			return -byCpuTime
+		}
+
+		// Fall back on process count if the CPU times are equal
+		return -cmp.Compare(i.processCount, j.processCount)
+	})
+	for i, u := range byUser {
+		tableRowIndex := i + 1 // +1 to account for header row
+
+		// With height 2, the highest allowed tableRowIndex is 1. So if the
+		// index is equal to height, we're out of bounds.
+		if tableRowIndex >= height {
+			// No more room
+			break
+		}
+
+		if tableRowIndex >= len(table) {
+			// Prepend empty per-process data. I don't see how we could ever get
+			// here.
+			table = append(table, []string{"", "", "", "", "", ""})
+		}
+
+		table[tableRowIndex] = append(table[tableRowIndex],
+			u.username,
+			formatDuration(u.cpuTime),
+			formatMemory(1024*int64(u.rssKb)),
+		)
+	}
+	for i := range len(table) {
+		if len(table[i]) < 9 {
+			// Pad out rows that don't have per-user data
+			table[i] = append(table[i], "", "", "")
+		}
+	}
+
+	// "-9" = the number of between-column-spaces we need, see format string
+	// below
+	widths := ui.ColumnWidths(table, width-9)
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
-	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
+	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds  %%%d.%ds %%%d.%ds %%%d.%ds",
 		widths[0], widths[0],
 		widths[1], widths[1],
 		widths[2], widths[2],
 		widths[3], widths[3],
 		widths[4], widths[4],
 		widths[5], widths[5],
+		widths[6], widths[6],
+		widths[7], widths[7],
+		widths[8], widths[8],
 	)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
@@ -65,7 +124,7 @@ func Render(processes []Process, screen twin.Screen) {
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
-			row[0], row[1], row[2], row[3], row[4], row[5],
+			row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
 		)
 
 		var style twin.Style
@@ -83,4 +142,30 @@ func Render(processes []Process, screen twin.Screen) {
 	}
 
 	screen.Show()
+}
+
+func aggregateByUser(processes []Process) []userStats {
+	userMap := make(map[string]userStats)
+	for _, p := range processes {
+		stats, exists := userMap[p.username]
+		if !exists {
+			stats = userStats{username: p.username}
+		}
+
+		if p.cpuTime != nil {
+			stats.cpuTime += *p.cpuTime
+		}
+		stats.rssKb += p.rssKb
+
+		stats.processCount++
+
+		userMap[p.username] = stats
+	}
+
+	var returnMe []userStats
+	for _, stats := range userMap {
+		returnMe = append(returnMe, stats)
+	}
+
+	return returnMe
 }

@@ -27,7 +27,7 @@ type Process struct {
 
 	username string
 
-	rss_kb        int
+	rssKb         int
 	memoryPercent *float64
 
 	cpuPercent        *float64
@@ -233,7 +233,7 @@ func psLineToProcess(line string) (*Process, error) {
 	return &Process{
 		pid:              pid,
 		ppid:             &ppid,
-		rss_kb:           rss_kb,
+		rssKb:            rss_kb,
 		startTime:        start_time,
 		username:         username,
 		cpuPercent:       &cpu_percent,
@@ -340,27 +340,5 @@ func (p *Process) CpuTimeString() string {
 		return "--"
 	}
 
-	totalSeconds := int(p.cpuTime.Seconds())
-	if totalSeconds < 60 {
-		// FIXME: Don't show decimals here unless we know we're getting
-		// sub-second precision from ps. macOS provides decimals, unsure about
-		// Linux.
-		return fmt.Sprintf("%.2fs", p.cpuTime.Seconds())
-	}
-
-	if totalSeconds < 3600 {
-		minutes := totalSeconds / 60
-		seconds := totalSeconds % 60
-		return fmt.Sprintf("%dm%02ds", minutes, seconds)
-	}
-
-	if totalSeconds < 86400 {
-		hours := totalSeconds / 3600
-		minutes := (totalSeconds % 3600) / 60
-		return fmt.Sprintf("%dh%02dm", hours, minutes)
-	}
-
-	days := totalSeconds / 86400
-	hours := (totalSeconds % 86400) / 3600
-	return fmt.Sprintf("%dd%02dh", days, hours)
+	return formatDuration(*p.cpuTime)
 }
