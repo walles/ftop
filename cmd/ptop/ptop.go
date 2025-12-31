@@ -23,7 +23,21 @@ func main() {
 
 	processes.Render(processes.ByCpuPercent(allProcesses), screen)
 
-	<-screen.Events()
+	for {
+		event := <-screen.Events()
+
+		if event, ok := event.(twin.EventRune); ok {
+			if event.Rune() == 'q' {
+				break
+			}
+		}
+
+		if event, ok := event.(twin.EventKeyCode); ok {
+			if event.KeyCode() == twin.KeyEscape {
+				break
+			}
+		}
+	}
 
 	screen.Close()
 }
