@@ -56,8 +56,21 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			return -byCpuTime
 		}
 
-		// Fall back on process count if the CPU times are equal
-		return -cmp.Compare(i.processCount, j.processCount)
+		// Before we have any CPU times, the count will give a similar ordering
+		byProcessCount := cmp.Compare(i.processCount, j.processCount)
+		if byProcessCount != 0 {
+			return -byProcessCount
+		}
+
+		// Sorting by memory usage stabilizes the bottom of the list
+		byMemoryUsage := cmp.Compare(i.rssKb, j.rssKb)
+		if byMemoryUsage != 0 {
+			return -byMemoryUsage
+		}
+
+		// Fall back on user names to get a stable result at the very end of the
+		// list.
+		return cmp.Compare(i.username, j.username)
 	})
 	for i, u := range perUser {
 		tableRowIndex := i + 1 // +1 to account for header row
