@@ -76,7 +76,9 @@ func Render(processes []Process, screen twin.Screen) {
 }
 
 func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, rightColumn int, title string) {
+	colorTitle := twin.NewColorHex(0xffc0c0)   // FIXME: Get this from the theme
 	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
+
 	dividerStyle := twin.StyleDefault.WithForeground(colorDivider)
 
 	for col := leftColumn + 1; col < rightColumn; col++ {
@@ -93,10 +95,11 @@ func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, 
 	screen.SetCell(rightColumn, bottomRow, twin.StyledRune{Rune: '┘', Style: dividerStyle})
 
 	// Title
+	titleStyle := twin.StyleDefault.WithForeground(colorTitle)
 	titleRunes := []rune(title)
 	for i, r := range titleRunes {
 		if leftColumn+2+i < rightColumn {
-			screen.SetCell(leftColumn+2+i, topRow, twin.StyledRune{Rune: r, Style: dividerStyle})
+			screen.SetCell(leftColumn+2+i, topRow, twin.StyledRune{Rune: r, Style: titleStyle})
 		}
 	}
 }
