@@ -51,7 +51,7 @@ func Render(processes []Process, screen twin.Screen) {
 	// 1: Memory section starts here
 	//
 	// So memory section always starts at cpuHeight + 1
-	memSectionStart := cpuHeight + 1
+	memSectionStart := len(cpuTable) + 1
 
 	// Render!
 	screen.Clear()
