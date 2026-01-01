@@ -36,7 +36,9 @@ func Render(processes []Process, screen twin.Screen) {
 	memHeight = max(len(processesByMem), len(usersByMem))
 
 	// Figure out column widths
-	allInOneTable := toTable(processesByCpu, usersByCpu, processesByMem, usersByMem)
+	cpuTable := toTable(processesByCpu, usersByCpu)
+	memTable := toTable(processesByMem, usersByMem)
+	allInOneTable := append(cpuTable, memTable...) // [1:] to avoid duplicating header row
 	widths := ui.ColumnWidths(allInOneTable, width)
 
 	// If CPU section is 0 high:
@@ -53,6 +55,55 @@ func Render(processes []Process, screen twin.Screen) {
 	renderSection(allInOneTable[cpuHeight:], processesByMem, usersByMem, screen, memSectionStart, widths)
 	// FIXME: Render a footer line with instructions
 	screen.Show()
+}
+
+func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
+	headerLine := []string{
+		// These first ones are for the per-process table
+		"PID", "Command", "User name", "CPU", "Time", "RAM",
+		// These columns are for the per-user table
+		"User name", "CPU", "RAM",
+	}
+
+	var table [][]string
+
+	// Header line
+	table = append(table, headerLine)
+
+	for i := 0; i < max(len(processesByCpu), len(usersByCpu)); i++ {
+		row := make([]string, 0, len(headerLine))
+
+		if i < len(processesByCpu) {
+			p := processesByCpu[i]
+			row = append(row,
+				fmt.Sprintf("%d", p.pid),
+				p.command,
+				p.username,
+				p.CpuPercentString(),
+				p.CpuTimeString(),
+				formatMemory(int64(p.rssKb)*1024),
+			)
+		} else {
+			// Pad out with empty per-process data
+			row = append(row, "", "", "", "", "", "")
+		}
+
+		if i < len(usersByCpu) {
+			u := usersByCpu[i]
+			row = append(row,
+				u.username,
+				formatDuration(u.cpuTime),
+				formatMemory(1024*int64(u.rssKb)),
+			)
+		} else {
+			// Pad out with empty per-user data
+			row = append(row, "", "", "")
+		}
+
+		table = append(table, row)
+	}
+
+	return table
 }
 
 // Render the given processes to the given screen, ordered by CPU usage.
@@ -264,30 +315,4 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	}
 
 	screen.Show()
-}
-
-func aggregatePerUser(processes []Process) []userStats {
-	userMap := make(map[string]userStats)
-	for _, p := range processes {
-		stats, exists := userMap[p.username]
-		if !exists {
-			stats = userStats{username: p.username}
-		}
-
-		if p.cpuTime != nil {
-			stats.cpuTime += *p.cpuTime
-		}
-		stats.rssKb += p.rssKb
-
-		stats.processCount++
-
-		userMap[p.username] = stats
-	}
-
-	var returnMe []userStats
-	for _, stats := range userMap {
-		returnMe = append(returnMe, stats)
-	}
-
-	return returnMe
 }

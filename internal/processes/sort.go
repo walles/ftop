@@ -81,3 +81,29 @@ func UsersByMemoryUsage(processes []Process) []userStats {
 
 	return perUser
 }
+
+func aggregatePerUser(processes []Process) []userStats {
+	userMap := make(map[string]userStats)
+	for _, p := range processes {
+		stats, exists := userMap[p.username]
+		if !exists {
+			stats = userStats{username: p.username}
+		}
+
+		if p.cpuTime != nil {
+			stats.cpuTime += *p.cpuTime
+		}
+		stats.rssKb += p.rssKb
+
+		stats.processCount++
+
+		userMap[p.username] = stats
+	}
+
+	var returnMe []userStats
+	for _, stats := range userMap {
+		returnMe = append(returnMe, stats)
+	}
+
+	return returnMe
+}
