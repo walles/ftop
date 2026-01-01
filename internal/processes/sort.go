@@ -2,7 +2,7 @@ package processes
 
 import "sort"
 
-func ByCpuUsage(processes []Process) []Process {
+func ProcessesByCpuUsage(processes []Process) []Process {
 	sorted := make([]Process, len(processes))
 	copy(sorted, processes)
 

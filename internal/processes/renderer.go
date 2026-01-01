@@ -17,11 +17,49 @@ type userStats struct {
 	processCount int
 }
 
+func Render(processes []Process, screen twin.Screen) {
+	width, height := screen.Size()
+
+	// Decide on section heights
+	heightWithoutPadding := height - 2 // 2 = divider + footer
+	cpuHeight := heightWithoutPadding / 2
+	memHeight := heightWithoutPadding - cpuHeight
+
+	// Decide on section contents. "-1" = Leave room for the header row
+	processesByCpu := ProcessesByCpuUsage(processes)[:cpuHeight-1]
+	usersByCpu := UsersByCpuUsage(processesByCpu)[:cpuHeight-1]
+	processesByMem := ProcessesByMemoryUsage(processes)[:memHeight-1]
+	usersByMem := UsersByMemoryUsage(processesByMem)[:memHeight-1]
+
+	// Adjust heights to what we actually have
+	cpuHeight = max(len(processesByCpu), len(usersByCpu))
+	memHeight = max(len(processesByMem), len(usersByMem))
+
+	// Figure out column widths
+	allInOneTable := toTable(processesByCpu, usersByCpu, processesByMem, usersByMem)
+	widths := ui.ColumnWidths(allInOneTable, width)
+
+	// If CPU section is 0 high:
+	// 0: ----
+	// 1: Memory section starts here
+	//
+	// So memory section always starts at cpuHeight + 1
+	memSectionStart := cpuHeight + 1
+
+	// Render!
+	screen.Clear()
+	renderSection(allInOneTable[0:cpuHeight], processesByCpu, usersByCpu, screen, 1, widths)
+	// FIXME: Render a divider line
+	renderSection(allInOneTable[cpuHeight:], processesByMem, usersByMem, screen, memSectionStart, widths)
+	// FIXME: Render a footer line with instructions
+	screen.Show()
+}
+
 // Render the given processes to the given screen, ordered by CPU usage.
 //
 // FIXME: Test this when we have fewer processes than the screen is high
 func RenderByCpu(processes []Process, screen twin.Screen) {
-	processes = ByCpuUsage(processes)
+	processes = ProcessesByCpuUsage(processes)
 	width, height := screen.Size()
 
 	screen.Clear()
