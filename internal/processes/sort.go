@@ -1,85 +1,93 @@
 package processes
 
 import (
-	"cmp"
-	"slices"
 	"sort"
+	"time"
 )
 
-func ProcessesByCpuUsage(processes []Process) []Process {
+func ProcessesByScore(processes []Process) []Process {
 	sorted := make([]Process, len(processes))
 	copy(sorted, processes)
 
-	sort.Slice(sorted, func(i, j int) bool {
-		pi := sorted[i]
-		pj := sorted[j]
-
-		if pi.cpuTime != nil && pj.cpuTime != nil {
-			// For a stable(r) sort, compare by how much CPU time they've used
-			if *pi.cpuTime != *pj.cpuTime {
-				return *pi.cpuTime > *pj.cpuTime
-			}
+	maxCpuTime := time.Duration(0)
+	maxRssKb := 0
+	for _, p := range processes {
+		if p.cpuTime != nil && *p.cpuTime > maxCpuTime {
+			maxCpuTime = *p.cpuTime
 		}
+		if p.rssKb > maxRssKb {
+			maxRssKb = p.rssKb
+		}
+	}
 
-		// Unknown CPU usage, sort by RAM usage. We could go for CPU percentage,
-		// but that's very unstable and makes for a jarring user experience.
-		return pi.rssKb > pj.rssKb
+	sort.Slice(sorted, func(i int, j int) bool {
+		pi := processes[i]
+		pj := processes[j]
+
+		var cpuScoreI float64
+		if pi.cpuTime != nil {
+			cpuScoreI = pi.cpuTime.Seconds() / maxCpuTime.Seconds()
+		}
+		memScoreI := float64(pi.rssKb) / float64(maxRssKb)
+
+		var cpuScoreJ float64
+		if pi.cpuTime != nil {
+			cpuScoreJ = pj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		}
+		memScoreJ := float64(pj.rssKb) / float64(maxRssKb)
+
+		primaryI := max(memScoreI, cpuScoreI)
+		secondaryI := min(memScoreI, cpuScoreI)
+
+		primaryJ := max(memScoreJ, cpuScoreJ)
+		secondaryJ := min(memScoreJ, cpuScoreJ)
+
+		if primaryI < primaryJ {
+			return true
+		}
+		return secondaryI < secondaryJ
 	})
 
 	return sorted
 }
 
-func UsersByCpuUsage(processes []Process) []userStats {
-	perUser := aggregatePerUser(processes)
+func UsersByScore(processes []Process) []userStats {
+	sorted := aggregatePerUser(processes)
 
-	slices.SortFunc(perUser, func(i, j userStats) int {
-		byCpuTime := cmp.Compare(i.cpuTime, j.cpuTime)
-		if byCpuTime != 0 {
-			return -byCpuTime
+	maxCpuTime := time.Duration(0)
+	maxRssKb := 0
+	for _, u := range sorted {
+		if u.cpuTime > maxCpuTime {
+			maxCpuTime = u.cpuTime
 		}
-
-		// Before we have any CPU times, the count will give a similar ordering
-		byProcessCount := cmp.Compare(i.processCount, j.processCount)
-		if byProcessCount != 0 {
-			return -byProcessCount
+		if u.rssKb > maxRssKb {
+			maxRssKb = u.rssKb
 		}
-
-		// Sorting by memory usage stabilizes the bottom of the list
-		byMemoryUsage := cmp.Compare(i.rssKb, j.rssKb)
-		if byMemoryUsage != 0 {
-			return -byMemoryUsage
-		}
-
-		// Fall back on user names to get a stable result at the very end of the
-		// list.
-		return cmp.Compare(i.username, j.username)
-	})
-
-	return perUser
-}
-
-func ProcessesByMemoryUsage(processes []Process) []Process {
-	sorted := make([]Process, len(processes))
-	copy(sorted, processes)
+	}
 
 	sort.Slice(sorted, func(i, j int) bool {
-		pi := sorted[i]
-		pj := sorted[j]
+		ui := sorted[i]
+		uj := sorted[j]
 
-		return pi.rssKb > pj.rssKb
+		cpuScoreI := ui.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreI := float64(ui.rssKb) / float64(maxRssKb)
+
+		cpuScoreJ := uj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreJ := float64(uj.rssKb) / float64(maxRssKb)
+
+		primaryI := max(memScoreI, cpuScoreI)
+		secondaryI := min(memScoreI, cpuScoreI)
+
+		primaryJ := max(memScoreJ, cpuScoreJ)
+		secondaryJ := min(memScoreJ, cpuScoreJ)
+
+		if primaryI < primaryJ {
+			return true
+		}
+		return secondaryI >= secondaryJ
 	})
 
 	return sorted
-}
-
-func UsersByMemoryUsage(processes []Process) []userStats {
-	perUser := aggregatePerUser(processes)
-
-	slices.SortFunc(perUser, func(i, j userStats) int {
-		return -cmp.Compare(i.rssKb, j.rssKb)
-	})
-
-	return perUser
 }
 
 func aggregatePerUser(processes []Process) []userStats {
