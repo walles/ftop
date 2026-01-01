@@ -17,6 +17,13 @@ type userStats struct {
 	processCount int
 }
 
+type sectionType int
+
+const (
+	sectionTypeCpu sectionType = iota
+	sectionTypeMemory
+)
+
 func Render(processes []Process, screen twin.Screen) {
 	width, height := screen.Size()
 
@@ -50,9 +57,9 @@ func Render(processes []Process, screen twin.Screen) {
 
 	// Render!
 	screen.Clear()
-	renderSection(cpuTable, widths, processesByCpu, usersByCpu, screen, 0)
+	renderSection(sectionTypeCpu, cpuTable, widths, processesByCpu, usersByCpu, screen, 0)
 	// FIXME: Render a divider line
-	renderSection(memTable, widths, processesByMem, usersByMem, screen, memSectionStart)
+	renderSection(sectionTypeMemory, memTable, widths, processesByMem, usersByMem, screen, memSectionStart)
 	// FIXME: Render a footer line with instructions
 	screen.Show()
 }
@@ -106,7 +113,7 @@ func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
 	return table
 }
 
-func renderSection(table [][]string, widths []int, processesByCpu []Process, usersByCpu []userStats, screen twin.Screen, firstScreenRow int) {
+func renderSection(sectionType sectionType, table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds │ %%-%d.%ds %%%d.%ds %%%d.%ds",
@@ -124,6 +131,11 @@ func renderSection(table [][]string, widths []int, processesByCpu []Process, use
 	dividerColumn := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5] + 1
 	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
 
+	colorLoadBarMin := twin.NewColorHex(0x204020) // FIXME: Get this from the theme
+	colorLoadBarMid := twin.NewColorHex(0x808020) // FIXME: Get this from the theme
+	colorLoadBarMax := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	loadBarRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMid, colorLoadBarMax)
+
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
 		colorBg = *screen.TerminalBackground()
@@ -133,6 +145,41 @@ func renderSection(table [][]string, widths []int, processesByCpu []Process, use
 	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// 1.0 = ignore the header line
 	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+
+	var maxPerProcess float64
+	for _, p := range processes {
+		var value float64
+		if sectionType == sectionTypeCpu && p.cpuTime != nil {
+			value = p.cpuTime.Seconds()
+		} else if sectionType == sectionTypeMemory {
+			value = float64(p.rssKb)
+		}
+		if value > maxPerProcess {
+			maxPerProcess = value
+		}
+	}
+
+	var maxPerUser float64
+	for _, u := range users {
+		var value float64
+		if sectionType == sectionTypeCpu {
+			value = u.cpuTime.Seconds()
+		} else if sectionType == sectionTypeMemory {
+			value = float64(u.rssKb)
+		}
+		if value > maxPerUser {
+			maxPerUser = value
+		}
+	}
+
+	// Indices with the divider is at 5
+	// 0123 │ 67
+	//
+	// So the width of the per-process table in this case is 4
+	perProcessTableWidth := dividerColumn - 1
+
+	perUserTableWidth := widths[6] + 1 + widths[7] + 1 + widths[8]
+	perUserTableStart := dividerColumn + 2 // +2 to account for the divider and the space after it
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -153,6 +200,52 @@ func renderSection(table [][]string, widths []int, processesByCpu []Process, use
 			style := rowStyle
 			if x == dividerColumn {
 				style = style.WithForeground(colorDivider)
+			} else if x < perProcessTableWidth && rowIndex > 0 && maxPerProcess > 0 {
+				// On the left side, add per-process load bars
+				process := processes[rowIndex-1]
+				var value float64
+				if sectionType == sectionTypeCpu {
+					value = process.cpuTime.Seconds()
+				} else if sectionType == sectionTypeMemory {
+					value = float64(process.rssKb)
+				}
+				loadFraction := value / maxPerProcess
+				loadBarWidth := float64(perProcessTableWidth) * loadFraction
+				xf := float64(x)
+				loadBarFraction := xf / float64(perProcessTableWidth)
+				if xf < loadBarWidth {
+					remaining := loadBarWidth - xf
+					if remaining > 1.0 {
+						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
+					} else {
+						// Anti-aliasing for the load bar's right edge
+						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
+						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
+					}
+				}
+			} else if x >= perUserTableStart && rowIndex > 0 && rowIndex <= len(users) && maxPerUser > 0 {
+				// On the right side, add per-user load bars
+				user := users[rowIndex-1]
+				var value float64
+				if sectionType == sectionTypeCpu {
+					value = user.cpuTime.Seconds()
+				} else if sectionType == sectionTypeMemory {
+					value = float64(user.rssKb)
+				}
+				loadFraction := value / maxPerUser
+				loadBarWidth := float64(perUserTableWidth) * loadFraction
+				xf := float64(x - perUserTableStart) // x coordinate relative to the left edge of the per-user table
+				loadBarFraction := xf / float64(perUserTableWidth)
+				if xf < loadBarWidth && xf >= 0.0 {
+					remaining := loadBarWidth - xf
+					if remaining > 1.0 {
+						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
+					} else {
+						// Anti-aliasing for the load bar's right edge
+						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
+						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
+					}
+				}
 			}
 			screen.SetCell(x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
 			x++
