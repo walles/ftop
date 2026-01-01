@@ -49,8 +49,8 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	}
 
 	// Fill in the per-user columns
-	byUser := aggregateByUser(processes)
-	slices.SortFunc(byUser, func(i, j userStats) int {
+	perUser := aggregatePerUser(processes)
+	slices.SortFunc(perUser, func(i, j userStats) int {
 		byCpuTime := cmp.Compare(i.cpuTime, j.cpuTime)
 		if byCpuTime != 0 {
 			return -byCpuTime
@@ -59,7 +59,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		// Fall back on process count if the CPU times are equal
 		return -cmp.Compare(i.processCount, j.processCount)
 	})
-	for i, u := range byUser {
+	for i, u := range perUser {
 		tableRowIndex := i + 1 // +1 to account for header row
 
 		// With height 2, the highest allowed tableRowIndex is 1. So if the
@@ -114,7 +114,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	colorLoadBarMin := twin.NewColorHex(0x204020) // FIXME: Get this from the theme
 	colorLoadBarMid := twin.NewColorHex(0x808020) // FIXME: Get this from the theme
 	colorLoadBarMax := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	loadBarRamp := ui.NewColorRamp(0.0, float64(dividerColumn)-1, colorLoadBarMin, colorLoadBarMid, colorLoadBarMax)
+	loadBarRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMid, colorLoadBarMax)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
@@ -126,12 +126,32 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	// 1.0 = ignore the header line
 	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
 
-	maxCpuTime := time.Duration(0)
+	maxPerProcessCpuTime := time.Duration(0)
 	for _, p := range processes {
-		if p.cpuTime != nil && *p.cpuTime > maxCpuTime {
-			maxCpuTime = *p.cpuTime
+		if p.cpuTime != nil && *p.cpuTime > maxPerProcessCpuTime {
+			maxPerProcessCpuTime = *p.cpuTime
 		}
 	}
+
+	maxPerUserCpuTime := time.Duration(0)
+	for _, u := range perUser {
+		if u.cpuTime > maxPerUserCpuTime {
+			maxPerUserCpuTime = u.cpuTime
+		}
+	}
+
+	// If there is one user, it will get row index 1, since 0 is the header row.
+	// So in this case, len(byUser) is 1, and the max index is 1.
+	maxPerUserRowIndex := len(perUser)
+
+	// Indices with the divider is at 5
+	// 0123 │ 67
+	//
+	// So the width of the per-process table in this case is 4
+	perProcessTableWidth := dividerColumn - 1
+
+	perUserTableWidth := widths[6] + 1 + widths[7] + 1 + widths[8]
+	perUserTableStart := dividerColumn + 2 // +2 to account for the divider and the space after it
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -152,18 +172,35 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			style := rowStyle
 			if x == dividerColumn {
 				style = style.WithForeground(colorDivider)
-			} else if x < dividerColumn && rowIndex > 0 && maxCpuTime > 0 {
-				// On the left side
-				loadFraction := processes[rowIndex-1].cpuTime.Seconds() / maxCpuTime.Seconds()
-				loadBarWidth := float64(dividerColumn-1) * loadFraction
+			} else if x < perProcessTableWidth && rowIndex > 0 && maxPerProcessCpuTime > 0 {
+				// On the left side, add per-process load bars
+				loadFraction := processes[rowIndex-1].cpuTime.Seconds() / maxPerProcessCpuTime.Seconds()
+				loadBarWidth := float64(perProcessTableWidth) * loadFraction
 				xf := float64(x)
+				loadBarFraction := xf / float64(perProcessTableWidth)
 				if xf < loadBarWidth {
 					remaining := loadBarWidth - xf
 					if remaining > 1.0 {
-						style = style.WithBackground(loadBarRamp.AtValue(xf))
+						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
 					} else {
 						// Anti-aliasing for the load bar's right edge
-						colorLoadBar := loadBarRamp.AtValue(xf)
+						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
+						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
+					}
+				}
+			} else if x >= perUserTableStart && rowIndex > 0 && rowIndex <= maxPerUserRowIndex && maxPerUserCpuTime > 0 {
+				// On the right side, add per-user load bars
+				loadFraction := perUser[rowIndex-1].cpuTime.Seconds() / maxPerUserCpuTime.Seconds()
+				loadBarWidth := float64(perUserTableWidth) * loadFraction
+				xf := float64(x - perUserTableStart) // x coordinate relative to the left edge of the per-user table
+				loadBarFraction := xf / float64(perUserTableWidth)
+				if xf < loadBarWidth && xf >= 0.0 {
+					remaining := loadBarWidth - xf
+					if remaining > 1.0 {
+						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
+					} else {
+						// Anti-aliasing for the load bar's right edge
+						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
 						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
 					}
 				}
@@ -176,7 +213,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	screen.Show()
 }
 
-func aggregateByUser(processes []Process) []userStats {
+func aggregatePerUser(processes []Process) []userStats {
 	userMap := make(map[string]userStats)
 	for _, p := range processes {
 		stats, exists := userMap[p.username]
