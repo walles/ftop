@@ -155,9 +155,17 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			} else if x < dividerColumn && rowIndex > 0 && maxCpuTime > 0 {
 				// On the left side
 				loadFraction := processes[rowIndex-1].cpuTime.Seconds() / maxCpuTime.Seconds()
-				loadBarWidth := int(float64(dividerColumn-1) * loadFraction)
-				if x < loadBarWidth {
-					style = style.WithBackground(loadBarRamp.AtInt(x))
+				loadBarWidth := float64(dividerColumn-1) * loadFraction
+				xf := float64(x)
+				if xf < loadBarWidth {
+					remaining := loadBarWidth - xf
+					if remaining > 1.0 {
+						style = style.WithBackground(loadBarRamp.AtValue(xf))
+					} else {
+						// Anti-aliasing for the load bar's right edge
+						colorLoadBar := loadBarRamp.AtValue(xf)
+						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
+					}
 				}
 			}
 			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char, Style: style})
