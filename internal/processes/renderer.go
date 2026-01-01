@@ -27,9 +27,9 @@ func Render(processes []Process, screen twin.Screen) {
 
 	// Decide on section contents. "-1" = Leave room for the header row
 	processesByCpu := ProcessesByCpuUsage(processes)[:cpuHeight-1]
-	usersByCpu := UsersByCpuUsage(processesByCpu)[:cpuHeight-1]
+	usersByCpu := UsersByCpuUsage(processes)[:cpuHeight-1]
 	processesByMem := ProcessesByMemoryUsage(processes)[:memHeight-1]
-	usersByMem := UsersByMemoryUsage(processesByMem)[:memHeight-1]
+	usersByMem := UsersByMemoryUsage(processes)[:memHeight-1]
 
 	// Adjust heights to what we actually have
 	cpuHeight = max(len(processesByCpu), len(usersByCpu))

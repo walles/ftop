@@ -40,12 +40,12 @@ func main() {
 
 		if _, ok := event.(twin.EventResize); ok {
 			allProcesses := procsTracker.GetProcesses()
-			processes.RenderByCpu(allProcesses, screen)
+			processes.Render(allProcesses, screen)
 		}
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.GetProcesses()
-			processes.RenderByCpu(allProcesses, screen)
+			processes.Render(allProcesses, screen)
 		}
 
 		if event, ok := event.(twin.EventRune); ok {
