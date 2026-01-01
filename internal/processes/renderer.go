@@ -41,7 +41,7 @@ func Render(processes []Process, screen twin.Screen) {
 	allInOneTable := append(cpuTable, memTable...) // [1:] to avoid duplicating header row
 	widths := ui.ColumnWidths(allInOneTable, width)
 
-	// If CPU section is 0 high:
+	// If the CPU section is 0 high:
 	// 0: ----
 	// 1: Memory section starts here
 	//
@@ -50,9 +50,9 @@ func Render(processes []Process, screen twin.Screen) {
 
 	// Render!
 	screen.Clear()
-	renderSection(allInOneTable[0:cpuHeight], processesByCpu, usersByCpu, screen, 1, widths)
+	renderSection(cpuTable, widths, processesByCpu, usersByCpu, screen, 0)
 	// FIXME: Render a divider line
-	renderSection(allInOneTable[cpuHeight:], processesByMem, usersByMem, screen, memSectionStart, widths)
+	renderSection(memTable, widths, processesByMem, usersByMem, screen, memSectionStart)
 	// FIXME: Render a footer line with instructions
 	screen.Show()
 }
@@ -106,9 +106,64 @@ func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
 	return table
 }
 
+func renderSection(table [][]string, widths []int, processesByCpu []Process, usersByCpu []userStats, screen twin.Screen, firstScreenRow int) {
+	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
+	// 5", and the "-" means left-align.
+	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds │ %%-%d.%ds %%%d.%ds %%%d.%ds",
+		widths[0], widths[0],
+		widths[1], widths[1],
+		widths[2], widths[2],
+		widths[3], widths[3],
+		widths[4], widths[4],
+		widths[5], widths[5],
+		widths[6], widths[6],
+		widths[7], widths[7],
+		widths[8], widths[8],
+	)
+
+	dividerColumn := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5] + 1
+	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
+
+	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	if screen.TerminalBackground() != nil {
+		colorBg = *screen.TerminalBackground()
+	}
+
+	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
+	colorBottom := colorTop.Mix(colorBg, 0.66)
+	// 1.0 = ignore the header line
+	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+
+	for rowIndex, row := range table {
+		line := fmt.Sprintf(formatString,
+			row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
+		)
+
+		var rowStyle twin.Style
+		if rowIndex == 0 {
+			// Header row, header style
+			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
+		} else {
+			rowStyle = twin.StyleDefault
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+		}
+
+		x := 0
+		for _, char := range line {
+			style := rowStyle
+			if x == dividerColumn {
+				style = style.WithForeground(colorDivider)
+			}
+			screen.SetCell(x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
+			x++
+		}
+	}
+}
+
 // Render the given processes to the given screen, ordered by CPU usage.
 //
 // FIXME: Test this when we have fewer processes than the screen is high
+// FIXME: Remove this function, it's not used anymore
 func RenderByCpu(processes []Process, screen twin.Screen) {
 	processes = ProcessesByCpuUsage(processes)
 	width, height := screen.Size()
