@@ -48,6 +48,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 		})
 	}
 
+	// Fill in the per-user columns
 	byUser := aggregateByUser(processes)
 	slices.SortFunc(byUser, func(i, j userStats) int {
 		byCpuTime := cmp.Compare(i.cpuTime, j.cpuTime)
@@ -110,6 +111,10 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	dividerColumn := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5] + 1
 	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
 
+	colorLoadBarMin := twin.NewColorHex(0x204020) // FIXME: Get this from the theme
+	colorLoadBarMax := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	loadBarRamp := ui.NewColorRamp(colorLoadBarMin, colorLoadBarMax, 0.0, float64(dividerColumn)-1)
+
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
 		colorBg = *screen.TerminalBackground()
@@ -146,6 +151,13 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 			style := rowStyle
 			if x == dividerColumn {
 				style = style.WithForeground(colorDivider)
+			} else if x < dividerColumn && rowIndex > 0 && maxCpuTime > 0 {
+				// On the left side
+				loadFraction := processes[rowIndex-1].cpuTime.Seconds() / maxCpuTime.Seconds()
+				loadBarWidth := int(float64(dividerColumn-1) * loadFraction)
+				if x < loadBarWidth {
+					style = style.WithBackground(loadBarRamp.AtInt(x))
+				}
 			}
 			screen.SetCell(x, rowIndex, twin.StyledRune{Rune: char, Style: style})
 			x++
