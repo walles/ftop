@@ -146,12 +146,7 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 
 	var maxPerProcess float64
 	for _, p := range processes {
-		var value float64
-		if sectionType == sectionTypeCpu && p.cpuTime != nil {
-			value = p.cpuTime.Seconds()
-		} else if sectionType == sectionTypeMemory {
-			value = float64(p.rssKb)
-		}
+		value := getProcessValue(p, sectionType)
 		if value > maxPerProcess {
 			maxPerProcess = value
 		}
@@ -159,12 +154,7 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 
 	var maxPerUser float64
 	for _, u := range users {
-		var value float64
-		if sectionType == sectionTypeCpu {
-			value = u.cpuTime.Seconds()
-		} else if sectionType == sectionTypeMemory {
-			value = float64(u.rssKb)
-		}
+		value := getUserValue(u, sectionType)
 		if value > maxPerUser {
 			maxPerUser = value
 		}
@@ -201,13 +191,7 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 			} else if x < perProcessTableWidth && rowIndex > 0 && maxPerProcess > 0 {
 				// On the left side, add per-process load bars
 				process := processes[rowIndex-1]
-				var value float64
-				if sectionType == sectionTypeCpu {
-					value = process.cpuTime.Seconds()
-				} else if sectionType == sectionTypeMemory {
-					value = float64(process.rssKb)
-				}
-				loadFraction := value / maxPerProcess
+				loadFraction := getProcessValue(process, sectionType) / maxPerProcess
 				loadBarWidth := float64(perProcessTableWidth) * loadFraction
 				xf := float64(x)
 				loadBarFraction := xf / float64(perProcessTableWidth)
@@ -224,13 +208,7 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 			} else if x >= perUserTableStart && rowIndex > 0 && rowIndex <= len(users) && maxPerUser > 0 {
 				// On the right side, add per-user load bars
 				user := users[rowIndex-1]
-				var value float64
-				if sectionType == sectionTypeCpu {
-					value = user.cpuTime.Seconds()
-				} else if sectionType == sectionTypeMemory {
-					value = float64(user.rssKb)
-				}
-				loadFraction := value / maxPerUser
+				loadFraction := getUserValue(user, sectionType) / maxPerUser
 				loadBarWidth := float64(perUserTableWidth) * loadFraction
 				xf := float64(x - perUserTableStart) // x coordinate relative to the left edge of the per-user table
 				loadBarFraction := xf / float64(perUserTableWidth)
@@ -249,4 +227,27 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 			x++
 		}
 	}
+}
+
+func getProcessValue(p Process, sectionType sectionType) float64 {
+	if sectionType == sectionTypeMemory {
+		return float64(p.rssKb)
+	}
+
+	// Section type CPU
+	if p.cpuTime != nil {
+		return p.cpuTime.Seconds()
+	}
+
+	// No answer, treat as zero
+	return 0.0
+}
+
+func getUserValue(u userStats, sectionType sectionType) float64 {
+	if sectionType == sectionTypeMemory {
+		return float64(u.rssKb)
+	}
+
+	// Section type CPU
+	return u.cpuTime.Seconds()
 }
