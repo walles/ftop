@@ -1,7 +1,8 @@
 package processes
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"time"
 )
 
@@ -20,10 +21,7 @@ func ProcessesByScore(processes []Process) []Process {
 		}
 	}
 
-	sort.Slice(sorted, func(i int, j int) bool {
-		pi := processes[i]
-		pj := processes[j]
-
+	slices.SortFunc(sorted, func(pi Process, pj Process) int {
 		var cpuScoreI float64
 		if pi.cpuTime != nil {
 			cpuScoreI = pi.cpuTime.Seconds() / maxCpuTime.Seconds()
@@ -31,7 +29,7 @@ func ProcessesByScore(processes []Process) []Process {
 		memScoreI := float64(pi.rssKb) / float64(maxRssKb)
 
 		var cpuScoreJ float64
-		if pi.cpuTime != nil {
+		if pj.cpuTime != nil {
 			cpuScoreJ = pj.cpuTime.Seconds() / maxCpuTime.Seconds()
 		}
 		memScoreJ := float64(pj.rssKb) / float64(maxRssKb)
@@ -42,10 +40,11 @@ func ProcessesByScore(processes []Process) []Process {
 		primaryJ := max(memScoreJ, cpuScoreJ)
 		secondaryJ := min(memScoreJ, cpuScoreJ)
 
-		if primaryI < primaryJ {
-			return true
+		primaryCmp := cmp.Compare(primaryI, primaryJ)
+		if primaryCmp != 0 {
+			return -primaryCmp
 		}
-		return secondaryI < secondaryJ
+		return -cmp.Compare(secondaryI, secondaryJ)
 	})
 
 	return sorted
@@ -65,10 +64,7 @@ func UsersByScore(processes []Process) []userStats {
 		}
 	}
 
-	sort.Slice(sorted, func(i, j int) bool {
-		ui := sorted[i]
-		uj := sorted[j]
-
+	slices.SortFunc(sorted, func(ui userStats, uj userStats) int {
 		cpuScoreI := ui.cpuTime.Seconds() / maxCpuTime.Seconds()
 		memScoreI := float64(ui.rssKb) / float64(maxRssKb)
 
@@ -81,10 +77,11 @@ func UsersByScore(processes []Process) []userStats {
 		primaryJ := max(memScoreJ, cpuScoreJ)
 		secondaryJ := min(memScoreJ, cpuScoreJ)
 
-		if primaryI < primaryJ {
-			return true
+		primaryCmp := cmp.Compare(primaryI, primaryJ)
+		if primaryCmp != 0 {
+			return -primaryCmp
 		}
-		return secondaryI >= secondaryJ
+		return -cmp.Compare(secondaryI, secondaryJ)
 	})
 
 	return sorted
