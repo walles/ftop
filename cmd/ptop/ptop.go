@@ -38,6 +38,11 @@ func main() {
 	for {
 		event := <-events
 
+		if _, ok := event.(twin.EventResize); ok {
+			allProcesses := procsTracker.GetProcesses()
+			processes.RenderByCpu(allProcesses, screen)
+		}
+
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.GetProcesses()
 			processes.RenderByCpu(allProcesses, screen)
