@@ -192,39 +192,37 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 				// On the left side, add per-process load bars
 				process := processes[rowIndex-1]
 				loadFraction := getProcessValue(process, sectionType) / maxPerProcess
-				loadBarWidth := float64(perProcessTableWidth) * loadFraction
-				xf := float64(x)
-				loadBarFraction := xf / float64(perProcessTableWidth)
-				if xf < loadBarWidth {
-					remaining := loadBarWidth - xf
-					if remaining > 1.0 {
-						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
-					} else {
-						// Anti-aliasing for the load bar's right edge
-						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
-						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
-					}
-				}
+				setLoadBarStyle(&style, x, loadFraction, perProcessTableWidth, colorBg, loadBarRamp)
 			} else if x >= perUserTableStart && rowIndex > 0 && rowIndex <= len(users) && maxPerUser > 0 {
 				// On the right side, add per-user load bars
 				user := users[rowIndex-1]
 				loadFraction := getUserValue(user, sectionType) / maxPerUser
-				loadBarWidth := float64(perUserTableWidth) * loadFraction
-				xf := float64(x - perUserTableStart) // x coordinate relative to the left edge of the per-user table
-				loadBarFraction := xf / float64(perUserTableWidth)
-				if xf < loadBarWidth && xf >= 0.0 {
-					remaining := loadBarWidth - xf
-					if remaining > 1.0 {
-						style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
-					} else {
-						// Anti-aliasing for the load bar's right edge
-						colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
-						style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
-					}
-				}
+				setLoadBarStyle(&style, x-perUserTableStart, loadFraction, perUserTableWidth, colorBg, loadBarRamp)
 			}
 			screen.SetCell(x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
 			x++
+		}
+	}
+}
+
+func setLoadBarStyle(style *twin.Style, x int, loadFraction float64, fullWidth int, colorBg twin.Color, loadBarRamp ui.ColorRamp) {
+	xf := float64(x)
+	loadBarFraction := xf / float64(fullWidth)
+	if loadBarFraction < 0.0 || loadBarFraction > 1.0 {
+		// Out of bounds, never mind
+		return
+	}
+
+	loadBarWidth := float64(fullWidth) * loadFraction
+
+	if xf < loadBarWidth {
+		remaining := loadBarWidth - xf
+		if remaining > 1.0 {
+			*style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
+		} else {
+			// Anti-aliasing for the load bar's right edge
+			colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
+			*style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
 		}
 	}
 }
