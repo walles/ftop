@@ -18,6 +18,8 @@ type userStats struct {
 }
 
 // Render the given processes to the given screen, ordered by CPU usage.
+//
+// FIXME: Test this when we have fewer processes than the screen is high
 func RenderByCpu(processes []Process, screen twin.Screen) {
 	processes = ByCpuUsage(processes)
 	width, height := screen.Size()

@@ -131,7 +131,9 @@ First, consider redoing in Go using:
 1. Get the UI structure right with plain text only. Verify it works with
    terminal window resizing. Pressing ESC / q should exit.
 1. Consider performance without -race, are we using too much CPU ourselves?
-1. Consider startup time, is it acceptable?
+1. Consider startup time without -race, is it acceptable?
+1. Consider looks at startup, is there a jarring experience between the first
+   two frames?
 1. Consider all FIXMEs
 1. Make sure goroutine panics are logged
 1. Implement a crash reporting screen
