@@ -214,16 +214,18 @@ func setLoadBarStyle(style *twin.Style, x int, loadFraction float64, fullWidth i
 	}
 
 	loadBarWidth := float64(fullWidth) * loadFraction
+	if xf >= loadBarWidth {
+		// No load bar here
+		return
+	}
 
-	if xf < loadBarWidth {
-		remaining := loadBarWidth - xf
-		if remaining > 1.0 {
-			*style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
-		} else {
-			// Anti-aliasing for the load bar's right edge
-			colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
-			*style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
-		}
+	remaining := loadBarWidth - xf
+	if remaining > 1.0 {
+		*style = style.WithBackground(loadBarRamp.AtValue(loadBarFraction))
+	} else {
+		// Anti-aliasing for the load bar's right edge
+		colorLoadBar := loadBarRamp.AtValue(loadBarFraction)
+		*style = style.WithBackground(colorBg.Mix(colorLoadBar, remaining))
 	}
 }
 
