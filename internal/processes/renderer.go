@@ -112,8 +112,9 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
 
 	colorLoadBarMin := twin.NewColorHex(0x204020) // FIXME: Get this from the theme
+	colorLoadBarMid := twin.NewColorHex(0x808020) // FIXME: Get this from the theme
 	colorLoadBarMax := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	loadBarRamp := ui.NewColorRamp(colorLoadBarMin, colorLoadBarMax, 0.0, float64(dividerColumn)-1)
+	loadBarRamp := ui.NewColorRamp(0.0, float64(dividerColumn)-1, colorLoadBarMin, colorLoadBarMid, colorLoadBarMax)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
@@ -123,7 +124,7 @@ func RenderByCpu(processes []Process, screen twin.Screen) {
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// 1.0 = ignore the header line
-	topBottomRamp := ui.NewColorRamp(colorTop, colorBottom, 1.0, float64(len(table)-1))
+	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
 
 	maxCpuTime := time.Duration(0)
 	for _, p := range processes {

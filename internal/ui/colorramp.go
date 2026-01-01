@@ -7,23 +7,21 @@ import (
 )
 
 type ColorRamp struct {
-	c0 twin.Color
-	c1 twin.Color
+	colors []twin.Color
 
 	from float64
 	to   float64
 }
 
-func NewColorRamp(c0 twin.Color, c1 twin.Color, from float64, to float64) ColorRamp {
+func NewColorRamp(from float64, to float64, c0 twin.Color, c1 twin.Color, extraColors ...twin.Color) ColorRamp {
 	if to == from {
 		panic(fmt.Sprintf("cannot ramp when from=to: %f", from))
 	}
 
 	return ColorRamp{
-		c0:   c0,
-		c1:   c1,
-		from: from,
-		to:   to,
+		colors: append([]twin.Color{c0, c1}, extraColors...),
+		from:   from,
+		to:     to,
 	}
 }
 
@@ -40,5 +38,17 @@ func (cr ColorRamp) AtValue(value float64) twin.Color {
 		fraction = 1
 	}
 
-	return cr.c0.Mix(cr.c1, fraction)
+	if fraction == 1.0 {
+		return cr.colors[len(cr.colors)-1]
+	}
+
+	c0Index := int(fraction * float64(len(cr.colors)-1))
+	c1Index := c0Index + 1
+
+	c0 := cr.colors[c0Index]
+	c1 := cr.colors[c1Index]
+
+	innerFraction := (fraction * float64(len(cr.colors)-1)) - float64(c0Index)
+
+	return c0.Mix(c1, innerFraction)
 }
