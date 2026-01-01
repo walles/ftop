@@ -15,45 +15,22 @@ type userStats struct {
 	processCount int
 }
 
-type sectionType int
-
-const (
-	sectionTypeCpu sectionType = iota
-	sectionTypeMemory
-)
-
 func Render(processes []Process, screen twin.Screen) {
 	width, height := screen.Size()
 
 	// Decide on section heights
-	heightWithoutPadding := height - 4 // 4 = top and bottom frame around each section
-	cpuHeight := heightWithoutPadding / 2
-	memHeight := heightWithoutPadding - cpuHeight
+	heightWithoutPadding := height - 2 // 2 = top and bottom frame lines
 
 	// Decide on section contents. "-1" = Leave room for the header row
-	processesByCpu := ProcessesByCpuUsage(processes)[:cpuHeight-1]
-	usersByCpu := UsersByCpuUsage(processes)[:cpuHeight-1]
-	processesByMem := ProcessesByMemoryUsage(processes)[:memHeight-1]
-	usersByMem := UsersByMemoryUsage(processes)[:memHeight-1]
+	processes = ProcessesByScore(processes)[:heightWithoutPadding-1]
+	users := UsersByScore(processes)[:heightWithoutPadding-1]
 
 	// Adjust heights to what we actually have
-	cpuHeight = max(len(processesByCpu), len(usersByCpu))
-	memHeight = max(len(processesByMem), len(usersByMem))
+	heightWithoutPadding = max(len(processes), len(users))
 
 	// Figure out column widths
-	cpuTable := toTable(processesByCpu, usersByCpu)
-	memTable := toTable(processesByMem, usersByMem)
-	allInOneTable := append(cpuTable, memTable...)
+	allInOneTable := toTable(processes, users)
 	widths := ui.ColumnWidths(allInOneTable, width-4) // 4 = left and right frame around each section
-
-	// If the CPU section is 0 high:
-	// 0: ---- start-of-CPU-section divider ---
-	// 1: ---- end-of-CPU-section divider ---
-	// 2: ---- start-of-Memory-section divider ----
-	// 3: Memory section starts here
-	//
-	// So memory section always starts at cpuHeight + 3
-	memSectionStart := len(cpuTable) + 3
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 	rightPerProcessBorderColumn := perProcessTableWidth + 1
@@ -62,15 +39,11 @@ func Render(processes []Process, screen twin.Screen) {
 
 	// Render!
 	screen.Clear()
-	renderSection(sectionTypeCpu, cpuTable, widths, processesByCpu, usersByCpu, screen, 1, 1)
-	renderSection(sectionTypeMemory, memTable, widths, processesByMem, usersByMem, screen, memSectionStart, 1)
+	renderSection(allInOneTable, widths, processes, users, screen, 1, 1)
 
-	bottomPerCpuBorderRow := cpuHeight + 2
-	bottomPerMemBorderRow := memSectionStart + memHeight + 1
-	renderFrame(screen, 0, 0, bottomPerCpuBorderRow, rightPerProcessBorderColumn, "CPU usage by process")
-	renderFrame(screen, 0, leftPerUserBorderColumn, bottomPerCpuBorderRow, rightPerUserBorderColumn, "CPU usage by user")
-	renderFrame(screen, memSectionStart-1, 0, bottomPerMemBorderRow, rightPerProcessBorderColumn, "Memory usage by process")
-	renderFrame(screen, memSectionStart-1, leftPerUserBorderColumn, bottomPerMemBorderRow, rightPerUserBorderColumn, "Memory usage by user")
+	bottomBorderRow := heightWithoutPadding + 2
+	renderFrame(screen, 0, 0, bottomBorderRow, rightPerProcessBorderColumn, "By process")
+	renderFrame(screen, 0, leftPerUserBorderColumn, bottomBorderRow, rightPerUserBorderColumn, "By user")
 
 	screen.Show()
 }
@@ -153,7 +126,7 @@ func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
 	return table
 }
 
-func renderSection(sectionType sectionType, table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int, firstScreenColumn int) {
+func renderSection(table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int, firstScreenColumn int) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds||%%-%d.%ds %%%d.%ds %%%d.%ds",
@@ -242,27 +215,4 @@ func renderSection(sectionType sectionType, table [][]string, widths []int, proc
 			x++
 		}
 	}
-}
-
-func getProcessValue(p Process, sectionType sectionType) float64 {
-	if sectionType == sectionTypeMemory {
-		return float64(p.rssKb)
-	}
-
-	// Section type CPU
-	if p.cpuTime != nil {
-		return p.cpuTime.Seconds()
-	}
-
-	// No answer, treat as zero
-	return 0.0
-}
-
-func getUserValue(u userStats, sectionType sectionType) float64 {
-	if sectionType == sectionTypeMemory {
-		return float64(u.rssKb)
-	}
-
-	// Section type CPU
-	return u.cpuTime.Seconds()
 }
