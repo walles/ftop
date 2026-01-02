@@ -1,10 +1,11 @@
-package processes
+package ptop
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/ui"
 )
 
@@ -15,7 +16,7 @@ type userStats struct {
 	processCount int
 }
 
-func Render(processesRaw []Process, screen twin.Screen) {
+func Render(processesRaw []processes.Process, screen twin.Screen) {
 	_, height := screen.Size()
 	screen.Clear()
 
@@ -47,7 +48,7 @@ func renderOverview(screen twin.Screen) {
 }
 
 // Top and bottom row values are inclusive
-func prepAndRenderProcesses(processesRaw []Process, screen twin.Screen, topRow int, bottomRow int) {
+func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen, topRow int, bottomRow int) {
 	width, _ := screen.Size()
 	height := 1 + bottomRow - topRow
 
@@ -113,7 +114,7 @@ func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, 
 	}
 }
 
-func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
+func toTable(processesByScore []processes.Process, usersByScore []userStats) [][]string {
 	headerLine := []string{
 		// These first ones are for the per-process table
 		"PID", "Command", "User name", "CPU", "Time", "RAM",
@@ -132,12 +133,12 @@ func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
 		if i < len(processesByScore) {
 			p := processesByScore[i]
 			row = append(row,
-				fmt.Sprintf("%d", p.pid),
-				p.command,
-				p.username,
+				fmt.Sprintf("%d", p.Pid),
+				p.Command,
+				p.Username,
 				p.CpuPercentString(),
 				p.CpuTimeString(),
-				formatMemory(int64(p.rssKb)*1024),
+				ui.FormatMemory(int64(p.RssKb)*1024),
 			)
 		} else {
 			// Pad out with empty per-process data
@@ -148,8 +149,8 @@ func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
 			u := usersByScore[i]
 			row = append(row,
 				u.username,
-				formatDuration(u.cpuTime),
-				formatMemory(1024*int64(u.rssKb)),
+				ui.FormatDuration(u.cpuTime),
+				ui.FormatMemory(1024*int64(u.rssKb)),
 			)
 		} else {
 			// Pad out with empty per-user data
@@ -162,7 +163,15 @@ func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
 	return table
 }
 
-func doRenderProcesses(table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int, firstScreenColumn int) {
+func doRenderProcesses(
+	table [][]string,
+	widths []int,
+	processes []processes.Process,
+	users []userStats,
+	screen twin.Screen,
+	firstScreenRow int,
+	firstScreenColumn int,
+) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds||%%-%d.%ds %%%d.%ds %%%d.%ds",
@@ -202,11 +211,11 @@ func doRenderProcesses(table [][]string, widths []int, processes []Process, user
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
 	for _, p := range processes {
-		if p.cpuTime != nil && p.cpuTime.Seconds() > maxCpuSecondsPerProcess {
-			maxCpuSecondsPerProcess = p.cpuTime.Seconds()
+		if p.CpuTime != nil && p.CpuTime.Seconds() > maxCpuSecondsPerProcess {
+			maxCpuSecondsPerProcess = p.CpuTime.Seconds()
 		}
-		if p.rssKb > maxRssKbPerProcess {
-			maxRssKbPerProcess = p.rssKb
+		if p.RssKb > maxRssKbPerProcess {
+			maxRssKbPerProcess = p.RssKb
 		}
 	}
 
@@ -254,12 +263,12 @@ func doRenderProcesses(table [][]string, widths []int, processes []Process, user
 				if index < len(processes) {
 					process := processes[index]
 					cpuFraction := 0.0
-					if process.cpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
-						cpuFraction = process.cpuTime.Seconds() / maxCpuSecondsPerProcess
+					if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
+						cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
 					}
 					memFraction := 0.0
 					if maxRssKbPerProcess > 0 {
-						memFraction = float64(process.rssKb) / float64(maxRssKbPerProcess)
+						memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
 					}
 					if cpuFraction > memFraction {
 						// Draw memory last so it ends up in front of CPU

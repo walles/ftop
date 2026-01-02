@@ -11,27 +11,29 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/walles/ptop/internal/ui"
 )
 
 type Process struct {
-	pid      int
+	Pid      int
 	ppid     *int
 	children []*Process
 	parent   *Process
 
 	cmdline          string // "git clone git@github.com:walles/px.git"
-	command          string // "git"
+	Command          string // "git"
 	lowercaseCommand string // "git"
 
 	startTime time.Time
 
-	username string
+	Username string
 
-	rssKb         int
+	RssKb         int
 	memoryPercent *float64
 
 	cpuPercent        *float64
-	cpuTime           *time.Duration
+	CpuTime           *time.Duration
 	aggregatedCpuTime time.Duration
 }
 
@@ -52,7 +54,7 @@ var CPU_DURATION_LINUX_DAYS = regexp.MustCompile(`^([0-9]+)-([0-9][0-9]):([0-9][
 var uidToUsernameCache = map[int]string{}
 
 func (p *Process) String() string {
-	return fmt.Sprintf("%s(%d)", p.command, p.pid)
+	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
 }
 
 // Parse a local date from ps into a datetime.datetime object.
@@ -231,16 +233,16 @@ func psLineToProcess(line string) (*Process, error) {
 	command := cmdlineToCommand(cmdline)
 
 	return &Process{
-		pid:              pid,
+		Pid:              pid,
 		ppid:             &ppid,
-		rssKb:            rss_kb,
+		RssKb:            rss_kb,
 		startTime:        start_time,
-		username:         username,
+		Username:         username,
 		cpuPercent:       &cpu_percent,
-		cpuTime:          &cpu_time,
+		CpuTime:          &cpu_time,
 		memoryPercent:    &memory_percent,
 		cmdline:          cmdline,
-		command:          command,
+		Command:          command,
 		lowercaseCommand: strings.ToLower(command),
 	}, nil
 }
@@ -336,9 +338,9 @@ func (p *Process) RamPercentString() string {
 //	2h09m
 //	1d04h
 func (p *Process) CpuTimeString() string {
-	if p.cpuTime == nil {
+	if p.CpuTime == nil {
 		return "--"
 	}
 
-	return formatDuration(*p.cpuTime)
+	return ui.FormatDuration(*p.CpuTime)
 }

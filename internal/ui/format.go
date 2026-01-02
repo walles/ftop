@@ -1,11 +1,11 @@
-package processes
+package ui
 
 import (
 	"fmt"
 	"time"
 )
 
-func formatDuration(duration time.Duration) string {
+func FormatDuration(duration time.Duration) string {
 	totalSeconds := int(duration.Seconds())
 	if totalSeconds < 60 {
 		// FIXME: Don't show decimals here unless we know we're getting
@@ -33,7 +33,7 @@ func formatDuration(duration time.Duration) string {
 
 // Turns memory numbers into strings like "1.1G", "256.0M" or "512B". Note no
 // trailing B, to conserve space in the UI.
-func formatMemory(bytes int64) string {
+func FormatMemory(bytes int64) string {
 	const (
 		KB = 1024
 		MB = 1024 * KB

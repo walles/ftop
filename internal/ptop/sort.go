@@ -1,38 +1,40 @@
-package processes
+package ptop
 
 import (
 	"cmp"
 	"slices"
 	"time"
+
+	"github.com/walles/ptop/internal/processes"
 )
 
-func ProcessesByScore(processes []Process) []Process {
-	sorted := make([]Process, len(processes))
-	copy(sorted, processes)
+func ProcessesByScore(procs []processes.Process) []processes.Process {
+	sorted := make([]processes.Process, len(procs))
+	copy(sorted, procs)
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
-	for _, p := range processes {
-		if p.cpuTime != nil && *p.cpuTime > maxCpuTime {
-			maxCpuTime = *p.cpuTime
+	for _, p := range procs {
+		if p.CpuTime != nil && *p.CpuTime > maxCpuTime {
+			maxCpuTime = *p.CpuTime
 		}
-		if p.rssKb > maxRssKb {
-			maxRssKb = p.rssKb
+		if p.RssKb > maxRssKb {
+			maxRssKb = p.RssKb
 		}
 	}
 
-	slices.SortFunc(sorted, func(pi Process, pj Process) int {
+	slices.SortFunc(sorted, func(pi processes.Process, pj processes.Process) int {
 		var cpuScoreI float64
-		if pi.cpuTime != nil {
-			cpuScoreI = pi.cpuTime.Seconds() / maxCpuTime.Seconds()
+		if pi.CpuTime != nil {
+			cpuScoreI = pi.CpuTime.Seconds() / maxCpuTime.Seconds()
 		}
-		memScoreI := float64(pi.rssKb) / float64(maxRssKb)
+		memScoreI := float64(pi.RssKb) / float64(maxRssKb)
 
 		var cpuScoreJ float64
-		if pj.cpuTime != nil {
-			cpuScoreJ = pj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		if pj.CpuTime != nil {
+			cpuScoreJ = pj.CpuTime.Seconds() / maxCpuTime.Seconds()
 		}
-		memScoreJ := float64(pj.rssKb) / float64(maxRssKb)
+		memScoreJ := float64(pj.RssKb) / float64(maxRssKb)
 
 		primaryI := max(memScoreI, cpuScoreI)
 		secondaryI := min(memScoreI, cpuScoreI)
@@ -50,7 +52,7 @@ func ProcessesByScore(processes []Process) []Process {
 	return sorted
 }
 
-func UsersByScore(processes []Process) []userStats {
+func UsersByScore(processes []processes.Process) []userStats {
 	sorted := aggregatePerUser(processes)
 
 	maxCpuTime := time.Duration(0)
@@ -94,22 +96,22 @@ func UsersByScore(processes []Process) []userStats {
 	return sorted
 }
 
-func aggregatePerUser(processes []Process) []userStats {
+func aggregatePerUser(processes []processes.Process) []userStats {
 	userMap := make(map[string]userStats)
 	for _, p := range processes {
-		stats, exists := userMap[p.username]
+		userStat, exists := userMap[p.Username]
 		if !exists {
-			stats = userStats{username: p.username}
+			userStat = userStats{username: p.Username}
 		}
 
-		if p.cpuTime != nil {
-			stats.cpuTime += *p.cpuTime
+		if p.CpuTime != nil {
+			userStat.cpuTime += *p.CpuTime
 		}
-		stats.rssKb += p.rssKb
+		userStat.rssKb += p.RssKb
 
-		stats.processCount++
+		userStat.processCount++
 
-		userMap[p.username] = stats
+		userMap[p.Username] = userStat
 	}
 
 	var returnMe []userStats

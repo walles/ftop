@@ -6,6 +6,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/ptop"
 )
 
 type processListUpdated struct{}
@@ -40,12 +41,12 @@ func main() {
 
 		if _, ok := event.(twin.EventResize); ok {
 			allProcesses := procsTracker.GetProcesses()
-			processes.Render(allProcesses, screen)
+			ptop.Render(allProcesses, screen)
 		}
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.GetProcesses()
-			processes.Render(allProcesses, screen)
+			ptop.Render(allProcesses, screen)
 		}
 
 		if event, ok := event.(twin.EventRune); ok {

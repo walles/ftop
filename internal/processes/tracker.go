@@ -37,7 +37,7 @@ func (tracker *Tracker) update() {
 
 	procsMap := make(map[int]*Process)
 	for _, p := range procs {
-		procsMap[p.pid] = p
+		procsMap[p.Pid] = p
 	}
 
 	tracker.mutex.Lock()
@@ -65,17 +65,17 @@ func (tracker *Tracker) GetProcesses() []Process {
 		if tracker.baseline == nil {
 			// No baseline yet, all processes are new
 			zero := time.Duration(0)
-			proc.cpuTime = &zero
+			proc.CpuTime = &zero
 		} else {
 			// For processes already running when we launched, report their
 			// times relative to our start time.
-			baseProc, ok := tracker.baseline[proc.pid]
+			baseProc, ok := tracker.baseline[proc.Pid]
 
 			// The start time check protects against reused PIDs. If the start
 			// times are different, then they are different processes.
-			if ok && proc.startTime.Equal(baseProc.startTime) && proc.cpuTime != nil && baseProc.cpuTime != nil {
-				adjusted := *proc.cpuTime - *baseProc.cpuTime
-				proc.cpuTime = &adjusted
+			if ok && proc.startTime.Equal(baseProc.startTime) && proc.CpuTime != nil && baseProc.CpuTime != nil {
+				adjusted := *proc.CpuTime - *baseProc.CpuTime
+				proc.CpuTime = &adjusted
 			}
 		}
 		procs = append(procs, proc)
