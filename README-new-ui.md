@@ -67,26 +67,29 @@ In order of number of use cases they support. For metrics that will go into some
 
 ## UI Sections and What They Should Contain
 
-- CPU
-  - Process top list by CPU usage
-  - User top list by CPU usage
+- Overview Table
   - System load graph / number
-- RAM
-  - Process top list by RAM usage
-  - User top list by RAM usage
-  - Some RAM metric. Either RAM pressure or "used RAM"
+  - Some RAM metric. Either RAM pressure, "used RAM" or something else.
+  - Some IO load metric
+- Process Table
+  - Colored bars for both CPU and RAM usage per process
+- User Table
+  - Colored bars for both CPU and RAM usage per user
 - IO
-  - Device top list by IO usage
+  - Device top list by IO usage, with colored load bars
 - EXE
   - This section will contain the launched-binaries tree view
 - Help bar at the bottom with key press hints. Will turn into a filter bar on
   `/`. Filter expressions will filter all visible lists by whatever makes sense
   for that particular list. Name, PID, user, etc.
 
-Apart from this, TAB should be used for activating different sections. Up and
-down arrow keys for browsing processes in the current list. Enter for selecting
-a process. Once selected you should get options for viewing process info or
-killing it.
+Apart from this, up and down arrow keys should browse processes in the current
+list. Enter for selecting a process. Once selected you should get options for
+viewing process info or killing it.
+
+When hovering a still-unselected process, the per-user table should be replaced
+with a braille history chart for the currently hovered process' memory usage
+since we started.
 
 ## Prettiness
 
