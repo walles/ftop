@@ -16,23 +16,33 @@ type userStats struct {
 }
 
 func Render(processesRaw []Process, screen twin.Screen) {
-	width, height := screen.Size()
+	_, height := screen.Size()
+	screen.Clear()
+
+	// 5 = room for the overview section at the top
+	prepAndRenderProcesses(processesRaw, screen, 5, height-1)
+
+	screen.Show()
+}
+
+// Top and bottom row values are inclusive
+func prepAndRenderProcesses(processesRaw []Process, screen twin.Screen, topRow int, bottomRow int) {
+	width, _ := screen.Size()
+	height := 1 + bottomRow - topRow
 
 	// Decide on section heights
-	heightWithoutPadding := height - 2 // 2 = top and bottom frame lines
+	heightWithoutBorders := height - 2 // 2 = top and bottom frame lines
 
-	// Decide on section contents. "-1" = Leave room for the header row
+	// Collect data to show
+	heightWithoutHeaders := heightWithoutBorders - 1
 	processesByScore := ProcessesByScore(processesRaw)
-	if len(processesByScore) > heightWithoutPadding-1 {
-		processesByScore = processesByScore[:heightWithoutPadding-1]
+	if len(processesByScore) > heightWithoutHeaders-1 {
+		processesByScore = processesByScore[:heightWithoutHeaders]
 	}
 	users := UsersByScore(processesRaw)
-	if len(users) > heightWithoutPadding-1 {
-		users = users[:heightWithoutPadding-1]
+	if len(users) > heightWithoutHeaders-1 {
+		users = users[:heightWithoutHeaders]
 	}
-
-	// Adjust heights to what we actually have
-	heightWithoutPadding = max(len(processesByScore), len(users))
 
 	// Figure out column widths
 	allInOneTable := toTable(processesByScore, users)
@@ -44,14 +54,11 @@ func Render(processesRaw []Process, screen twin.Screen) {
 	rightPerUserBorderColumn := leftPerUserBorderColumn + widths[6] + 1 + widths[7] + 1 + widths[8] + 1
 
 	// Render!
-	screen.Clear()
-	renderSection(allInOneTable, widths, processesByScore, users, screen, 1, 1)
+	topContentsRow := topRow + 1 // +1 for the top frame line
+	doRenderProcesses(allInOneTable, widths, processesByScore, users, screen, topContentsRow, 1)
 
-	bottomBorderRow := heightWithoutPadding + 2
-	renderFrame(screen, 0, 0, bottomBorderRow, rightPerProcessBorderColumn, "By process")
-	renderFrame(screen, 0, leftPerUserBorderColumn, bottomBorderRow, rightPerUserBorderColumn, "By user")
-
-	screen.Show()
+	renderFrame(screen, topRow, 0, bottomRow, rightPerProcessBorderColumn, "By process")
+	renderFrame(screen, topRow, leftPerUserBorderColumn, bottomRow, rightPerUserBorderColumn, "By user")
 }
 
 func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, rightColumn int, title string) {
@@ -132,7 +139,7 @@ func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
 	return table
 }
 
-func renderSection(table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int, firstScreenColumn int) {
+func doRenderProcesses(table [][]string, widths []int, processes []Process, users []userStats, screen twin.Screen, firstScreenRow int, firstScreenColumn int) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds||%%-%d.%ds %%%d.%ds %%%d.%ds",
