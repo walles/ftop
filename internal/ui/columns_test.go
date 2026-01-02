@@ -6,14 +6,26 @@ import (
 	"github.com/walles/ptop/internal/assert"
 )
 
-func TestColumnWidthsSingle(t *testing.T) {
-	assert.SliceEqual(t, ColumnWidths([][]string{{"PID"}}, 50), []int{3})
+func TestColumnWidthsSingleNarrowing(t *testing.T) {
 	assert.SliceEqual(t, ColumnWidths([][]string{{"PID"}}, 3), []int{3})
 	assert.SliceEqual(t, ColumnWidths([][]string{{"PID"}}, 2), []int{2})
 }
 
-func TestColumnWidthDouble(t *testing.T) {
+func TestColumnWidthsSingleWidening(t *testing.T) {
+	assert.SliceEqual(t, ColumnWidths([][]string{{"PID"}}, 4), []int{4})
+}
+
+func TestColumnWidthDoubleNarrowing(t *testing.T) {
 	assert.SliceEqual(t, ColumnWidths([][]string{{"PID", "POD"}}, 6), []int{3, 3})
 	assert.SliceEqual(t, ColumnWidths([][]string{{"PID", "POD"}}, 4), []int{2, 2})
 	assert.SliceEqual(t, ColumnWidths([][]string{{"PID", "POD"}}, 2), []int{1, 1})
+}
+
+func TestColumnWidthsDoubleWidening(t *testing.T) {
+	assert.SliceEqual(t, ColumnWidths([][]string{{"PID", "POD"}}, 8), []int{4, 4})
+	assert.SliceEqual(t, ColumnWidths([][]string{{"PID", "POD"}}, 10), []int{5, 5})
+
+	uneven := ColumnWidths([][]string{{"PID", "POD"}}, 9)
+	assert.Equal(t, 2, len(uneven))
+	assert.Equal(t, 9, uneven[0]+uneven[1])
 }

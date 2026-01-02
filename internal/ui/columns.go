@@ -6,8 +6,8 @@ import (
 )
 
 // Given some rows with some number of columns, return the widths required for
-// each column.
-func ColumnWidths(rows [][]string, maxWidth int) []int {
+// each column for the sum to reach target width.
+func ColumnWidths(rows [][]string, targetWidth int) []int {
 	widths := []int{}
 
 	for _, row := range rows {
@@ -22,12 +22,16 @@ func ColumnWidths(rows [][]string, maxWidth int) []int {
 		}
 	}
 
+	if sumWidths(widths) == targetWidth {
+		return widths
+	}
+
+	if sumWidths(widths) < targetWidth {
+		return growColumns(widths, targetWidth)
+	}
+
 	for {
-		totalWidth := 0
-		for _, w := range widths {
-			totalWidth += w
-		}
-		if totalWidth <= maxWidth {
+		if sumWidths(widths) == targetWidth {
 			break
 		}
 
@@ -84,6 +88,30 @@ func ColumnWidths(rows [][]string, maxWidth int) []int {
 		}
 
 		widths[minCostColumn]--
+	}
+
+	return widths
+}
+
+func sumWidths(widths []int) int {
+	total := 0
+	for _, w := range widths {
+		total += w
+	}
+	return total
+}
+
+func growColumns(widths []int, targetWidth int) []int {
+	currentWidth := sumWidths(widths)
+	missingWidth := targetWidth - currentWidth
+	addPerColumn := missingWidth / len(widths)
+	for i := range widths {
+		widths[i] += addPerColumn
+	}
+
+	remainingToAdd := targetWidth - sumWidths(widths)
+	for i := 0; i < remainingToAdd; i++ {
+		widths[i%len(widths)]++
 	}
 
 	return widths
