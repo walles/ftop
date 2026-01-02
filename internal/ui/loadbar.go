@@ -60,7 +60,7 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64, 
 		return
 	}
 
-	barFraction := relativeX / float64(width)
+	barFraction := relativeX / loadCells
 	color := lb.ramp.AtValue(barFraction)
 	if cellsLeftToColor >= 1.0 {
 		// Full color cell
