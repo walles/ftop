@@ -81,7 +81,14 @@ func UsersByScore(processes []Process) []userStats {
 		if primaryCmp != 0 {
 			return -primaryCmp
 		}
-		return -cmp.Compare(secondaryI, secondaryJ)
+
+		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
+		if secondaryCmp != 0 {
+			return -secondaryCmp
+		}
+
+		// Fall back to name comparison for stability at the bottom of the list
+		return cmp.Compare(ui.username, uj.username)
 	})
 
 	return sorted
