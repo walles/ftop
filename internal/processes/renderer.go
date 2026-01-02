@@ -147,12 +147,12 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 		widths[8], widths[8],
 	)
 
-	colorMemoryLoadBarMin := twin.NewColorHex(0x004000) // FIXME: Get this from the theme
-	colorCPULoadBarMin := twin.NewColorHex(0x3030b0)    // FIXME: Get this from the theme
-	colorLoadBarMid := twin.NewColorHex(0x808020)       // FIXME: Get this from the theme
-	colorLoadBarMax := twin.NewColorHex(0x801020)       // FIXME: Get this from the theme
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorMemoryLoadBarMin, colorLoadBarMid, colorLoadBarMax)
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorCPULoadBarMin, colorLoadBarMid, colorLoadBarMax)
+	// NOTE: Use some online OKLCH color picker for experimenting with colors
+	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
+	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
+	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
@@ -192,13 +192,11 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 		}
 	}
 
-	perProcessCenter := perProcessTableWidth / 2
-	perProcessCpuBar := ui.NewBackwardsLoadBar(0, perProcessCenter-1, cpuRamp, colorBg)
-	perProcessMemBar := ui.NewLoadBar(perProcessCenter, perProcessTableWidth-1, memoryRamp, colorBg)
+	perProcessCpuBar := ui.NewLoadBar(0, perProcessTableWidth-1, cpuRamp, colorBg)
+	perProcessMemBar := ui.NewLoadBar(0, perProcessTableWidth-1, memoryRamp, colorBg)
 
-	perUserCenter := perUserTableStart + perUserTableWidth/2
-	perUserCpuBar := ui.NewBackwardsLoadBar(perUserTableStart, perUserCenter-1, cpuRamp, colorBg)
-	perUserMemBar := ui.NewLoadBar(perUserCenter, perUserTableStart+perUserTableWidth-1, memoryRamp, colorBg)
+	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp, colorBg)
+	perUserMemBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, memoryRamp, colorBg)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -217,12 +215,6 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 		// x is relative to the left edge of the table, not to the screen
 		x := 0
 
-		// We will render four different load bars per line:
-		// - Per-process CPU: Goes left from center of the per-process table
-		// - Per-process RAM: Goes right from center of the per-process table
-		// - Per-user CPU: Goes left from center of the per-user table
-		// - Per-user RAM: Goes right from center of the per-user table
-
 		for _, char := range line {
 			style := rowStyle
 			if rowIndex == 0 {
@@ -231,20 +223,42 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 				index := rowIndex - 1 // Because rowIndex 0 is the header
 				if index < len(processes) {
 					process := processes[index]
+					cpuFraction := 0.0
 					if process.cpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
-						perProcessCpuBar.SetBgColor(&style, x, process.cpuTime.Seconds()/maxCpuSecondsPerProcess)
+						cpuFraction = process.cpuTime.Seconds() / maxCpuSecondsPerProcess
 					}
+					memFraction := 0.0
 					if maxRssKbPerProcess > 0 {
-						perProcessMemBar.SetBgColor(&style, x, float64(process.rssKb)/float64(maxRssKbPerProcess))
+						memFraction = float64(process.rssKb) / float64(maxRssKbPerProcess)
+					}
+					if cpuFraction > memFraction {
+						// Draw memory last so it ends up in front of CPU
+						perProcessCpuBar.SetBgColor(&style, x, cpuFraction, true)
+						perProcessMemBar.SetBgColor(&style, x, memFraction, false)
+					} else {
+						// Draw CPU last so it ends up in front of memory
+						perProcessMemBar.SetBgColor(&style, x, memFraction, true)
+						perProcessCpuBar.SetBgColor(&style, x, cpuFraction, false)
 					}
 				}
 				if index < len(users) {
 					user := users[index]
+					cpuFraction := 0.0
 					if maxCpuSecondsPerUser > 0.0 {
-						perUserCpuBar.SetBgColor(&style, x, user.cpuTime.Seconds()/maxCpuSecondsPerUser)
+						cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
 					}
+					memFraction := 0.0
 					if maxRssKbPerUser > 0 {
-						perUserMemBar.SetBgColor(&style, x, float64(user.rssKb)/float64(maxRssKbPerUser))
+						memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
+					}
+					if cpuFraction > memFraction {
+						// Draw memory last so it ends up in front of CPU
+						perUserCpuBar.SetBgColor(&style, x, cpuFraction, true)
+						perUserMemBar.SetBgColor(&style, x, memFraction, false)
+					} else {
+						// Draw CPU last so it ends up in front of memory
+						perUserMemBar.SetBgColor(&style, x, memFraction, true)
+						perUserCpuBar.SetBgColor(&style, x, cpuFraction, false)
 					}
 				}
 			}
