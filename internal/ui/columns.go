@@ -43,7 +43,8 @@ func ColumnWidths(rows [][]string, maxWidth int) []int {
 				}
 
 				if len(cell) < widths[column] {
-					// Nothing here, we can shrink this cell for free
+					// Contents is shorter than the current width, no cost in
+					// this cell for shrinking this column
 					continue
 				}
 
@@ -62,8 +63,18 @@ func ColumnWidths(rows [][]string, maxWidth int) []int {
 		minCost := math.MaxInt
 		minCostColumn := -1
 		for column, cost := range narrowingCosts {
+			if cost > minCost {
+				continue
+			}
+
 			if cost < minCost {
 				minCost = cost
+				minCostColumn = column
+				continue
+			}
+
+			// Tie-breaker: Narrow the wider column
+			if widths[column] > widths[minCostColumn] {
 				minCostColumn = column
 			}
 		}
