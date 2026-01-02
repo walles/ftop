@@ -30,21 +30,36 @@ func Render(processesRaw []processes.Process, screen twin.Screen) {
 
 func renderOverview(screen twin.Screen) {
 	width, _ := screen.Size()
-	rows := []string{
-		"Sysload: 1.4  [8 cores | 16 virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (this row is fake)",
-		"RAM Use: 60%  [19GB / 32GB] (this row is fake)",
-		"IO Load:      [422KB/s / 2781KB/s] disk0 (this row is fake)",
-	}
 
-	for rowIndex, row := range rows {
-		colIndex := 0
-		for _, char := range row {
-			screen.SetCell(colIndex+2, rowIndex+1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
-			colIndex++
-		}
-	}
+	renderSysload(screen)
+	renderMemoryUsage(screen)
+	renderIOLoad(screen)
 
 	renderFrame(screen, 0, 0, 4, width-1, "Overview")
+}
+
+func renderSysload(screen twin.Screen) {
+	column := 2
+	for _, char := range "Sysload: 1.4  [8 cores | 16 virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (this row is fake)" {
+		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+		column++
+	}
+}
+
+func renderMemoryUsage(screen twin.Screen) {
+	column := 2
+	for _, char := range "RAM Use: 60%  [19GB / 32GB] (this row is fake)" {
+		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+		column++
+	}
+}
+
+func renderIOLoad(screen twin.Screen) {
+	column := 2
+	for _, char := range "IO Load:      [422KB/s / 2781KB/s] disk0 (this row is fake)" {
+		screen.SetCell(column, 3, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+		column++
+	}
 }
 
 // Top and bottom row values are inclusive
