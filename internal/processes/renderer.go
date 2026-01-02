@@ -191,11 +191,11 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 	}
 
 	perProcessCenter := perProcessTableWidth / 2
-	perProcessCpuBar := ui.NewLoadBar(0, perProcessCenter-1, loadBarRamp, colorBg)
+	perProcessCpuBar := ui.NewBackwardsLoadBar(0, perProcessCenter-1, loadBarRamp, colorBg)
 	perProcessMemBar := ui.NewLoadBar(perProcessCenter, perProcessTableWidth-1, loadBarRamp, colorBg)
 
 	perUserCenter := perUserTableStart + perUserTableWidth/2
-	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserCenter-1, loadBarRamp, colorBg)
+	perUserCpuBar := ui.NewBackwardsLoadBar(perUserTableStart, perUserCenter-1, loadBarRamp, colorBg)
 	perUserMemBar := ui.NewLoadBar(perUserCenter, perUserTableStart+perUserTableWidth-1, loadBarRamp, colorBg)
 
 	for rowIndex, row := range table {

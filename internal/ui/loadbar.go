@@ -5,8 +5,12 @@ import "github.com/walles/moor/v2/twin"
 type LoadBar struct {
 	leftXinclusive  int
 	rightXinclusive int
-	ramp            ColorRamp
-	bgColor         twin.Color // For antialiasing
+
+	ramp    ColorRamp
+	bgColor twin.Color // For antialiasing
+
+	// Backwards means starting on the right and going left
+	backwards bool
 }
 
 // The ramp should go from 0.0 to 1.0
@@ -16,6 +20,17 @@ func NewLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp, bgColor twi
 		rightXinclusive: rightXinclusive,
 		ramp:            ramp,
 		bgColor:         bgColor,
+		backwards:       false,
+	}
+}
+
+func NewBackwardsLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp, bgColor twin.Color) LoadBar {
+	return LoadBar{
+		leftXinclusive:  leftXinclusive,
+		rightXinclusive: rightXinclusive,
+		ramp:            ramp,
+		bgColor:         bgColor,
+		backwards:       true,
 	}
 }
 
@@ -34,6 +49,9 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 
 	// How far into the load bar are we?
 	relativeX := float64(x - lb.leftXinclusive)
+	if lb.backwards {
+		relativeX = float64(width-1) - relativeX
+	}
 
 	// Counting from where we are now, how many more cells need filling?
 	cellsLeftToColor := loadCells - relativeX
