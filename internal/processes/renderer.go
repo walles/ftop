@@ -19,10 +19,31 @@ func Render(processesRaw []Process, screen twin.Screen) {
 	_, height := screen.Size()
 	screen.Clear()
 
+	renderOverview(screen)
+
 	// 5 = room for the overview section at the top
 	prepAndRenderProcesses(processesRaw, screen, 5, height-1)
 
 	screen.Show()
+}
+
+func renderOverview(screen twin.Screen) {
+	width, _ := screen.Size()
+	rows := []string{
+		"Sysload: 1.4  [8 cores | 16 virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (this row is fake)",
+		"RAM Use: 60%  [19GB / 32GB] (this row is fake)",
+		"IO Load:      [422KB/s / 2781KB/s] disk0 (this row is fake)",
+	}
+
+	for rowIndex, row := range rows {
+		colIndex := 0
+		for _, char := range row {
+			screen.SetCell(colIndex+2, rowIndex+1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+			colIndex++
+		}
+	}
+
+	renderFrame(screen, 0, 0, 4, width-1, "Overview")
 }
 
 // Top and bottom row values are inclusive
