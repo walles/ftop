@@ -15,21 +15,27 @@ type userStats struct {
 	processCount int
 }
 
-func Render(processes []Process, screen twin.Screen) {
+func Render(processesRaw []Process, screen twin.Screen) {
 	width, height := screen.Size()
 
 	// Decide on section heights
 	heightWithoutPadding := height - 2 // 2 = top and bottom frame lines
 
 	// Decide on section contents. "-1" = Leave room for the header row
-	processes = ProcessesByScore(processes)[:heightWithoutPadding-1]
-	users := UsersByScore(processes)[:heightWithoutPadding-1]
+	processesByScore := ProcessesByScore(processesRaw)
+	if len(processesByScore) > heightWithoutPadding-1 {
+		processesByScore = processesByScore[:heightWithoutPadding-1]
+	}
+	users := UsersByScore(processesRaw)
+	if len(users) > heightWithoutPadding-1 {
+		users = users[:heightWithoutPadding-1]
+	}
 
 	// Adjust heights to what we actually have
-	heightWithoutPadding = max(len(processes), len(users))
+	heightWithoutPadding = max(len(processesByScore), len(users))
 
 	// Figure out column widths
-	allInOneTable := toTable(processes, users)
+	allInOneTable := toTable(processesByScore, users)
 	widths := ui.ColumnWidths(allInOneTable, width-4) // 4 = left and right frame around each section
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
@@ -39,7 +45,7 @@ func Render(processes []Process, screen twin.Screen) {
 
 	// Render!
 	screen.Clear()
-	renderSection(allInOneTable, widths, processes, users, screen, 1, 1)
+	renderSection(allInOneTable, widths, processesByScore, users, screen, 1, 1)
 
 	bottomBorderRow := heightWithoutPadding + 2
 	renderFrame(screen, 0, 0, bottomBorderRow, rightPerProcessBorderColumn, "By process")
@@ -77,7 +83,7 @@ func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, 
 	}
 }
 
-func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
+func toTable(processesByScore []Process, usersByScore []userStats) [][]string {
 	headerLine := []string{
 		// These first ones are for the per-process table
 		"PID", "Command", "User name", "CPU", "Time", "RAM",
@@ -90,11 +96,11 @@ func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
 	// Header line
 	table = append(table, headerLine)
 
-	for i := 0; i < max(len(processesByCpu), len(usersByCpu)); i++ {
+	for i := 0; i < max(len(processesByScore), len(usersByScore)); i++ {
 		row := make([]string, 0, len(headerLine))
 
-		if i < len(processesByCpu) {
-			p := processesByCpu[i]
+		if i < len(processesByScore) {
+			p := processesByScore[i]
 			row = append(row,
 				fmt.Sprintf("%d", p.pid),
 				p.command,
@@ -108,8 +114,8 @@ func toTable(processesByCpu []Process, usersByCpu []userStats) [][]string {
 			row = append(row, "", "", "", "", "", "")
 		}
 
-		if i < len(usersByCpu) {
-			u := usersByCpu[i]
+		if i < len(usersByScore) {
+			u := usersByScore[i]
 			row = append(row,
 				u.username,
 				formatDuration(u.cpuTime),
@@ -156,33 +162,41 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 	// 1.0 = ignore the header line
 	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
 
-	var maxPerProcess float64
-	for _, p := range processes {
-		value := getProcessValue(p, sectionType)
-		if value > maxPerProcess {
-			maxPerProcess = value
-		}
-	}
-
-	var maxPerUser float64
-	for _, u := range users {
-		value := getUserValue(u, sectionType)
-		if value > maxPerUser {
-			maxPerUser = value
-		}
-	}
-
-	// Indices with the divider is at 5
-	// 0123 │ 67
-	//
-	// So the width of the per-process table in this case is 4
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 
 	perUserTableWidth := widths[6] + 1 + widths[7] + 1 + widths[8]
-	perUserTableStart := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5] + 2 // +2 for the "||" divider
+	perUserTableStart := perProcessTableWidth + 2 // +2 for the "||" divider
 
-	perProcessBar := ui.NewLoadBar(0, perProcessTableWidth-1, loadBarRamp, colorBg)
-	perUserBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, loadBarRamp, colorBg)
+	maxCpuSecondsPerProcess := 0.0
+	maxRssKbPerProcess := 0
+	for _, p := range processes {
+		if p.cpuTime != nil && p.cpuTime.Seconds() > maxCpuSecondsPerProcess {
+			maxCpuSecondsPerProcess = p.cpuTime.Seconds()
+		}
+		if p.rssKb > maxRssKbPerProcess {
+			maxRssKbPerProcess = p.rssKb
+		}
+	}
+
+	maxCpuSecondsPerUser := 0.0
+	maxRssKbPerUser := 0
+	for _, u := range users {
+		cpuSeconds := u.cpuTime.Seconds()
+		if cpuSeconds > maxCpuSecondsPerUser {
+			maxCpuSecondsPerUser = cpuSeconds
+		}
+		if u.rssKb > maxRssKbPerUser {
+			maxRssKbPerUser = u.rssKb
+		}
+	}
+
+	perProcessCenter := perProcessTableWidth / 2
+	perProcessCpuBar := ui.NewLoadBar(0, perProcessCenter-1, loadBarRamp, colorBg)
+	perProcessMemBar := ui.NewLoadBar(perProcessCenter, perProcessTableWidth-1, loadBarRamp, colorBg)
+
+	perUserCenter := perUserTableStart + perUserTableWidth/2
+	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserCenter-1, loadBarRamp, colorBg)
+	perUserMemBar := ui.NewLoadBar(perUserCenter, perUserTableStart+perUserTableWidth-1, loadBarRamp, colorBg)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -198,17 +212,38 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
 		}
 
+		// x is relative to the left edge of the table, not to the screen
 		x := 0
+
+		// We will render four different load bars per line:
+		// - Per-process CPU: Goes left from center of the per-process table
+		// - Per-process RAM: Goes right from center of the per-process table
+		// - Per-user CPU: Goes left from center of the per-user table
+		// - Per-user RAM: Goes right from center of the per-user table
+
 		for _, char := range line {
 			style := rowStyle
 			if rowIndex == 0 {
 				// Header row, no load bars here
 			} else {
-				if maxPerProcess > 0 {
-					perProcessBar.SetBgColor(&style, x, getProcessValue(processes[rowIndex-1], sectionType)/maxPerProcess)
+				index := rowIndex - 1 // Because rowIndex 0 is the header
+				if index < len(processes) {
+					process := processes[index]
+					if process.cpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
+						perProcessCpuBar.SetBgColor(&style, x, process.cpuTime.Seconds()/maxCpuSecondsPerProcess)
+					}
+					if maxRssKbPerProcess > 0 {
+						perProcessMemBar.SetBgColor(&style, x, float64(process.rssKb)/float64(maxRssKbPerProcess))
+					}
 				}
-				if maxPerUser > 0 {
-					perUserBar.SetBgColor(&style, x, getUserValue(users[rowIndex-1], sectionType)/maxPerUser)
+				if index < len(users) {
+					user := users[index]
+					if maxCpuSecondsPerUser > 0.0 {
+						perUserCpuBar.SetBgColor(&style, x, user.cpuTime.Seconds()/maxCpuSecondsPerUser)
+					}
+					if maxRssKbPerUser > 0 {
+						perUserMemBar.SetBgColor(&style, x, float64(user.rssKb)/float64(maxRssKbPerUser))
+					}
 				}
 			}
 			screen.SetCell(firstScreenColumn+x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
