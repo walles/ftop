@@ -147,10 +147,12 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 		widths[8], widths[8],
 	)
 
-	colorLoadBarMin := twin.NewColorHex(0x204020) // FIXME: Get this from the theme
-	colorLoadBarMid := twin.NewColorHex(0x808020) // FIXME: Get this from the theme
-	colorLoadBarMax := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	loadBarRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMid, colorLoadBarMax)
+	colorMemoryLoadBarMin := twin.NewColorHex(0x004000) // FIXME: Get this from the theme
+	colorCPULoadBarMin := twin.NewColorHex(0x3030b0)    // FIXME: Get this from the theme
+	colorLoadBarMid := twin.NewColorHex(0x808020)       // FIXME: Get this from the theme
+	colorLoadBarMax := twin.NewColorHex(0x801020)       // FIXME: Get this from the theme
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorMemoryLoadBarMin, colorLoadBarMid, colorLoadBarMax)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorCPULoadBarMin, colorLoadBarMid, colorLoadBarMax)
 
 	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
@@ -191,12 +193,12 @@ func renderSection(table [][]string, widths []int, processes []Process, users []
 	}
 
 	perProcessCenter := perProcessTableWidth / 2
-	perProcessCpuBar := ui.NewBackwardsLoadBar(0, perProcessCenter-1, loadBarRamp, colorBg)
-	perProcessMemBar := ui.NewLoadBar(perProcessCenter, perProcessTableWidth-1, loadBarRamp, colorBg)
+	perProcessCpuBar := ui.NewBackwardsLoadBar(0, perProcessCenter-1, cpuRamp, colorBg)
+	perProcessMemBar := ui.NewLoadBar(perProcessCenter, perProcessTableWidth-1, memoryRamp, colorBg)
 
 	perUserCenter := perUserTableStart + perUserTableWidth/2
-	perUserCpuBar := ui.NewBackwardsLoadBar(perUserTableStart, perUserCenter-1, loadBarRamp, colorBg)
-	perUserMemBar := ui.NewLoadBar(perUserCenter, perUserTableStart+perUserTableWidth-1, loadBarRamp, colorBg)
+	perUserCpuBar := ui.NewBackwardsLoadBar(perUserTableStart, perUserCenter-1, cpuRamp, colorBg)
+	perUserMemBar := ui.NewLoadBar(perUserCenter, perUserTableStart+perUserTableWidth-1, memoryRamp, colorBg)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
