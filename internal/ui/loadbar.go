@@ -74,14 +74,73 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 	*updateMe = updateMe.WithBackground(color)
 }
 
-func (olb OverlappingLoadBars) SetBgColor(updateMe *twin.Style, x int, loadFractionA, loadFractionB float64) {
-	if loadFractionA > loadFractionB {
-		// Render the shorter one (B) last, so it ends up in front of A
-		olb.a.SetBgColor(updateMe, x, loadFractionA)
-		olb.b.SetBgColor(updateMe, x, loadFractionB)
-	} else {
-		// Render the shorter one (A) last, so it ends up in front of B
-		olb.b.SetBgColor(updateMe, x, loadFractionB)
-		olb.a.SetBgColor(updateMe, x, loadFractionA)
+func (olb OverlappingLoadBars) SetCellBackground(screen twin.Screen, x int, y int, loadFractionA, loadFractionB float64) {
+	if x < olb.a.leftXinclusive || x > olb.a.rightXinclusive {
+		return
 	}
+
+	width := olb.a.rightXinclusive - olb.a.leftXinclusive + 1
+
+	// How many cells should be colored?
+	cellsToColorA := float64(width) * loadFractionA
+	cellsToColorB := float64(width) * loadFractionB
+
+	// How far into the load bar are we?
+	relativeX := float64(x - olb.a.leftXinclusive)
+	if olb.a.backwards {
+		relativeX = float64(width-1) - relativeX
+	}
+
+	barFractionA := relativeX / cellsToColorA
+	var colorA *twin.Color
+	if cellsToColorA >= (relativeX + 0.5) {
+		color := olb.a.ramp.AtValue(barFractionA)
+		colorA = &color
+	}
+
+	barFractionB := relativeX / cellsToColorB
+	var colorB *twin.Color
+	if cellsToColorB >= (relativeX + 0.5) {
+		color := olb.b.ramp.AtValue(barFractionB)
+		colorB = &color
+	}
+
+	if colorA == nil && colorB == nil {
+		return
+	}
+
+	currentCell := screen.GetCell(x, y)
+
+	if colorA != nil && colorB == nil {
+		// Have A but not B
+		style := currentCell.Style.WithBackground(*colorA)
+		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
+		return
+	}
+
+	if colorB != nil && colorA == nil {
+		// Have B but not A
+		style := currentCell.Style.WithBackground(*colorB)
+		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
+		return
+	}
+
+	// Have both A and B
+
+	if currentCell.Rune != ' ' {
+		// Set background based on whichever bar is shortest, since that one
+		// should be on top so it's visible
+		style := currentCell.Style.WithBackground(*colorA)
+		if cellsToColorB < cellsToColorA {
+			style = currentCell.Style.WithBackground(*colorB)
+		}
+		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
+		return
+	}
+
+	// Have both A and B, and since the current cell is ' ' we can show both
+	// using half-cell Unicode characters. In this case we just put A on top.
+	halfBlockRune := '▀'
+	style := currentCell.Style.WithBackground(*colorB).WithForeground(*colorA)
+	screen.SetCell(x, y, twin.StyledRune{Rune: halfBlockRune, Style: style})
 }

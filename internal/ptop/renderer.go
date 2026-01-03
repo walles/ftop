@@ -222,8 +222,10 @@ func doRenderProcesses(
 		}
 	}
 
-	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(0, perProcessTableWidth-1, cpuRamp, memoryRamp)
-	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp, memoryRamp)
+	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(
+		firstScreenColumn, firstScreenColumn+perProcessTableWidth-1, cpuRamp, memoryRamp)
+	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(
+		firstScreenColumn+perUserTableStart, firstScreenColumn+perUserTableStart+perUserTableWidth-1, cpuRamp, memoryRamp)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -240,40 +242,45 @@ func doRenderProcesses(
 		}
 
 		// x is relative to the left edge of the table, not to the screen
-		x := 0
+		x := firstScreenColumn
 
 		for _, char := range line {
 			style := rowStyle
+			screen.SetCell(x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
+
 			if rowIndex == 0 {
 				// Header row, no load bars here
-			} else {
-				index := rowIndex - 1 // Because rowIndex 0 is the header
-				if index < len(processes) {
-					process := processes[index]
-					cpuFraction := 0.0
-					if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
-						cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
-					}
-					memFraction := 0.0
-					if maxRssKbPerProcess > 0 {
-						memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
-					}
-					perProcessCpuAndMemBar.SetBgColor(&style, x, cpuFraction, memFraction)
-				}
-				if index < len(users) {
-					user := users[index]
-					cpuFraction := 0.0
-					if maxCpuSecondsPerUser > 0.0 {
-						cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
-					}
-					memFraction := 0.0
-					if maxRssKbPerUser > 0 {
-						memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
-					}
-					perUserCpuAndMemBar.SetBgColor(&style, x, cpuFraction, memFraction)
-				}
+				x++
+				continue
 			}
-			screen.SetCell(firstScreenColumn+x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
+
+			index := rowIndex - 1 // Because rowIndex 0 is the header
+			if index < len(processes) {
+				process := processes[index]
+				cpuFraction := 0.0
+				if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
+					cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
+				}
+				memFraction := 0.0
+				if maxRssKbPerProcess > 0 {
+					memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
+				}
+				perProcessCpuAndMemBar.SetCellBackground(screen, x, firstScreenRow+rowIndex, cpuFraction, memFraction)
+			}
+
+			if index < len(users) {
+				user := users[index]
+				cpuFraction := 0.0
+				if maxCpuSecondsPerUser > 0.0 {
+					cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
+				}
+				memFraction := 0.0
+				if maxRssKbPerUser > 0 {
+					memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
+				}
+				perUserCpuAndMemBar.SetCellBackground(screen, x, firstScreenRow+rowIndex, cpuFraction, memFraction)
+			}
+
 			x++
 		}
 	}

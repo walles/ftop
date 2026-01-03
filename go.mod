@@ -2,7 +2,7 @@ module github.com/walles/ptop
 
 go 1.25.5
 
-require github.com/walles/moor/v2 v2.10.0
+require github.com/walles/moor/v2 v2.10.2-0.20260103113236-cb08d3487649
 
 require (
 	github.com/alecthomas/chroma/v2 v2.21.1 // indirect
