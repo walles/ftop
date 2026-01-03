@@ -6,6 +6,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/sysload"
+	"github.com/walles/ptop/internal/ui"
 )
 
 func renderSysload(screen twin.Screen) {
@@ -34,6 +35,15 @@ func renderSysload(screen twin.Screen) {
 		}
 
 		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+	}
+
+	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
+	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+	loadBar := ui.NewLoadBar(2, width-2, cpuRamp)
+
+	for column := 2; column < width-2; column++ {
+		loadBar.SetCellBackground(screen, column, 1, sysload.LoadAverage1M/float64(sysload.CpuCoresLogical))
 	}
 }
 
