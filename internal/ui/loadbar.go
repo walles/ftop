@@ -42,7 +42,7 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 	width := lb.rightXinclusive - lb.leftXinclusive + 1
 
 	// How many cells should be colored?
-	loadCells := float64(width) * loadFraction
+	cellsToColor := float64(width) * loadFraction
 
 	// How far into the load bar are we?
 	relativeX := float64(x - lb.leftXinclusive)
@@ -50,24 +50,14 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 		relativeX = float64(width-1) - relativeX
 	}
 
-	// Counting from where we are now, how many more cells need filling?
-	cellsLeftToColor := loadCells - relativeX
-	if cellsLeftToColor <= 0.0 {
-		// No load bar here
+	// If we're currently at cell 0 (relativeX = 0.0), we should color it if
+	// cellsToColor >= 0.5. Or in other words, bail if cellsToColor < 0.5.
+	if cellsToColor < (relativeX + 0.5) {
 		return
 	}
 
-	barFraction := relativeX / loadCells
+	barFraction := relativeX / cellsToColor
 	color := lb.ramp.AtValue(barFraction)
-	if cellsLeftToColor >= 1.0 {
-		// Full color cell
-		*updateMe = updateMe.WithBackground(color)
-		return
-	}
 
-	antiAliasAmount := cellsLeftToColor // This is now between 0.0 and 1.0
-	if antiAliasAmount >= 0.5 {
-		// Round up and fill the cell completely
-		*updateMe = updateMe.WithBackground(color)
-	}
+	*updateMe = updateMe.WithBackground(color)
 }
