@@ -38,14 +38,6 @@ func renderOverview(screen twin.Screen) {
 	renderFrame(screen, 0, 0, 4, width-1, "Overview")
 }
 
-func renderSysload(screen twin.Screen) {
-	column := 2
-	for _, char := range "Sysload: 1.4  [8 cores | 16 virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (this row is fake)" {
-		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
-		column++
-	}
-}
-
 func renderMemoryUsage(screen twin.Screen) {
 	column := 2
 	for _, char := range "RAM Use: 60%  [19GB / 32GB] (this row is fake)" {
