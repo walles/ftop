@@ -16,48 +16,37 @@ func renderSysload(screen twin.Screen) {
 		panic(err)
 	}
 
-	// FIXME: Style the string nicely
+	x := 2
+	y := 1
+	x += drawText(screen, x, y, "Sysload: ", twin.StyleDefault.WithAttr(twin.AttrBold))
 
-	description := fmt.Sprintf("Sysload: %.1f  [%d cores | %d virtual]  [15m history: %s]",
-		sysload.LoadAverage1M,
-		sysload.CpuCoresPhysical,
-		sysload.CpuCoresLogical,
-		averagesToGraphString(sysload.LoadAverage1M, sysload.LoadAverage5M, sysload.LoadAverage15M),
-	)
+	loadNumberStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
+	green := twin.NewColorHex(0x00ff00)  // FIXME: Get this from the theme
+	yellow := twin.NewColorHex(0xffff00) // FIXME: Get this from the theme
+	red := twin.NewColorHex(0xff0000)    // FIXME: Get this from the theme
+	if sysload.LoadAverage1M <= float64(sysload.CpuCoresLogical) {
+		loadNumberStyle = loadNumberStyle.WithForeground(green)
+	} else if sysload.LoadAverage1M <= float64(sysload.CpuCoresPhysical) {
+		loadNumberStyle = loadNumberStyle.WithForeground(yellow)
+	} else {
+		loadNumberStyle = loadNumberStyle.WithForeground(red)
+	}
+	x += drawText(screen, x, y, fmt.Sprintf("%.1f", sysload.LoadAverage1M), loadNumberStyle)
+
+	x += drawText(screen, x, y, "  [", twin.StyleDefault)
+	x += drawText(screen, x, y, fmt.Sprintf("%d cores", sysload.CpuCoresPhysical), twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, fmt.Sprintf(" | %d virtual] [15m history: ", sysload.CpuCoresLogical), twin.StyleDefault)
+
+	brailleStartColumn := x
+	averageGraph := averagesToGraphString(sysload.LoadAverage1M, sysload.LoadAverage5M, sysload.LoadAverage15M)
+	x += drawText(screen, x, y, averageGraph, twin.StyleDefault.WithAttr(twin.AttrBold))
+	brailleEndColumn := x - 1
+
+	x += drawText(screen, x, y, "]", twin.StyleDefault)
+
+	// Text in place, now color the braille graph
 
 	width, _ := screen.Size()
-	runes := []rune(description)
-
-	brailleStartColumn := math.MaxInt
-	brailleEndColumn := -1
-
-	baseStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
-	for column := 2; column < width-2; column++ {
-		style := baseStyle
-
-		char := ' '
-		if column-2 < len(runes) {
-			char = runes[column-2]
-		}
-
-		if char == '[' || char == '|' || char == ']' {
-			style = style.WithoutAttr(twin.AttrBold)
-		}
-		if char == '|' {
-			baseStyle = baseStyle.WithoutAttr(twin.AttrBold)
-		}
-
-		if isBraille(char) {
-			if column < brailleStartColumn {
-				brailleStartColumn = column
-			}
-			if column > brailleEndColumn {
-				brailleEndColumn = column
-			}
-		}
-
-		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: style})
-	}
 
 	brailleRamp := ui.NewColorRamp(float64(brailleStartColumn), float64(brailleEndColumn),
 		twin.NewColorHex(0x555555), // FIXME: Get this from the theme
@@ -68,6 +57,8 @@ func renderSysload(screen twin.Screen) {
 		style := cell.Style.WithForeground(brailleRamp.AtInt(column)).WithAttr(twin.AttrBold)
 		screen.SetCell(column, 1, twin.StyledRune{Rune: cell.Rune, Style: style})
 	}
+
+	// Finally, draw the load bar behind our text
 
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
 	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
