@@ -38,22 +38,6 @@ func renderOverview(screen twin.Screen) {
 	renderFrame(screen, 0, 0, 4, width-1, "Overview")
 }
 
-func renderMemoryUsage(screen twin.Screen) {
-	column := 2
-	for _, char := range "RAM Use: 60%  [19GB / 32GB] (this row is fake)" {
-		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
-		column++
-	}
-}
-
-func renderIOLoad(screen twin.Screen) {
-	column := 2
-	for _, char := range "IO Load:      [422KB/s / 2781KB/s] disk0 (this row is fake)" {
-		screen.SetCell(column, 3, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
-		column++
-	}
-}
-
 // Top and bottom row values are inclusive
 func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen, topRow int, bottomRow int) {
 	width, _ := screen.Size()
