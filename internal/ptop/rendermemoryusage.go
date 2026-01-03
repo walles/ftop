@@ -22,11 +22,23 @@ func renderMemoryUsage(screen twin.Screen) {
 		ui.FormatMemory(int64(sysload.RamTotalBytes)),
 	)
 
-	// FIXME: Add a RAM load bar
+	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
+	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
 
-	column := 2
-	for _, char := range description {
-		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
-		column++
+	width, _ := screen.Size()
+	loadBar := ui.NewLoadBar(2, width-2, memoryRamp)
+
+	runes := []rune(description)
+	for column := 2; column < width-2; column++ {
+		char := ' '
+		if column-2 < len(runes) {
+			char = runes[column-2]
+		}
+
+		style := twin.StyleDefault
+		loadBar.SetBgColor(&style, column, ramUsePercent/100.0)
+
+		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: style})
 	}
 }
