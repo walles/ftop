@@ -6,30 +6,27 @@ type LoadBar struct {
 	leftXinclusive  int
 	rightXinclusive int
 
-	ramp    ColorRamp
-	bgColor twin.Color // For antialiasing
+	ramp ColorRamp
 
 	// Backwards means starting on the right and going left
 	backwards bool
 }
 
 // The ramp should go from 0.0 to 1.0
-func NewLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp, bgColor twin.Color) LoadBar {
+func NewLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp) LoadBar {
 	return LoadBar{
 		leftXinclusive:  leftXinclusive,
 		rightXinclusive: rightXinclusive,
 		ramp:            ramp,
-		bgColor:         bgColor,
 		backwards:       false,
 	}
 }
 
-func NewBackwardsLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp, bgColor twin.Color) LoadBar {
+func NewBackwardsLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp) LoadBar {
 	return LoadBar{
 		leftXinclusive:  leftXinclusive,
 		rightXinclusive: rightXinclusive,
 		ramp:            ramp,
-		bgColor:         bgColor,
 		backwards:       true,
 	}
 }
@@ -37,7 +34,7 @@ func NewBackwardsLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp, bg
 // Sets the background color of a cell based on the current load.
 //
 // Load fraction is between 0.0 and 1.0.
-func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64, antiAlias bool) {
+func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) {
 	if x < lb.leftXinclusive || x > lb.rightXinclusive {
 		return
 	}
@@ -69,10 +66,7 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64, 
 	}
 
 	antiAliasAmount := cellsLeftToColor // This is now between 0.0 and 1.0
-	if antiAlias {
-		// Anti-aliasing for the load bar's edge
-		*updateMe = updateMe.WithBackground(lb.bgColor.Mix(color, antiAliasAmount))
-	} else if antiAliasAmount >= 0.5 {
+	if antiAliasAmount >= 0.5 {
 		// Round up and fill the cell completely
 		*updateMe = updateMe.WithBackground(color)
 	}

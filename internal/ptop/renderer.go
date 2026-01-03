@@ -238,11 +238,11 @@ func doRenderProcesses(
 		}
 	}
 
-	perProcessCpuBar := ui.NewLoadBar(0, perProcessTableWidth-1, cpuRamp, colorBg)
-	perProcessMemBar := ui.NewLoadBar(0, perProcessTableWidth-1, memoryRamp, colorBg)
+	perProcessCpuBar := ui.NewLoadBar(0, perProcessTableWidth-1, cpuRamp)
+	perProcessMemBar := ui.NewLoadBar(0, perProcessTableWidth-1, memoryRamp)
 
-	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp, colorBg)
-	perUserMemBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, memoryRamp, colorBg)
+	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp)
+	perUserMemBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, memoryRamp)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -279,12 +279,12 @@ func doRenderProcesses(
 					}
 					if cpuFraction > memFraction {
 						// Draw memory last so it ends up in front of CPU
-						perProcessCpuBar.SetBgColor(&style, x, cpuFraction, true)
-						perProcessMemBar.SetBgColor(&style, x, memFraction, false)
+						perProcessCpuBar.SetBgColor(&style, x, cpuFraction)
+						perProcessMemBar.SetBgColor(&style, x, memFraction)
 					} else {
 						// Draw CPU last so it ends up in front of memory
-						perProcessMemBar.SetBgColor(&style, x, memFraction, true)
-						perProcessCpuBar.SetBgColor(&style, x, cpuFraction, false)
+						perProcessMemBar.SetBgColor(&style, x, memFraction)
+						perProcessCpuBar.SetBgColor(&style, x, cpuFraction)
 					}
 				}
 				if index < len(users) {
@@ -299,12 +299,12 @@ func doRenderProcesses(
 					}
 					if cpuFraction > memFraction {
 						// Draw memory last so it ends up in front of CPU
-						perUserCpuBar.SetBgColor(&style, x, cpuFraction, true)
-						perUserMemBar.SetBgColor(&style, x, memFraction, false)
+						perUserCpuBar.SetBgColor(&style, x, cpuFraction)
+						perUserMemBar.SetBgColor(&style, x, memFraction)
 					} else {
 						// Draw CPU last so it ends up in front of memory
-						perUserMemBar.SetBgColor(&style, x, memFraction, true)
-						perUserCpuBar.SetBgColor(&style, x, cpuFraction, false)
+						perUserMemBar.SetBgColor(&style, x, memFraction)
+						perUserCpuBar.SetBgColor(&style, x, cpuFraction)
 					}
 				}
 			}
