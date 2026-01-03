@@ -26,15 +26,25 @@ func renderSysload(screen twin.Screen) {
 	)
 
 	width, _ := screen.Size()
-
 	runes := []rune(description)
+
+	baseStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
 	for column := 2; column < width-2; column++ {
+		style := baseStyle
+
 		char := ' '
 		if column-2 < len(runes) {
 			char = runes[column-2]
 		}
 
-		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: twin.StyleDefault})
+		if char == '[' || char == '|' || char == ']' {
+			style = style.WithoutAttr(twin.AttrBold)
+		}
+		if char == '|' {
+			baseStyle = baseStyle.WithoutAttr(twin.AttrBold)
+		}
+
+		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: style})
 	}
 
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
