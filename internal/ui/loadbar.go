@@ -46,7 +46,7 @@ func NewOverlappingLoadBars(leftXinclusive, rightXinclusive int, rampA ColorRamp
 // Sets the background color of a cell based on the current load.
 //
 // Load fraction is between 0.0 and 1.0.
-func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) {
+func (lb LoadBar) SetCellBackground(screen twin.Screen, x int, y int, loadFraction float64) {
 	if x < lb.leftXinclusive || x > lb.rightXinclusive {
 		return
 	}
@@ -71,7 +71,11 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 	barFraction := relativeX / cellsToColor
 	color := lb.ramp.AtValue(barFraction)
 
-	*updateMe = updateMe.WithBackground(color)
+	currentCell := screen.GetCell(x, y)
+	screen.SetCell(x, y, twin.StyledRune{
+		Rune:  currentCell.Rune,
+		Style: currentCell.Style.WithBackground(color),
+	})
 }
 
 func (olb OverlappingLoadBars) SetCellBackground(screen twin.Screen, x int, y int, loadFractionA, loadFractionB float64) {

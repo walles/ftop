@@ -28,7 +28,6 @@ func renderMemoryUsage(screen twin.Screen) {
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
 
 	width, _ := screen.Size()
-	loadBar := ui.NewLoadBar(2, width-2, memoryRamp)
 
 	runes := []rune(description)
 	for column := 2; column < width-2; column++ {
@@ -41,8 +40,12 @@ func renderMemoryUsage(screen twin.Screen) {
 		if !slices.Contains([]rune{' ', '[', '/', ']'}, char) {
 			style = style.WithAttr(twin.AttrBold)
 		}
-		loadBar.SetBgColor(&style, column, ramUsePercent/100.0)
 
 		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: style})
+	}
+
+	loadBar := ui.NewLoadBar(2, width-2, memoryRamp)
+	for column := 2; column < width-2; column++ {
+		loadBar.SetCellBackground(screen, column, 2, ramUsePercent/100.0)
 	}
 }
