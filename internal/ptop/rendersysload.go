@@ -16,7 +16,8 @@ func renderSysload(screen twin.Screen) {
 
 	// FIXME: Fill in sysload values as well
 
-	description := fmt.Sprintf("Sysload: 1.4  [%d cores | %d virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (this row is mostly fake)",
+	description := fmt.Sprintf("Sysload: %.1f  [%d cores | %d virtual]  [15m history: ⢸⣿⣿⣿⣿⣿⣿⣷] (the history graph is fake)",
+		sysload.LoadAverage1M,
 		sysload.CpuCoresPhysical,
 		sysload.CpuCoresLogical,
 	)
