@@ -115,36 +115,56 @@ func (olb OverlappingLoadBars) SetCellBackground(screen twin.Screen, x int, y in
 
 	currentCell := screen.GetCell(x, y)
 
+	if currentCell.Rune == ' ' {
+		setTopAndBottomColors(screen, x, y, colorA, colorB)
+		return
+	}
+
+	// Not a space, need to pick one color
+
+	var style twin.Style
 	if colorA != nil && colorB == nil {
 		// Have A but not B
-		style := currentCell.Style.WithBackground(*colorA)
-		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
-		return
-	}
-
-	if colorB != nil && colorA == nil {
+		style = currentCell.Style.WithBackground(*colorA)
+	} else if colorA == nil && colorB != nil {
 		// Have B but not A
-		style := currentCell.Style.WithBackground(*colorB)
-		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
-		return
-	}
-
-	// Have both A and B
-
-	if currentCell.Rune != ' ' {
-		// Set background based on whichever bar is shortest, since that one
-		// should be on top so it's visible
-		style := currentCell.Style.WithBackground(*colorA)
-		if cellsToColorB < cellsToColorA {
+		style = currentCell.Style.WithBackground(*colorB)
+	} else {
+		// Have both A and B, pick the one with less coverage so it's visible
+		if cellsToColorA < cellsToColorB {
+			style = currentCell.Style.WithBackground(*colorA)
+		} else {
 			style = currentCell.Style.WithBackground(*colorB)
 		}
-		screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
+	}
+
+	screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
+}
+
+// Replaces a cell with a half-block character colored with the given top and /
+// or bottom colors.
+func setTopAndBottomColors(screen twin.Screen, x int, y int, topColor, bottomColor *twin.Color) {
+	if topColor == nil && bottomColor == nil {
+		panic("Either top or bottom color or both must be set")
+	}
+
+	currentCell := screen.GetCell(x, y)
+
+	if topColor != nil && bottomColor == nil {
+		// Color only the top half of the cell
+		style := currentCell.Style.WithForeground(*topColor)
+		screen.SetCell(x, y, twin.StyledRune{Rune: '▀', Style: style})
 		return
 	}
 
-	// Have both A and B, and since the current cell is ' ' we can show both
-	// using half-cell Unicode characters. In this case we just put A on top.
-	halfBlockRune := '▀'
-	style := currentCell.Style.WithBackground(*colorB).WithForeground(*colorA)
-	screen.SetCell(x, y, twin.StyledRune{Rune: halfBlockRune, Style: style})
+	if bottomColor != nil && topColor == nil {
+		// Color only the bottom half of the cell
+		style := currentCell.Style.WithForeground(*bottomColor)
+		screen.SetCell(x, y, twin.StyledRune{Rune: '▄', Style: style})
+		return
+	}
+
+	// Color both top and bottom halves
+	style := currentCell.Style.WithForeground(*topColor).WithBackground(*bottomColor)
+	screen.SetCell(x, y, twin.StyledRune{Rune: '▀', Style: style})
 }
