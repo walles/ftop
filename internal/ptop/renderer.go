@@ -238,11 +238,8 @@ func doRenderProcesses(
 		}
 	}
 
-	perProcessCpuBar := ui.NewLoadBar(0, perProcessTableWidth-1, cpuRamp)
-	perProcessMemBar := ui.NewLoadBar(0, perProcessTableWidth-1, memoryRamp)
-
-	perUserCpuBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp)
-	perUserMemBar := ui.NewLoadBar(perUserTableStart, perUserTableStart+perUserTableWidth-1, memoryRamp)
+	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(0, perProcessTableWidth-1, cpuRamp, memoryRamp)
+	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(perUserTableStart, perUserTableStart+perUserTableWidth-1, cpuRamp, memoryRamp)
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -277,15 +274,7 @@ func doRenderProcesses(
 					if maxRssKbPerProcess > 0 {
 						memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
 					}
-					if cpuFraction > memFraction {
-						// Draw memory last so it ends up in front of CPU
-						perProcessCpuBar.SetBgColor(&style, x, cpuFraction)
-						perProcessMemBar.SetBgColor(&style, x, memFraction)
-					} else {
-						// Draw CPU last so it ends up in front of memory
-						perProcessMemBar.SetBgColor(&style, x, memFraction)
-						perProcessCpuBar.SetBgColor(&style, x, cpuFraction)
-					}
+					perProcessCpuAndMemBar.SetBgColor(&style, x, cpuFraction, memFraction)
 				}
 				if index < len(users) {
 					user := users[index]
@@ -297,15 +286,7 @@ func doRenderProcesses(
 					if maxRssKbPerUser > 0 {
 						memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
 					}
-					if cpuFraction > memFraction {
-						// Draw memory last so it ends up in front of CPU
-						perUserCpuBar.SetBgColor(&style, x, cpuFraction)
-						perUserMemBar.SetBgColor(&style, x, memFraction)
-					} else {
-						// Draw CPU last so it ends up in front of memory
-						perUserMemBar.SetBgColor(&style, x, memFraction)
-						perUserCpuBar.SetBgColor(&style, x, cpuFraction)
-					}
+					perUserCpuAndMemBar.SetBgColor(&style, x, cpuFraction, memFraction)
 				}
 			}
 			screen.SetCell(firstScreenColumn+x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})

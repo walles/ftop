@@ -12,6 +12,11 @@ type LoadBar struct {
 	backwards bool
 }
 
+type OverlappingLoadBars struct {
+	a LoadBar
+	b LoadBar
+}
+
 // The ramp should go from 0.0 to 1.0
 func NewLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp) LoadBar {
 	return LoadBar{
@@ -28,6 +33,13 @@ func NewBackwardsLoadBar(leftXinclusive, rightXinclusive int, ramp ColorRamp) Lo
 		rightXinclusive: rightXinclusive,
 		ramp:            ramp,
 		backwards:       true,
+	}
+}
+
+func NewOverlappingLoadBars(leftXinclusive, rightXinclusive int, rampA ColorRamp, rampB ColorRamp) OverlappingLoadBars {
+	return OverlappingLoadBars{
+		a: NewLoadBar(leftXinclusive, rightXinclusive, rampA),
+		b: NewLoadBar(leftXinclusive, rightXinclusive, rampB),
 	}
 }
 
@@ -60,4 +72,16 @@ func (lb LoadBar) SetBgColor(updateMe *twin.Style, x int, loadFraction float64) 
 	color := lb.ramp.AtValue(barFraction)
 
 	*updateMe = updateMe.WithBackground(color)
+}
+
+func (olb OverlappingLoadBars) SetBgColor(updateMe *twin.Style, x int, loadFractionA, loadFractionB float64) {
+	if loadFractionA > loadFractionB {
+		// Render the shorter one (B) last, so it ends up in front of A
+		olb.a.SetBgColor(updateMe, x, loadFractionA)
+		olb.b.SetBgColor(updateMe, x, loadFractionB)
+	} else {
+		// Render the shorter one (A) last, so it ends up in front of B
+		olb.b.SetBgColor(updateMe, x, loadFractionB)
+		olb.a.SetBgColor(updateMe, x, loadFractionA)
+	}
 }
