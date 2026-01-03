@@ -28,6 +28,9 @@ func renderSysload(screen twin.Screen) {
 	width, _ := screen.Size()
 	runes := []rune(description)
 
+	brailleStartColumn := math.MaxInt
+	brailleEndColumn := -1
+
 	baseStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
 	for column := 2; column < width-2; column++ {
 		style := baseStyle
@@ -44,7 +47,26 @@ func renderSysload(screen twin.Screen) {
 			baseStyle = baseStyle.WithoutAttr(twin.AttrBold)
 		}
 
+		if isBraille(char) {
+			if column < brailleStartColumn {
+				brailleStartColumn = column
+			}
+			if column > brailleEndColumn {
+				brailleEndColumn = column
+			}
+		}
+
 		screen.SetCell(column, 1, twin.StyledRune{Rune: char, Style: style})
+	}
+
+	brailleRamp := ui.NewColorRamp(float64(brailleStartColumn), float64(brailleEndColumn),
+		twin.NewColorHex(0x555555), // FIXME: Get this from the theme
+		twin.NewColorHex(0xffffff), // FIXME: Get this from the theme
+	)
+	for column := brailleStartColumn; column <= brailleEndColumn; column++ {
+		cell := screen.GetCell(column, 1)
+		style := cell.Style.WithForeground(brailleRamp.AtInt(column)).WithAttr(twin.AttrBold)
+		screen.SetCell(column, 1, twin.StyledRune{Rune: cell.Rune, Style: style})
 	}
 
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
@@ -55,6 +77,10 @@ func renderSysload(screen twin.Screen) {
 	for column := 2; column < width-2; column++ {
 		loadBar.SetCellBackground(screen, column, 1, sysload.LoadAverage1M/float64(sysload.CpuCoresLogical))
 	}
+}
+
+func isBraille(r rune) bool {
+	return r >= 0x2800 && r <= 0x28FF
 }
 
 // Take one average and convert it into level 0-3, given a peak value
