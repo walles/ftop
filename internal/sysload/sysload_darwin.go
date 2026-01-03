@@ -52,7 +52,11 @@ int ptop_get_page_size(uint32_t *out_page_size) {
 */
 import "C"
 
-import "fmt"
+import (
+	"fmt"
+
+	"golang.org/x/sys/unix"
+)
 
 func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 	var c_page_size C.uint32_t
@@ -92,5 +96,21 @@ func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 	wanted_ram_pages := (pages_anonymous - pages_purgeable + pages_wired + pages_compressed)
 	usedBytes = wanted_ram_pages * page_size_bytes
 
+	return
+}
+
+func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
+	physicalCount, err := unix.SysctlUint32("hw.physicalcpu")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	logicalCount, err := unix.SysctlUint32("hw.logicalcpu")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	coresPhysical = int(physicalCount)
+	coresLogical = int(logicalCount)
 	return
 }
