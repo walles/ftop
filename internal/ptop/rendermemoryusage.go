@@ -2,6 +2,7 @@ package ptop
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/sysload"
@@ -37,6 +38,9 @@ func renderMemoryUsage(screen twin.Screen) {
 		}
 
 		style := twin.StyleDefault
+		if !slices.Contains([]rune{' ', '[', '/', ']'}, char) {
+			style = style.WithAttr(twin.AttrBold)
+		}
 		loadBar.SetBgColor(&style, column, ramUsePercent/100.0)
 
 		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: style})
