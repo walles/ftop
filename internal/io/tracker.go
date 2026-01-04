@@ -56,24 +56,37 @@ func NewTracker() *Tracker {
 }
 
 func (tracker *Tracker) update() {
+	sample := make(map[string]uint64)
+
 	networkStats, err := GetNetworkStats()
 	if err != nil {
 		log.Errorf("failed to get network stats: %v", err)
 		return
 	}
 
-	// FIXME: Get disk IO stats as well
+	diskStats, err := GetDiskStats()
+	if err != nil {
+		log.Errorf("failed to get disk stats: %v", err)
+		return
+	}
+
+	for deviceName, bytes := range networkStats {
+		sample[deviceName] = bytes
+	}
+	for deviceName, bytes := range diskStats {
+		sample[deviceName] = bytes
+	}
 
 	now := time.Now()
 
 	tracker.mutex.Lock()
 	if tracker.baseline == nil {
 		// First iteration
-		tracker.baseline = networkStats
+		tracker.baseline = sample
 		tracker.baselineTime = now
 	}
 
-	tracker.current = networkStats
+	tracker.current = sample
 	tracker.currentTime = now
 
 	tracker.mutex.Unlock()
