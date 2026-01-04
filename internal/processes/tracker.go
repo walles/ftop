@@ -16,7 +16,7 @@ type Tracker struct {
 	OnUpdate chan struct{} // Call GetProcesses() to get the updated list
 }
 
-func NewTracker() (*Tracker, error) {
+func NewTracker() *Tracker {
 	tracker := &Tracker{}
 	tracker.OnUpdate = make(chan struct{}, 1)
 
@@ -31,13 +31,13 @@ func NewTracker() (*Tracker, error) {
 		}
 	}()
 
-	return tracker, nil
+	return tracker
 }
 
 func (tracker *Tracker) update() {
 	procs, err := GetAll()
 	if err != nil {
-		// FIXME: How do we log this information to the user?
+		log.Errorf("failed to get process list: %v", err)
 		return
 	}
 

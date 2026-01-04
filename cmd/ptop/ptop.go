@@ -40,11 +40,7 @@ func internalMain() int {
 		log.PanicHandler("main", recover(), debug.Stack())
 	}()
 
-	procsTracker, err := processes.NewTracker()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error creating process tracker:", err)
-		return 1
-	}
+	procsTracker := processes.NewTracker()
 
 	events := make(chan twin.Event)
 	go func() {
