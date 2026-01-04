@@ -1,10 +1,7 @@
 package processes
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"os/exec"
 	"os/user"
 	"regexp"
 	"slices"
@@ -13,6 +10,7 @@ import (
 	"time"
 
 	"github.com/walles/ptop/internal/ui"
+	"github.com/walles/ptop/internal/util"
 )
 
 type Process struct {
@@ -256,56 +254,18 @@ func GetAll() ([]*Process, error) {
 		"-o",
 		"pid=,ppid=,rss=,lstart=,uid=,pcpu=,time=,%mem=,command=",
 	}
-	cmd := exec.Command(command[0], command[1:]...)
-
-	env := []string{}
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "LANG") || strings.HasPrefix(e, "LC_") {
-			continue
-		}
-		env = append(env, e)
-	}
-	cmd.Env = env
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get stdout pipe for ps: %v", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("Failed to start ps: %v", err)
-	}
-
-	scanner := bufio.NewScanner(stdout)
-	var readErr error
-	for scanner.Scan() {
-		line := scanner.Text()
-
+	err := util.Exec(command, func(line string) error {
 		proc, err := psLineToProcess(line)
 		if err != nil {
-			if readErr == nil {
-				readErr = fmt.Errorf("Failed to parse ps line: %v", err)
-			}
-			continue
+			return err
 		}
 
 		processes = append(processes, proc)
-	}
+		return nil
+	})
 
-	if err := scanner.Err(); err != nil {
-		if readErr == nil {
-			readErr = fmt.Errorf("Error reading ps output: %v", err)
-		}
-	}
-
-	if err := cmd.Wait(); err != nil {
-		if readErr == nil {
-			readErr = fmt.Errorf("ps command failed: %v", err)
-		}
-	}
-
-	if readErr != nil {
-		return nil, readErr
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get process list: %v", err)
 	}
 
 	// FIXME: Resolve parent-child relationships

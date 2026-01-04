@@ -37,7 +37,7 @@ func NewTracker() *Tracker {
 func (tracker *Tracker) update() {
 	procs, err := GetAll()
 	if err != nil {
-		log.Errorf("failed to get process list: %v", err)
+		log.Errorf("%v", err)
 		return
 	}
 
