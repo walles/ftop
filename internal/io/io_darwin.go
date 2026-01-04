@@ -18,7 +18,8 @@ import (
 // error counts, which is only one line per interface.
 var NETSTAT_IB_LINE_RE = regexp.MustCompile(`^([^ ]+).*[0-9]+ +([0-9]+) +[0-9]+ +[0-9]+ +([0-9]+) +[0-9]+$`)
 
-// FIXME: Report input and output separately for each device?
+// NOTE: iostat does not give us separate values for read and write, so we can't
+// tell them apart.
 
 func GetNetworkStats() (map[string]uint64, error) {
 	result := make(map[string]uint64)
