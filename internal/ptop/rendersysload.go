@@ -70,10 +70,6 @@ func renderSysload(screen twin.Screen) {
 	}
 }
 
-func isBraille(r rune) bool {
-	return r >= 0x2800 && r <= 0x28FF
-}
-
 // Take one average and convert it into level 0-3, given a peak value
 func averageToLevel(avg float64, peak float64) int {
 	level := 3 * avg / peak

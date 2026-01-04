@@ -138,7 +138,7 @@ First, consider redoing in Go using:
 1. Consider looks at startup, is there a jarring experience between the first
    two frames?
 1. Consider all FIXMEs
-1. Make sure goroutine panics are logged
+1. OK: Ensure goroutine panics are logged
 1. Implement a crash reporting screen
 1. Implement filtering
 1. Implement section switching with TAB

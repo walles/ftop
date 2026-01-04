@@ -1,8 +1,11 @@
 package processes
 
 import (
+	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/walles/ptop/internal/log"
 )
 
 type Tracker struct {
@@ -19,6 +22,9 @@ func NewTracker() (*Tracker, error) {
 
 	// Periodically update the process list
 	go func() {
+		defer func() {
+			log.PanicHandler("process tracker", recover(), debug.Stack())
+		}()
 		tracker.update() // Initial update
 		for range time.NewTicker(time.Second).C {
 			tracker.update()

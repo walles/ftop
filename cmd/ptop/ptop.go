@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/log"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/ptop"
 )
@@ -18,6 +20,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	defer onExit(screen)
+
+	defer func() {
+		log.PanicHandler("main", recover(), debug.Stack())
+	}()
+
 	procsTracker, err := processes.NewTracker()
 	if err != nil {
 		fmt.Println("Error creating process tracker:", err)
@@ -26,11 +34,17 @@ func main() {
 
 	events := make(chan twin.Event)
 	go func() {
+		defer func() {
+			log.PanicHandler("main/screen events poller", recover(), debug.Stack())
+		}()
 		for event := range screen.Events() {
 			events <- event
 		}
 	}()
 	go func() {
+		defer func() {
+			log.PanicHandler("main/processes tracker poller", recover(), debug.Stack())
+		}()
 		for range procsTracker.OnUpdate {
 			events <- processListUpdated{}
 		}
@@ -61,6 +75,18 @@ func main() {
 			}
 		}
 	}
+}
 
+func onExit(screen twin.Screen) {
 	screen.Close()
+
+	if !log.HasErrors() {
+		return
+	}
+
+	// FIXME: Print error reporting instructions with the log output
+
+	fmt.Fprint(os.Stderr, log.String())
+
+	os.Exit(1)
 }
