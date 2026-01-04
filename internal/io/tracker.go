@@ -43,7 +43,7 @@ func NewTracker() *Tracker {
 		tracker.update() // Initial update
 
 		// Get the first deltas quickly
-		time.Sleep(1 * time.Second)
+		time.Sleep(800 * time.Millisecond)
 		tracker.update()
 
 		// Periodic updates
