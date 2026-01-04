@@ -26,6 +26,18 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 		return cmp.Compare(s1.DeviceName, s2.DeviceName)
 	})
 
+	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	if screen.TerminalBackground() != nil {
+		colorBg = *screen.TerminalBackground()
+	}
+
+	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
+	colorBottom := colorTop.Mix(colorBg, 0.66)
+	// 1.0 = ignore the header line
+	firstIoLine := topRow + 2
+	lastIoLine := bottomRow - 1
+	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), colorTop, colorBottom)
+
 	for i, stat := range ioStats {
 		y := topRow + 2 + i
 
@@ -36,7 +48,13 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 
 		bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(stat.BytesPerSecond)), "B") + "B/s"
 
-		drawText(screen, 2, y, fmt.Sprintf("%-7s %7s", stat.DeviceName, bpsStringWithTrailingB), twin.StyleDefault)
+		drawText(
+			screen,
+			2,
+			y,
+			fmt.Sprintf("%-7s %7s", stat.DeviceName, bpsStringWithTrailingB),
+			twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y)),
+		)
 	}
 
 	maxPeak := 0.0
