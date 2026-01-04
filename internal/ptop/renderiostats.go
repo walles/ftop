@@ -39,5 +39,33 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 		drawText(screen, 2, y, fmt.Sprintf("%-7s %7s", stat.DeviceName, bpsStringWithTrailingB), twin.StyleDefault)
 	}
 
+	maxPeak := 0.0
+	for _, stat := range ioStats {
+		if stat.HighWatermark > maxPeak {
+			maxPeak = stat.HighWatermark
+		}
+	}
+
+	if maxPeak != 0.0 {
+		// Draw the load bars
+		colorLoadBarMin := twin.NewColorHex(0x000000)   // FIXME: Get this from the theme
+		colorLoadBarMaxIO := twin.NewColorHex(0xd0d020) // FIXME: Get this from the theme
+		ioRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxIO)
+
+		for i, stat := range ioStats {
+			y := topRow + 2 + i
+
+			bottomContentRow := bottomRow - 1
+			if y > bottomContentRow {
+				break
+			}
+
+			loadBar := ui.NewLoadBar(2, width-2, ioRamp)
+			for column := 2; column < width-2; column++ {
+				loadBar.SetCellBackground(screen, column, y, stat.BytesPerSecond/maxPeak)
+			}
+		}
+	}
+
 	renderFrame(screen, topRow, 0, bottomRow, width-1, "IO Stats")
 }
