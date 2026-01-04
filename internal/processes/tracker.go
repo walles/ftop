@@ -61,7 +61,7 @@ func (tracker *Tracker) update() {
 	}
 }
 
-func (tracker *Tracker) GetProcesses() []Process {
+func (tracker *Tracker) Processes() []Process {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 

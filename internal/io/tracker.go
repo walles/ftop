@@ -30,7 +30,9 @@ type Stat struct {
 }
 
 func NewTracker() *Tracker {
-	tracker := &Tracker{}
+	tracker := &Tracker{
+		peakThroughputs: make(map[string]float64),
+	}
 
 	// Periodically update the IO stats
 	go func() {
@@ -39,6 +41,12 @@ func NewTracker() *Tracker {
 		}()
 
 		tracker.update() // Initial update
+
+		// Get the first deltas quickly
+		time.Sleep(1 * time.Second)
+		tracker.update()
+
+		// Periodic updates
 		for range time.NewTicker(3 * time.Second).C {
 			tracker.update()
 		}

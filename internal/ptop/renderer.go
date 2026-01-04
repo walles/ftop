@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/io"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/ui"
 )
@@ -16,11 +17,11 @@ type userStats struct {
 	processCount int
 }
 
-func Render(processesRaw []processes.Process, screen twin.Screen) {
+func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
 	_, height := screen.Size()
 	screen.Clear()
 
-	renderOverview(screen)
+	renderOverview(ioStats, screen)
 
 	// 5 = room for the overview section at the top
 	prepAndRenderProcesses(processesRaw, screen, 5, height-1)
@@ -28,12 +29,12 @@ func Render(processesRaw []processes.Process, screen twin.Screen) {
 	screen.Show()
 }
 
-func renderOverview(screen twin.Screen) {
+func renderOverview(ioStats []io.Stat, screen twin.Screen) {
 	width, _ := screen.Size()
 
 	renderSysload(screen)
 	renderMemoryUsage(screen)
-	renderIOLoad(screen)
+	renderIOLoad(ioStats, screen)
 
 	renderFrame(screen, 0, 0, 4, width-1, "Overview")
 }

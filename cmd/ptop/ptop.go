@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/io"
 	"github.com/walles/ptop/internal/log"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/ptop"
@@ -41,6 +42,7 @@ func internalMain() int {
 	}()
 
 	procsTracker := processes.NewTracker()
+	ioTracker := io.NewTracker()
 
 	events := make(chan twin.Event)
 	go func() {
@@ -64,13 +66,13 @@ func internalMain() int {
 		event := <-events
 
 		if _, ok := event.(twin.EventResize); ok {
-			allProcesses := procsTracker.GetProcesses()
-			ptop.Render(allProcesses, screen)
+			allProcesses := procsTracker.Processes()
+			ptop.Render(allProcesses, ioTracker.Stats(), screen)
 		}
 
 		if _, ok := event.(processListUpdated); ok {
-			allProcesses := procsTracker.GetProcesses()
-			ptop.Render(allProcesses, screen)
+			allProcesses := procsTracker.Processes()
+			ptop.Render(allProcesses, ioTracker.Stats(), screen)
 		}
 
 		if event, ok := event.(twin.EventRune); ok {
