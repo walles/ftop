@@ -90,7 +90,7 @@ func GetDiskStats() (map[string]uint64, error) {
 
 	// Example: ["15.95", "2816998", "43889.27"]
 	//
-	// Numbers are: "KB/t", "xfrs" and "MB"
+	// Numbers are: "kB/t", "xfrs" and "MB"
 	numbers := strings.Fields(lines[2])
 	if len(numbers) != len(deviceNames)*3 {
 		return nil, fmt.Errorf(

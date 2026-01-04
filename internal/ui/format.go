@@ -55,7 +55,7 @@ func FormatMemory(bytes int64) string {
 		unit = "M"
 	case bytes >= KB:
 		number = float64(bytes) / float64(KB)
-		unit = "K"
+		unit = "k"
 	default:
 		number = float64(bytes)
 		unit = "B"
