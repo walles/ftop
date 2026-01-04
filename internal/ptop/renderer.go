@@ -19,7 +19,7 @@ type userStats struct {
 
 func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
 	const overviewHeight = 5 // Including borders
-	const ioStatsHeight = 7  // Including borders
+	const ioStatsHeight = 6  // Including borders
 
 	_, height := screen.Size()
 

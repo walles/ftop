@@ -85,5 +85,5 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 		}
 	}
 
-	renderFrame(screen, topRow, 0, bottomRow, width-1, "IO Stats")
+	renderFrame(screen, topRow, 0, bottomRow, width-1, "IO")
 }

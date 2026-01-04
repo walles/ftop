@@ -68,15 +68,15 @@ In order of number of use cases they support. For metrics that will go into some
 ## UI Sections and What They Should Contain
 
 - Overview Table
-  - System load graph / number
-  - Some RAM metric. Either RAM pressure, "used RAM" or something else.
-  - Some IO load metric
+  - OK: System load graph / number
+  - OK: Some RAM metric. Either RAM pressure, "used RAM" or something else.
+  - OK: Some IO load metric
 - Process Table
-  - Colored bars for both CPU and RAM usage per process
+  - OK: Colored bars for both CPU and RAM usage per process
 - User Table
-  - Colored bars for both CPU and RAM usage per user
+  - OK: Colored bars for both CPU and RAM usage per user
 - IO
-  - Device top list by IO usage, with colored load bars
+  - OK: Device top list by IO usage, with colored load bars
 - EXE
   - This section will contain the launched-binaries tree view
 - Help bar at the bottom with key press hints. Will turn into a filter bar on
