@@ -14,10 +14,24 @@ import (
 type processListUpdated struct{}
 
 func main() {
+	os.Exit(internalMain())
+}
+
+// Never call os.Exit() from inside of this function because that will cause us
+// not to shut down the screen properly.
+//
+// Returns the program's exit code.
+//
+// Example:
+//
+//	func main() {
+//	    os.Exit(internalMain())
+//	}
+func internalMain() int {
 	screen, err := twin.NewScreen()
 	if err != nil {
-		fmt.Println("Error creating screen:", err)
-		os.Exit(1)
+		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
+		return 1
 	}
 
 	defer onExit(screen)
@@ -28,8 +42,8 @@ func main() {
 
 	procsTracker, err := processes.NewTracker()
 	if err != nil {
-		fmt.Println("Error creating process tracker:", err)
-		os.Exit(1)
+		fmt.Fprintln(os.Stderr, "Error creating process tracker:", err)
+		return 1
 	}
 
 	events := make(chan twin.Event)
@@ -75,6 +89,8 @@ func main() {
 			}
 		}
 	}
+
+	return 0
 }
 
 func onExit(screen twin.Screen) {
