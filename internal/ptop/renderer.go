@@ -35,7 +35,12 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	screen.Clear()
 
 	renderOverview(screen, ioStats, overviewWidth)
-	renderIoTopList(screen, ioStats, overviewWidth, width-1)
+
+	// Draw IO stats to the right of the overview...
+	if ioStatsWidth > 0 {
+		// ... but only when there is room for it.
+		renderIoTopList(screen, ioStats, overviewWidth, width-1)
+	}
 
 	// 5 = room for the overview section at the top
 	prepAndRenderProcesses(processesRaw, screen, overviewHeight, overviewHeight+processesHeight-1)
