@@ -28,7 +28,7 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, righ
 	}
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.33)
+	colorBottom := colorTop.Mix(colorBg, 0.5)
 	// 1.0 = ignore the header line
 	firstIoLine := 1
 	lastIoLine := 3

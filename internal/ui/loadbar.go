@@ -75,7 +75,7 @@ func (lb LoadBar) SetCellBackground(screen twin.Screen, x int, y int, loadFracti
 		// Are we below the watermark?
 		if relativeX < (watermarkCells + 0.5) {
 			// Yep, color with a dimmed color
-			color := lb.ramp.colors[0].Mix(lb.ramp.colors[1], 0.3)
+			color := lb.ramp.colors[0].Mix(lb.ramp.colors[1], 0.2)
 			currentCell := screen.GetCell(x, y)
 			screen.SetCell(x, y, twin.StyledRune{
 				Rune:  currentCell.Rune,

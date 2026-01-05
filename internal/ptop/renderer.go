@@ -81,7 +81,7 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 	allInOneTable := toTable(processesByScore, users)
 	// 1=left frame, 5=per-process column separators, 2="||", 2=per-user column separators, 1=right frame
 	rowSpacing := 1 + 5 + 2 + 2 + 1
-	widths := ui.ColumnWidths(allInOneTable, width-rowSpacing)
+	widths := ui.ColumnWidths(allInOneTable, width-rowSpacing, false) // Don't grow the PID column, that looks weird
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 	rightPerProcessBorderColumn := perProcessTableWidth + 1 // +1 for the left frame line
