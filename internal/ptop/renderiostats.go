@@ -17,7 +17,7 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 	drawText(screen, 2, topRow+1, "Device  Bytes/s", twin.StyleDefault.WithAttr(twin.AttrBold))
 
 	slices.SortFunc(ioStats, func(s1, s2 io.Stat) int {
-		comparison := cmp.Compare(s1.BytesPerSecond, s2.BytesPerSecond)
+		comparison := cmp.Compare(s1.HighWatermark, s2.HighWatermark)
 		if comparison != 0 {
 			return -comparison
 		}

@@ -1,6 +1,7 @@
 package io
 
 import (
+	"maps"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -13,10 +14,10 @@ type Tracker struct {
 
 	// Maps are from device names to the number of bytes transferred since
 	// whenever.
-	baseline map[string]uint64
+	previous map[string]uint64
 	current  map[string]uint64
 
-	baselineTime time.Time
+	previousTime time.Time
 	currentTime  time.Time
 
 	// Highest throughput seen so far per device
@@ -70,20 +71,20 @@ func (tracker *Tracker) update() {
 		return
 	}
 
-	for deviceName, bytes := range networkStats {
-		sample[deviceName] = bytes
-	}
-	for deviceName, bytes := range diskStats {
-		sample[deviceName] = bytes
-	}
+	maps.Copy(sample, networkStats)
+	maps.Copy(sample, diskStats)
 
 	now := time.Now()
 
 	tracker.mutex.Lock()
-	if tracker.baseline == nil {
+
+	tracker.previousTime = tracker.currentTime
+	tracker.previous = tracker.current
+
+	if tracker.previous == nil {
 		// First iteration
-		tracker.baseline = sample
-		tracker.baselineTime = now
+		tracker.previous = sample
+		tracker.previousTime = now
 	}
 
 	tracker.current = sample
@@ -97,15 +98,15 @@ func (tracker *Tracker) Stats() []Stat {
 	defer tracker.mutex.Unlock()
 
 	var returnMe []Stat
-	elapsedSeconds := tracker.currentTime.Sub(tracker.baselineTime).Seconds()
+	elapsedSeconds := tracker.currentTime.Sub(tracker.previousTime).Seconds()
 	for deviceName, currentBytes := range tracker.current {
-		baselineBytes, ok := tracker.baseline[deviceName]
+		previousBytes, ok := tracker.previous[deviceName]
 		if !ok {
-			baselineBytes = 0
+			previousBytes = 0
 		}
 		bytesPerSecond := 0.0
 		if elapsedSeconds > 0 {
-			bytesPerSecond = float64(currentBytes-baselineBytes) / elapsedSeconds
+			bytesPerSecond = float64(currentBytes-previousBytes) / elapsedSeconds
 		}
 
 		peakThroughput := tracker.peakThroughputs[deviceName]
