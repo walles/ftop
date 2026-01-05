@@ -9,7 +9,7 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderMemoryUsage(screen twin.Screen) {
+func renderMemoryUsage(screen twin.Screen, width int) {
 	sysload, err := sysload.GetSysload()
 	if err != nil {
 		// FIXME: Handle this better. What would the user want here?
@@ -26,8 +26,6 @@ func renderMemoryUsage(screen twin.Screen) {
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
 	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
-
-	width, _ := screen.Size()
 
 	runes := []rune(description)
 	for column := 2; column < width-2; column++ {

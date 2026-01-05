@@ -9,7 +9,7 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderSysload(screen twin.Screen) {
+func renderSysload(screen twin.Screen, width int) {
 	sysload, err := sysload.GetSysload()
 	if err != nil {
 		// FIXME: Handle this better. What would the user want here?
@@ -45,8 +45,6 @@ func renderSysload(screen twin.Screen) {
 	x += drawText(screen, x, y, "]", twin.StyleDefault)
 
 	// Text in place, now color the braille graph
-
-	width, _ := screen.Size()
 
 	brailleRamp := ui.NewColorRamp(float64(brailleStartColumn), float64(brailleEndColumn),
 		twin.NewColorHex(0x555555), // FIXME: Get this from the theme

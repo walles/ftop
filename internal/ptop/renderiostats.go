@@ -11,6 +11,10 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
+func newRenderIoStats(screen twin.Screen, ioStats []io.Stat, leftColumn int, rightColumn int) {
+	renderFrame(screen, 0, leftColumn, 4, rightColumn, "IO")
+}
+
 func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow int) {
 	width, _ := screen.Size()
 

@@ -9,7 +9,7 @@ import (
 )
 
 // Renders max current device BPS vs highest measured BPS
-func renderIOLoad(ioStats []io.Stat, screen twin.Screen) {
+func renderIOLoad(ioStats []io.Stat, screen twin.Screen, width int) {
 	maxBytesPerSecond := 0.0
 	maxHighWatermark := 0.0
 	maxDevice := "N/A"

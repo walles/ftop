@@ -22,14 +22,21 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	const ioStatsHeight = 6          // Including borders
 	const launchedBinariesHeight = 7 // Including borders
 
-	_, height := screen.Size()
+	width, height := screen.Size()
+	ioStatsWidth := 25                    // Including borders
+	overviewWidth := width - ioStatsWidth // Including borders
+	if overviewWidth < 20 {
+		overviewWidth = width
+		ioStatsWidth = 0
+	}
 
 	// Processes use the remaining height
 	processesHeight := height - overviewHeight - ioStatsHeight - launchedBinariesHeight
 
 	screen.Clear()
 
-	renderOverview(ioStats, screen)
+	renderOverview(screen, ioStats, overviewWidth)
+	newRenderIoStats(screen, ioStats, overviewWidth, width-1)
 
 	// 5 = room for the overview section at the top
 	prepAndRenderProcesses(processesRaw, screen, overviewHeight, overviewHeight+processesHeight-1)
@@ -41,14 +48,12 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	screen.Show()
 }
 
-func renderOverview(ioStats []io.Stat, screen twin.Screen) {
-	width, _ := screen.Size()
+func renderOverview(screen twin.Screen, ioStats []io.Stat, overviewWidth int) {
+	renderSysload(screen, overviewWidth)
+	renderMemoryUsage(screen, overviewWidth)
+	renderIOLoad(ioStats, screen, overviewWidth)
 
-	renderSysload(screen)
-	renderMemoryUsage(screen)
-	renderIOLoad(ioStats, screen)
-
-	renderFrame(screen, 0, 0, 4, width-1, "Overview")
+	renderFrame(screen, 0, 0, 4, overviewWidth-1, "Overview")
 }
 
 // Top and bottom row values are inclusive
