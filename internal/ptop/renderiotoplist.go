@@ -11,15 +11,7 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
-func newRenderIoStats(screen twin.Screen, ioStats []io.Stat, leftColumn int, rightColumn int) {
-	renderFrame(screen, 0, leftColumn, 4, rightColumn, "IO")
-}
-
-func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow int) {
-	width, _ := screen.Size()
-
-	drawText(screen, 2, topRow+1, "Device  Bytes/s", twin.StyleDefault.WithAttr(twin.AttrBold))
-
+func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, rightColumn int) {
 	slices.SortFunc(ioStats, func(s1, s2 io.Stat) int {
 		comparison := cmp.Compare(s1.HighWatermark, s2.HighWatermark)
 		if comparison != 0 {
@@ -30,7 +22,7 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 		return cmp.Compare(s1.DeviceName, s2.DeviceName)
 	})
 
-	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	colorBg := twin.NewColorHex(0x000000) // FIXME: Get this fallback from the theme
 	if screen.TerminalBackground() != nil {
 		colorBg = *screen.TerminalBackground()
 	}
@@ -38,14 +30,14 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.33)
 	// 1.0 = ignore the header line
-	firstIoLine := topRow + 2
-	lastIoLine := bottomRow - 1
+	firstIoLine := 1
+	lastIoLine := 3
 	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), colorTop, colorBottom)
 
 	for i, stat := range ioStats {
-		y := topRow + 2 + i
+		y := i + 1
 
-		bottomContentRow := bottomRow - 1
+		bottomContentRow := lastIoLine
 		if y > bottomContentRow {
 			break
 		}
@@ -54,7 +46,7 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 
 		drawText(
 			screen,
-			2,
+			leftColumn+2,
 			y,
 			fmt.Sprintf("%-7s %7s", stat.DeviceName, bpsStringWithTrailingB),
 			twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y)),
@@ -75,20 +67,20 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 		ioRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxIO)
 
 		for i, stat := range ioStats {
-			y := topRow + 2 + i
+			y := i + 1
 
-			bottomContentRow := bottomRow - 1
+			bottomContentRow := lastIoLine
 			if y > bottomContentRow {
 				break
 			}
 
-			loadBar := ui.NewLoadBar(2, width-2, ioRamp)
+			loadBar := ui.NewLoadBar(leftColumn+2, rightColumn-1, ioRamp)
 			loadBar.SetWatermark(stat.HighWatermark / maxPeak)
-			for column := 2; column < width-2; column++ {
+			for column := leftColumn + 2; column < rightColumn-1; column++ {
 				loadBar.SetCellBackground(screen, column, y, stat.BytesPerSecond/maxPeak)
 			}
 		}
 	}
 
-	renderFrame(screen, topRow, 0, bottomRow, width-1, "IO")
+	renderFrame(screen, 0, leftColumn, 4, rightColumn, "IO")
 }

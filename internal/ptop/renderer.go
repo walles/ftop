@@ -19,31 +19,28 @@ type userStats struct {
 
 func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
 	const overviewHeight = 5         // Including borders
-	const ioStatsHeight = 6          // Including borders
 	const launchedBinariesHeight = 7 // Including borders
 
 	width, height := screen.Size()
 	ioStatsWidth := 25                    // Including borders
 	overviewWidth := width - ioStatsWidth // Including borders
-	if overviewWidth < 20 {
+	if overviewWidth < 63 {
 		overviewWidth = width
 		ioStatsWidth = 0
 	}
 
 	// Processes use the remaining height
-	processesHeight := height - overviewHeight - ioStatsHeight - launchedBinariesHeight
+	processesHeight := height - overviewHeight - launchedBinariesHeight
 
 	screen.Clear()
 
 	renderOverview(screen, ioStats, overviewWidth)
-	newRenderIoStats(screen, ioStats, overviewWidth, width-1)
+	renderIoTopList(screen, ioStats, overviewWidth, width-1)
 
 	// 5 = room for the overview section at the top
 	prepAndRenderProcesses(processesRaw, screen, overviewHeight, overviewHeight+processesHeight-1)
 
-	renderIoStats(ioStats, screen, overviewHeight+processesHeight, overviewHeight+processesHeight+ioStatsHeight-1)
-
-	renderLaunchedBinaries(screen, overviewHeight+processesHeight+ioStatsHeight, height-1)
+	renderLaunchedBinaries(screen, overviewHeight+processesHeight, height-1)
 
 	screen.Show()
 }
