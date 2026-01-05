@@ -44,11 +44,19 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, righ
 
 		bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(stat.BytesPerSecond)), "B") + "B/s"
 
-		drawText(
+		paddedDeviceName := fmt.Sprintf("%-7s ", stat.DeviceName)
+		x := leftColumn + 2
+		x += drawText(
 			screen,
-			leftColumn+2,
+			x,
 			y,
-			fmt.Sprintf("%-7s %7s", stat.DeviceName, bpsStringWithTrailingB),
+			paddedDeviceName,
+			twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y)).WithAttr(twin.AttrBold))
+		x += drawText(
+			screen,
+			x,
+			y,
+			fmt.Sprintf("%7s", bpsStringWithTrailingB),
 			twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y)),
 		)
 	}
