@@ -86,7 +86,17 @@ func (lb LoadBar) SetCellBackground(screen twin.Screen, x int, y int, loadFracti
 		return
 	}
 
-	barFraction := relativeX / cellsToColor
+	var barFraction float64
+
+	// If we have two cells to color, 0 and 1, and relativeX can be either 0 or
+	// 1, we want barFraction to be either 0.0 or 1.0.
+	if cellsToColor > 1.0 {
+		barFraction = relativeX / (cellsToColor - 1.0)
+	} else {
+		// We have at most one cell to color, anti-alias it
+		barFraction = relativeX
+	}
+
 	color := lb.ramp.AtValue(barFraction)
 
 	currentCell := screen.GetCell(x, y)

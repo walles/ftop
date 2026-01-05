@@ -14,7 +14,7 @@ func Equal[V comparable](t *testing.T, actual, expected V) {
 	}
 }
 
-func SliceEqual[V comparable](t *testing.T, actual, expected []V) {
+func SlicesEqual[V comparable](t *testing.T, actual, expected []V) {
 	t.Helper()
 
 	if !reflect.DeepEqual(expected, actual) {
