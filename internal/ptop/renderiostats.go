@@ -32,7 +32,7 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 	}
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.66)
+	colorBottom := colorTop.Mix(colorBg, 0.33)
 	// 1.0 = ignore the header line
 	firstIoLine := topRow + 2
 	lastIoLine := bottomRow - 1
@@ -79,6 +79,7 @@ func renderIoStats(ioStats []io.Stat, screen twin.Screen, topRow int, bottomRow 
 			}
 
 			loadBar := ui.NewLoadBar(2, width-2, ioRamp)
+			loadBar.SetWatermark(stat.HighWatermark / maxPeak)
 			for column := 2; column < width-2; column++ {
 				loadBar.SetCellBackground(screen, column, y, stat.BytesPerSecond/maxPeak)
 			}

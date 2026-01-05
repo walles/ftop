@@ -8,6 +8,8 @@ type LoadBar struct {
 
 	ramp ColorRamp
 
+	watermark float64
+
 	// Backwards means starting on the right and going left
 	backwards bool
 }
@@ -43,6 +45,10 @@ func NewOverlappingLoadBars(leftXinclusive, rightXinclusive int, rampA ColorRamp
 	}
 }
 
+func (lb *LoadBar) SetWatermark(watermark float64) {
+	lb.watermark = watermark
+}
+
 // Sets the background color of a cell based on the current load.
 //
 // Load fraction is between 0.0 and 1.0.
@@ -55,6 +61,7 @@ func (lb LoadBar) SetCellBackground(screen twin.Screen, x int, y int, loadFracti
 
 	// How many cells should be colored?
 	cellsToColor := float64(width) * loadFraction
+	watermarkCells := float64(width) * lb.watermark
 
 	// How far into the load bar are we?
 	relativeX := float64(x - lb.leftXinclusive)
@@ -65,6 +72,17 @@ func (lb LoadBar) SetCellBackground(screen twin.Screen, x int, y int, loadFracti
 	// If we're currently at cell 0 (relativeX = 0.0), we should color it if
 	// cellsToColor >= 0.5. Or in other words, bail if cellsToColor < 0.5.
 	if cellsToColor < (relativeX + 0.5) {
+		// Are we below the watermark?
+		if relativeX < (watermarkCells + 0.5) {
+			// Yep, color with a dimmed color
+			color := lb.ramp.colors[0].Mix(lb.ramp.colors[1], 0.3)
+			currentCell := screen.GetCell(x, y)
+			screen.SetCell(x, y, twin.StyledRune{
+				Rune:  currentCell.Rune,
+				Style: currentCell.Style.WithBackground(color),
+			})
+		}
+
 		return
 	}
 

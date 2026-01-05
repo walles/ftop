@@ -132,7 +132,8 @@ First, consider redoing in Go using:
   overrides (at least) process listing and uses `ps` instead on not-Windows.
 
 1. Get the UI structure right with plain text only. Verify it works with
-   terminal window resizing. Pressing ESC / q should exit.
+   terminal window resizing, even at really small sizes. Pressing ESC / q should
+   exit.
 1. Consider performance without -race, are we using too much CPU ourselves?
 1. Consider startup time without -race, is it acceptable?
 1. Consider looks at startup, is there a jarring experience between the first
