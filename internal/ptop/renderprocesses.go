@@ -14,18 +14,32 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 	height := 1 + bottomRow - topRow
 
 	// Decide on section heights
-	heightWithoutBorders := height - 2 // 2 = top and bottom frame lines
+	processesHeightWithoutBorders := height - 2 // 2 = top and bottom frame lines
+
+	// The -1s are for the separator lines between sections
+	usersHeightWithoutBorders := processesHeightWithoutBorders/2 - 1
+	//binariesHeightWithoutBorders := processesHeightWithoutBorders - usersHeightWithoutBorders - 1
 
 	// Collect data to show
-	heightWithoutHeaders := heightWithoutBorders - 1
+	procsHeightWithoutHeaders := processesHeightWithoutBorders - 1
 	processesByScore := ProcessesByScore(processesRaw)
-	if len(processesByScore) > heightWithoutHeaders-1 {
-		processesByScore = processesByScore[:heightWithoutHeaders]
+	if len(processesByScore) > procsHeightWithoutHeaders-1 {
+		processesByScore = processesByScore[:procsHeightWithoutHeaders]
 	}
+
+	usersHeightWithoutHeaders := usersHeightWithoutBorders - 1
 	users := UsersByScore(processesRaw)
-	if len(users) > heightWithoutHeaders-1 {
-		users = users[:heightWithoutHeaders]
+	if len(users) > usersHeightWithoutHeaders-1 {
+		users = users[:usersHeightWithoutHeaders]
 	}
+
+	/*
+		binariesHeightWithoutHeaders := binariesHeightWithoutBorders - 1
+		binaries := BinariesByScore(processesRaw)
+		if len(binaries) > binariesHeightWithoutHeaders-1 {
+			binaries = binaries[:binariesHeightWithoutHeaders]
+		}
+	*/
 
 	// Figure out column widths
 	allInOneTable := toTable(processesByScore, users)
@@ -44,7 +58,13 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 
 	renderFrame(screen, topRow, 0, bottomRow, rightPerProcessBorderColumn, "By process")
 	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)
-	renderFrame(screen, topRow, leftPerUserBorderColumn, bottomRow, rightPerUserBorderColumn, "By user")
+
+	usersBottomBorder := topRow + 1 + usersHeightWithoutBorders
+	renderFrame(screen, topRow, leftPerUserBorderColumn, usersBottomBorder, rightPerUserBorderColumn, "By user")
+
+	binariesTopRow := usersBottomBorder + 1
+	binariesBottomRow := bottomRow
+	renderFrame(screen, binariesTopRow, leftPerUserBorderColumn, binariesBottomRow, rightPerUserBorderColumn, "By binary")
 }
 
 func doRenderProcesses(
