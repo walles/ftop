@@ -406,3 +406,62 @@ func TestGetCommandPerl(t *testing.T) {
 		"perl",
 	)
 }
+
+func TestMacosApp(t *testing.T) {
+	// Dock external extra XPC service
+	dock := strings.Join([]string{
+		"/System",
+		"Library",
+		"CoreServices",
+		"Dock.app",
+		"Contents",
+		"XPCServices",
+		"com.apple.dock.external.extra.xpc",
+		"Contents",
+		"MacOS",
+		"com.apple.dock.external.extra",
+	}, "/")
+	assert.Equal(t, cmdlineToCommand(dock), "Dock/extra")
+
+	// Firefox plugin-container nested .app
+	firefox := strings.Join([]string{
+		"/Applications",
+		"Firefox.app",
+		"Contents",
+		"MacOS",
+		"plugin-container.app",
+		"Contents",
+		"MacOS",
+		"plugin-container",
+	}, "/")
+	assert.Equal(t, cmdlineToCommand(firefox), "Firefox/plugin-container")
+
+	// CodeHelper(Renderer)
+	codeHelper := strings.Join([]string{
+		"/Applications",
+		"VisualStudioCode.app",
+		"Contents",
+		"Frameworks",
+		"CodeHelper(Renderer).app",
+		"Contents",
+		"MacOS",
+		"CodeHelper(Renderer)",
+	}, "/")
+	assert.Equal(t, cmdlineToCommand(codeHelper), "CodeHelper(Renderer)")
+
+	// iTerm without prefix (human-friendly command)
+	assert.Equal(t, cmdlineToCommand("/Applications/iTerm.app/Contents/MacOS/iTerm2"), "iTerm2")
+
+	// IDS.framework without duplicating name
+	ids := strings.Join([]string{
+		"/System",
+		"Library",
+		"PrivateFrameworks",
+		"IDS.framework",
+		"identityservicesd.app",
+		"Contents",
+		"MacOS",
+		"identityservicesd",
+	}, "/")
+	assert.Equal(t, cmdlineToCommand(ids), "IDS/identityservicesd")
+}

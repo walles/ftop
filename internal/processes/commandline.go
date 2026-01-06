@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/walles/ptop/internal/log"
 )
@@ -246,7 +247,31 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil))
 	}
 
-	return command
+	// macOS app / framework prefixing and human-friendly shortening
+	appNamePrefix := getAppNamePrefix(cmdline)
+	if isHumanFriendly(command) {
+		appNamePrefix = ""
+	}
+
+	if len(command) < 25 {
+		return appNamePrefix + command
+	}
+
+	commandSplit := strings.Split(command, ".")
+	if len(commandSplit) > 1 {
+		commandSuggestion := ""
+		last := commandSplit[len(commandSplit)-1]
+		if len(last) > 4 {
+			commandSuggestion = last
+		} else if len(commandSplit) >= 2 {
+			commandSuggestion = commandSplit[len(commandSplit)-2]
+		}
+		if len(commandSuggestion) >= 5 {
+			command = commandSuggestion
+		}
+	}
+
+	return appNamePrefix + command
 }
 
 // If successful, just return the result. If unsuccessful log the problem and
@@ -258,4 +283,45 @@ func faillog(cmdline string, parseResult *string) string {
 
 	log.Infof("Parsing failed, using fallback: <%s>", cmdline)
 	return filepath.Base(cmdlineToSlice(cmdline, exists)[0])
+}
+
+// AKA "Does this command contain any capital letters?"
+func isHumanFriendly(command string) bool {
+	for _, r := range command {
+		if unicode.IsUpper(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// On macOS, get which app this command is part of
+func getAppNamePrefix(cmdline string) string {
+	commandWithPath := cmdlineToSlice(cmdline, exists)[0]
+	command := filepath.Base(commandWithPath)
+	parts := strings.Split(commandWithPath, "/")
+	for _, part := range parts {
+		if !strings.Contains(part, ".") {
+			continue
+		}
+
+		idx := strings.LastIndex(part, ".")
+		if idx <= 0 || idx+1 >= len(part) {
+			continue
+		}
+
+		name := part[:idx]
+		suffix := part[idx+1:]
+		if suffix != "app" && suffix != "framework" {
+			continue
+		}
+
+		if name == command {
+			continue
+		}
+
+		return name + "/"
+	}
+
+	return ""
 }
