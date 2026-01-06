@@ -173,7 +173,22 @@ func cmdlineToCommand(cmdline string) string {
 
 	command := filepath.Base(cmdlineToSlice(cmdline, exists)[0])
 
+	if command == "sudo" {
+		return faillog(cmdline, parseSudoCommand(cmdline))
+	}
+
 	// FIXME: Do VM specific parsing here
 
 	return command
+}
+
+// If successful, just return the result. If unsuccessful log the problem and
+// return the VM name.
+func faillog(cmdline string, parseResult *string) string {
+	if parseResult != nil {
+		return *parseResult
+	}
+
+	log.Infof("Parsing failed, using fallback: <%s>", cmdline)
+	return filepath.Base(cmdlineToSlice(cmdline, exists)[0])
 }
