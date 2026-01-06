@@ -15,8 +15,41 @@ var LINUX_KERNEL_PROC = regexp.MustCompile(`^\[[^/ ]+/?[^/ ]+\]$`)
 // Match "(python2.7)", no grouping
 var OSX_PARENTHESIZED_PROC = regexp.MustCompile(`^\\([^()]+\\)$`)
 
+// Extract a potential file path from the end of a string.
+//
+// The coalescing logic will then base decisions on whether this file path
+// exists or not.
 func getTrailingAbsolutePath(partialCmdline string) *string {
-	return nil
+
+	startIndex := -1
+	if strings.HasPrefix(partialCmdline, "/") {
+		startIndex = 0
+	} else if strings.HasPrefix(partialCmdline, "-") {
+		equalsSlashIndex := strings.Index(partialCmdline, "=/")
+		if equalsSlashIndex == -1 {
+			// No =/ in the string, so we're not looking at -Djava.io.tmpdir=/tmp
+			return nil
+		}
+
+		// Start at the slash after the equals sign
+		startIndex = equalsSlashIndex + 1
+	}
+
+	if startIndex == -1 {
+		// Start not found, this is not a path
+		return nil
+	}
+
+	colonSlashIndex := strings.LastIndex(partialCmdline[startIndex:], ":/")
+	if colonSlashIndex == -1 {
+		s := partialCmdline[startIndex:]
+		return &s
+	}
+
+	// strings.LastIndex() on the sliced string returned an index relative to
+	// the slice, so add startIndex to get the index in the original string.
+	absolute := partialCmdline[startIndex+colonSlashIndex+1:]
+	return &absolute
 }
 
 // Two or more (previously) space separated command line parts should be
