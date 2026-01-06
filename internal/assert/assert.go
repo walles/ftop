@@ -19,6 +19,6 @@ func SlicesEqual[V comparable](t *testing.T, actual, expected []V) {
 
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf(
-			"\nExpected: %v\nActual:   %v", expected, actual)
+			"\nExpected: %#v\nActual:   %#v", expected, actual)
 	}
 }
