@@ -57,10 +57,10 @@ func renderOverview(screen twin.Screen, ioStats []io.Stat, overviewWidth int) {
 }
 
 func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, rightColumn int, title string) {
-	colorTitle := twin.NewColorHex(0xffc0c0)   // FIXME: Get this from the theme
-	colorDivider := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
+	colorTitle := twin.NewColorHex(0xffc0c0) // FIXME: Get this from the theme
+	colorFrame := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
 
-	dividerStyle := twin.StyleDefault.WithForeground(colorDivider)
+	dividerStyle := twin.StyleDefault.WithForeground(colorFrame)
 
 	for col := leftColumn + 1; col < rightColumn; col++ {
 		screen.SetCell(col, topRow, twin.StyledRune{Rune: '─', Style: dividerStyle})

@@ -253,7 +253,7 @@ func toTable(processesByScore []processes.Process, usersByScore []userStats) [][
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
 func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
-	colorText := twin.NewColorHex(0xa0c0a0)       // FIXME: Get this from the theme
+	colorText := twin.NewColorHex(0x7070a0)       // FIXME: Get this from the theme. Same as the frame color.
 	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
 
 	// Turn up the bottom color this much so it's visible in the small legend
