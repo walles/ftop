@@ -46,7 +46,20 @@ func ProcessesByScore(procs []processes.Process) []processes.Process {
 		if primaryCmp != 0 {
 			return -primaryCmp
 		}
-		return -cmp.Compare(secondaryI, secondaryJ)
+
+		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
+		if secondaryCmp != 0 {
+			return -secondaryCmp
+		}
+
+		// Fall back to command name comparison for stability at the top of the list
+		nameCmp := cmp.Compare(pi.Command, pj.Command)
+		if nameCmp != 0 {
+			return nameCmp
+		}
+
+		// Finally, sort by PID to get a stable sort
+		return cmp.Compare(pi.Pid, pj.Pid)
 	})
 
 	return sorted

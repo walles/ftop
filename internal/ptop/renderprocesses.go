@@ -253,6 +253,7 @@ func toTable(processesByScore []processes.Process, usersByScore []userStats) [][
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
 func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
+	colorText := twin.NewColorHex(0xa0c0a0)       // FIXME: Get this from the theme
 	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
 
 	// Turn up the bottom color this much so it's visible in the small legend
@@ -267,16 +268,18 @@ func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinRAM, colorLoadBarMaxRAM)
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinCPU, colorLoadBarMaxCPU)
 
-	legendX := rightmostFrameBorder - 9 // Leave some space to the right
-	drawText(screen, legendX, row, " CPU RAM ", twin.StyleDefault)
+	const text = " Legend: CPU RAM "
+	const barsOffset = 9
+	legendX := rightmostFrameBorder - len(text) // Leave some space to the right
+	drawText(screen, legendX, row, text, twin.StyleDefault.WithForeground(colorText))
 
-	cpuLoadBar := ui.NewLoadBar(legendX, legendX+3, cpuRamp)
-	cpuLoadBar.SetCellBackground(screen, legendX+1, row, 1.0)
-	cpuLoadBar.SetCellBackground(screen, legendX+2, row, 1.0)
-	cpuLoadBar.SetCellBackground(screen, legendX+3, row, 1.0)
+	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset, row, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+1, row, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+2, row, 1.0)
 
-	memLoadBar := ui.NewLoadBar(legendX+4, legendX+7, memoryRamp)
-	memLoadBar.SetCellBackground(screen, legendX+5, row, 1.0)
-	memLoadBar.SetCellBackground(screen, legendX+6, row, 1.0)
-	memLoadBar.SetCellBackground(screen, legendX+7, row, 1.0)
+	memLoadBar := ui.NewLoadBar(legendX+barsOffset+4, legendX+barsOffset+6, memoryRamp)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+4, row, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+5, row, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+6, row, 1.0)
 }
