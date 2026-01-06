@@ -177,6 +177,14 @@ func cmdlineToCommand(cmdline string) string {
 	}
 
 	command := filepath.Base(cmdlineToSlice(cmdline, exists)[0])
+
+	// Electron embeds inside .app bundles; clarify to app name
+	if command == "Electron" {
+		clarified := tryClarifyElectron(cmdline)
+		if clarified != nil && *clarified != "" {
+			return *clarified
+		}
+	}
 	if strings.HasPrefix(command, "python") || command == "Python" {
 		return faillog(cmdline, parsePythonCommand(cmdline))
 	}
@@ -324,4 +332,18 @@ func getAppNamePrefix(cmdline string) string {
 	}
 
 	return ""
+}
+
+// If any path component of the command ends with .app, return that component without the suffix
+func tryClarifyElectron(cmdline string) *string {
+	commandWithPath := cmdlineToSlice(cmdline, exists)[0]
+	parts := strings.Split(commandWithPath, "/")
+	for _, part := range parts {
+		if strings.HasSuffix(part, ".app") {
+			name := part[:len(part)-4]
+			return &name
+		}
+	}
+
+	return nil
 }

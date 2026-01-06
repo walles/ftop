@@ -465,3 +465,17 @@ func TestMacosApp(t *testing.T) {
 	}, "/")
 	assert.Equal(t, cmdlineToCommand(ids), "IDS/identityservicesd")
 }
+
+func TestGetCommandElectronMacos(t *testing.T) {
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/Applications/VisualStudioCode.app/Contents/MacOS/Electron",
+			"--ms-enable-electron-run-as-node",
+			"/Users/johan/.vscode/extensions/ms-python.vscode-pylance-2021.12.2/dist/server.bundle.js",
+			"--cancellationReceive=file:d6fe53594ec46a8bb986ad058c985f56d309e7bf19",
+			"--node-ipc",
+			"--clientProcessId=42516",
+		}, " ")),
+		"VisualStudioCode",
+	)
+}
