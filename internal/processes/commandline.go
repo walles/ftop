@@ -140,8 +140,19 @@ func exists(path string) bool {
 //
 // The exists function is called to check if a path exists on the filesystem.
 func cmdlineToSlice(cmdline string, exists func(string) bool) []string {
-	// FIXME: Handle paths with spaces in them
-	return strings.Fields(cmdline)
+	baseSplit := strings.Split(cmdline, " ")
+	if len(baseSplit) == 1 {
+		return baseSplit
+	}
+
+	merged := make([]string, 0, len(baseSplit))
+	for i := 0; i < len(baseSplit); {
+		cc := coalesceCount(baseSplit[i:], exists)
+		merged = append(merged, strings.Join(baseSplit[i:i+cc], " "))
+		i += cc
+	}
+
+	return merged
 }
 
 // Extracts the command from the command line.
