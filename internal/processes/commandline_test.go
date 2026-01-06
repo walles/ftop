@@ -578,3 +578,252 @@ func TestGetCommandUnicode(t *testing.T) {
 	// Shell running a unicode script path -> basename
 	assert.Equal(t, cmdlineToCommand("bash /some/path/ユニコード.sh"), "ユニコード.sh")
 }
+
+func TestGetCommandJava(t *testing.T) {
+	// Basics
+	assert.Equal(t, cmdlineToCommand("java"), "java")
+	assert.Equal(t, cmdlineToCommand("java -version"), "java")
+	assert.Equal(t, cmdlineToCommand("java -help"), "java")
+
+	// Class and jar
+	assert.Equal(t, cmdlineToCommand("java SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java x.y.SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -jar flaska.jar"), "flaska.jar")
+	assert.Equal(t, cmdlineToCommand("java -jar /a/b/flaska.jar"), "flaska.jar")
+
+	// Special handling of Main
+	assert.Equal(t, cmdlineToCommand("java a.b.c.Main"), "c.Main")
+
+	// Ignore certain options
+	assert.Equal(t, cmdlineToCommand("java -server SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -Xwhatever SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -Dwhatever SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -eahej SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -dahej SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -classpath /a/b/c SomeClass"), "SomeClass")
+
+	// Invalid command lines
+	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c"), "java")
+	assert.Equal(t, cmdlineToCommand("java  "), "java")
+	assert.Equal(t, cmdlineToCommand("java -jar"), "java")
+	assert.Equal(t, cmdlineToCommand("java -jar    "), "java")
+}
+
+func TestGetCommandJavaEquinox(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/Library/Java/JavaVirtualMachines/openjdk-11.jdk/Contents/Home/bin/java",
+		"--add-modules=ALL-SYSTEM",
+		"--add-opens",
+		"java.base/java.util=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/java.lang=ALL-UNNAMED",
+		"-Declipse.application=org.eclipse.jdt.ls.core.id1",
+		"-Dosgi.bundles.defaultStartLevel=4",
+		"-Declipse.product=org.eclipse.jdt.ls.core.product",
+		"-Dfile.encoding=utf8",
+		"-XX:+UseParallelGC",
+		"-XX:GCTimeRatio=4",
+		"-XX:AdaptiveSizePolicyWeight=90",
+		"-Dsun.zip.disableMemoryMapping=true",
+		"-Xmx1G",
+		"-Xms100m",
+		"-noverify",
+		"-jar",
+		"/Users/walles/.vscode/extensions/redhat.java-0.68.0/server/plugins/org.eclipse.equinox.launcher_1.5.800.v20200727-1323.jar",
+		"-configuration",
+		"/Users/walles/Library/Application Support/Code/User/globalStorage/redhat.java/0.68.0/config_mac",
+		"-data",
+		"/Users/walles/Library/Application Support/Code/User/workspaceStorage/b8c3a38f62ce0fc92ce4edfb836480db/redhat.java/jdt_ws",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "org.eclipse.equinox.launcher_1.5.800.v20200727-1323.jar")
+}
+
+func TestGetCommandJavaGradled(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/Library/Java/JavaVirtualMachines/jdk1.8.0_60.jdk/Contents/Home/bin/java",
+		"-XX:MaxPermSize=256m",
+		"-XX:+HeapDumpOnOutOfMemoryError",
+		"-Xmx1024m",
+		"-Dfile.encoding=UTF-8",
+		"-Duser.country=SE",
+		"-Duser.language=sv",
+		"-Duser.variant",
+		"-cp",
+		"/Users/johan/.gradle/wrapper/dists/gradle-2.8-all/gradle-2.8/lib/gradle-launcher-2.8.jar",
+		"org.gradle.launcher.daemon.bootstrap.GradleDaemon",
+		"2.8",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "GradleDaemon")
+}
+
+func TestGetCommandJavaGradleWorkerMain(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/some/path/bin/java",
+		"-Djava.awt.headless=true",
+		"-Djava.security.manager=worker.org.gradle.process.internal.worker.child.BootstrapSecurityManager",
+		"-Dorg.gradle.native=false",
+		"-Drobolectric.accessibility.enablechecks=true",
+		"-Drobolectric.logging=stderr",
+		"-Drobolectric.logging.enabled=true",
+		"-agentlib:jdwp=transport=dt_socket,server=y,address=,suspend=n",
+		"-noverify",
+		"-javaagent:gen_build/.../jacocoagent.jar=destfile=gen_build/jacoco/testDebugUnitTest.exec,append=true,dumponexit=true,output=file,jmx=false",
+		"-Xmx2400m",
+		"-Dfile.encoding=UTF-8",
+		"-Duser.country=SE",
+		"-Duser.language=sv",
+		"-Duser.variant",
+		"-ea",
+		"-cp",
+		"/Users/walles/.gradle/caches/4.2.1/workerMain/gradle-worker.jar",
+		"worker.org.gradle.process.internal.worker.GradleWorkerMain",
+		"'Gradle Test Executor 16'",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "GradleWorkerMain")
+}
+
+func TestGetCommandJavaLogstash(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/usr/bin/java",
+		"-XX:+UseParNewGC",
+		"-XX:+UseConcMarkSweepGC",
+		"-Djava.awt.headless=true",
+		"-XX:CMSInitiatingOccupancyFraction=75",
+		"-XX:+UseCMSInitiatingOccupancyOnly",
+		"-Djava.io.tmpdir=/var/lib/logstash",
+		"-Xmx128m",
+		"-Xss2048k",
+		"-Djffi.boot.library.path=/opt/logstash/vendor/jruby/lib/jni",
+		"-XX:+UseParNewGC",
+		"-XX:+UseConcMarkSweepGC",
+		"-Djava.awt.headless=true",
+		"-XX:CMSInitiatingOccupancyFraction=75",
+		"-XX:+UseCMSInitiatingOccupancyOnly",
+		"-Djava.io.tmpdir=/var/lib/logstash",
+		"-Xbootclasspath/a:/opt/logstash/vendor/jruby/lib/jruby.jar",
+		"-classpath",
+		":",
+		"-Djruby.home=/opt/logstash/vendor/jruby",
+		"-Djruby.lib=/opt/logstash/vendor/jruby/lib",
+		"-Djruby.script=jruby",
+		"-Djruby.shell=/bin/sh",
+		"org.jruby.Main",
+		"--1.9",
+		"/opt/logstash/lib/bootstrap/environment.rb",
+		"logstash/runner.rb",
+		"agent",
+		"-f",
+		"/etc/logstash/conf.d",
+		"-l",
+		"/var/log/logstash/logstash.log",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "jruby.Main")
+}
+
+func TestGetCommandJavaTeamCity(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/usr/lib/jvm/jdk-8-oracle-x64/jre/bin/java",
+		"-Djava.util.logging.config.file=/teamcity/conf/logging.properties",
+		"-Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager",
+		"-Dsun.net.inetaddr.ttl=60",
+		"-server",
+		"-Xms31g",
+		"-Xmx31g",
+		"-Dteamcity.configuration.path=../conf/teamcity-startup.properties",
+		"-Dlog4j.configuration=file:/teamcity/bin/../conf/teamcity-server-log4j.xml",
+		"-Dteamcity_logs=../logs/",
+		"-Djsse.enableSNIExtension=false",
+		"-Djava.awt.headless=true",
+		"-Djava.endorsed.dirs=/teamcity/endorsed",
+		"-classpath",
+		"/teamcity/bin/bootstrap.jar:/teamcity/bin/tomcat-juli.jar",
+		"-Dcatalina.base=/teamcity",
+		"-Dcatalina.home=/teamcity",
+		"-Djava.io.tmpdir=/teamcity/temp",
+		"org.apache.catalina.startup.Bootstrap",
+		"start",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "Bootstrap")
+}
+
+func TestGetCommandLineJavaIssue139(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/opt/homebrew/Cellar/openjdk@21/21.0.8/libexec/openjdk.jdk/Contents/Home/bin/java",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+		"--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+		"@/Users/johan/.gradle/.tmp/gradle-worker-classpath12697647132064750531txt",
+		"-Xmx2g",
+		"-Dfile.encoding=UTF-8",
+		"-Duser.country=SE",
+		"-Duser.language=sv",
+		"-Duser.variant",
+		"worker.org.gradle.process.internal.worker.GradleWorkerMain",
+		"'Gradle Worker Daemon 3'",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "GradleWorkerMain")
+}
+
+func TestGetCommandLineJdkJavaOptions(t *testing.T) {
+	commandline := strings.Join([]string{
+		"/opt/homebrew/Cellar/openjdk/24.0.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+		"-classpath",
+		"/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec/mvn/boot/plexus-classworlds-2.8.0.jar",
+		"-javaagent:/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec/mvn/lib/mvnd/mvnd-agent-2.0.0-rc-3.jar",
+		"-Dmvnd.home=/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec",
+		"-Dmaven.home=/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec/mvn",
+		"-Dmaven.conf=/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec/mvn/conf",
+		"-Dclassworlds.conf=/opt/homebrew/Cellar/mvnd/2.0.0-rc-3/libexec/bin/mvnd-daemon.conf",
+		"-Dmaven.logger.logFile=/Users/johan/.m2/mvnd/registry/2.0.0-rc-3/daemon-802431a9.log",
+		"-Dmvnd.java.home=/opt/homebrew/Cellar/openjdk/24.0.1/libexec/openjdk.jdk/Contents/Home",
+		"-Dmvnd.id=802431a9",
+		"-Dmvnd.daemonStorage=/Users/johan/.m2/mvnd/registry/2.0.0-rc-3",
+		"-Dmvnd.registry=/Users/johan/.m2/mvnd/registry/2.0.0-rc-3/registry.bin",
+		"-Dmvnd.socketFamily=inet",
+		"-Djdk.java.options=--add-opens",
+		"java.base/java.io=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/java.lang=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/java.util=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/jdk.internal.misc=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/sun.net.www.protocol.jar=ALL-UNNAMED",
+		"--add-opens",
+		"java.base/sun.nio.fs=ALL-UNNAMED",
+		"-Dmvnd.noDaemon=false",
+		"-Dmvnd.debug=false",
+		"-Dmvnd.debug.address=8000",
+		"-Dmvnd.idleTimeout=3h",
+		"-Dmvnd.keepAlive=100ms",
+		"-Dmvnd.extClasspath=",
+		"-Dmvnd.coreExtensionsDiscriminator=da39a3ee5e6b4b0d3255bfef95601890afd80709",
+		"-Dmvnd.coreExtensionsExclude=io.takari.maven:takari-smart-builder",
+		"-Dmvnd.enableAssertions=false",
+		"-Dmvnd.expirationCheckDelay=10s",
+		"-Dmvnd.duplicateDaemonGracePeriod=10s",
+		"-Dmvnd.socketFamily=inet",
+		"org.codehaus.plexus.classworlds.launcher.Launcher",
+	}, " ")
+
+	assert.Equal(t, cmdlineToCommand(commandline), "Launcher")
+}
+
+func TestPrettifyJavaClass(t *testing.T) {
+	assert.Equal(t, *prettifyFullyQualifiedJavaClass("com.example.MyClass"), "MyClass")
+	assert.Equal(t, *prettifyFullyQualifiedJavaClass("com.example.Main"), "example.Main")
+	assert.Equal(t, prettifyFullyQualifiedJavaClass(""), nil)
+}
