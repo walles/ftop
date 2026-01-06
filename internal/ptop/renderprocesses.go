@@ -18,7 +18,7 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 
 	// The -1s are for the separator lines between sections
 	usersHeightWithoutBorders := processesHeightWithoutBorders/2 - 1
-	//binariesHeightWithoutBorders := processesHeightWithoutBorders - usersHeightWithoutBorders - 1
+	binariesHeightWithoutBorders := processesHeightWithoutBorders - usersHeightWithoutBorders - 1
 
 	// Collect data to show
 	procsHeightWithoutHeaders := processesHeightWithoutBorders - 1
@@ -33,16 +33,14 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 		users = users[:usersHeightWithoutHeaders]
 	}
 
-	/*
-		binariesHeightWithoutHeaders := binariesHeightWithoutBorders - 1
-		binaries := BinariesByScore(processesRaw)
-		if len(binaries) > binariesHeightWithoutHeaders-1 {
-			binaries = binaries[:binariesHeightWithoutHeaders]
-		}
-	*/
+	binariesHeightWithoutHeaders := binariesHeightWithoutBorders - 1
+	binaries := BinariesByScore(processesRaw)
+	if len(binaries) > binariesHeightWithoutHeaders-1 {
+		binaries = binaries[:binariesHeightWithoutHeaders]
+	}
 
 	// Figure out column widths
-	allInOneTable := toTable(processesByScore, users)
+	allInOneTable := toTable(processesByScore, users, binaries)
 	// 1=left frame, 5=per-process column separators, 2="||", 2=per-user column separators, 1=right frame
 	rowSpacing := 1 + 5 + 2 + 2 + 1
 	widths := ui.ColumnWidths(allInOneTable, width-rowSpacing, false) // Don't grow the PID column, that looks weird
@@ -54,7 +52,7 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 
 	// Render!
 	topContentsRow := topRow + 1 // +1 for the top frame line
-	doRenderProcesses(allInOneTable, widths, processesByScore, users, screen, topContentsRow, 1)
+	doRenderProcesses(allInOneTable, widths, processesByScore, users, binaries, screen, topContentsRow, 1)
 
 	renderFrame(screen, topRow, 0, bottomRow, rightPerProcessBorderColumn, "By process")
 	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)

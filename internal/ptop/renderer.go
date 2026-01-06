@@ -15,6 +15,13 @@ type userStats struct {
 	processCount int
 }
 
+type binaryStats struct {
+	binaryName   string
+	cpuTime      time.Duration
+	rssKb        int
+	processCount int
+}
+
 func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
 	const overviewHeight = 5         // Including borders
 	const launchedBinariesHeight = 7 // Including borders

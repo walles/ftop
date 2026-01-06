@@ -109,6 +109,50 @@ func UsersByScore(processes []processes.Process) []userStats {
 	return sorted
 }
 
+func BinariesByScore(processes []processes.Process) []binaryStats {
+	sorted := aggregatePerBinary(processes)
+
+	maxCpuTime := time.Duration(0)
+	maxRssKb := 0
+	for _, b := range sorted {
+		if b.cpuTime > maxCpuTime {
+			maxCpuTime = b.cpuTime
+		}
+		if b.rssKb > maxRssKb {
+			maxRssKb = b.rssKb
+		}
+	}
+
+	slices.SortFunc(sorted, func(bi binaryStats, bj binaryStats) int {
+		cpuScoreI := bi.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreI := float64(bi.rssKb) / float64(maxRssKb)
+
+		cpuScoreJ := bj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreJ := float64(bj.rssKb) / float64(maxRssKb)
+
+		primaryI := max(memScoreI, cpuScoreI)
+		secondaryI := min(memScoreI, cpuScoreI)
+
+		primaryJ := max(memScoreJ, cpuScoreJ)
+		secondaryJ := min(memScoreJ, cpuScoreJ)
+
+		primaryCmp := cmp.Compare(primaryI, primaryJ)
+		if primaryCmp != 0 {
+			return -primaryCmp
+		}
+
+		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
+		if secondaryCmp != 0 {
+			return -secondaryCmp
+		}
+
+		// Fall back to name comparison for stability at the bottom of the list
+		return cmp.Compare(bi.binaryName, bj.binaryName)
+	})
+
+	return sorted
+}
+
 func aggregatePerUser(processes []processes.Process) []userStats {
 	userMap := make(map[string]userStats)
 	for _, p := range processes {
@@ -129,6 +173,31 @@ func aggregatePerUser(processes []processes.Process) []userStats {
 
 	var returnMe []userStats
 	for _, stats := range userMap {
+		returnMe = append(returnMe, stats)
+	}
+
+	return returnMe
+}
+
+func aggregatePerBinary(processes []processes.Process) []binaryStats {
+	binaryMap := make(map[string]binaryStats)
+	for _, p := range processes {
+		binaryStat, exists := binaryMap[p.Username]
+		if !exists {
+			binaryStat = binaryStats{binaryName: p.Username}
+		}
+
+		if p.CpuTime != nil {
+			binaryStat.cpuTime += *p.CpuTime
+		}
+		binaryStat.rssKb += p.RssKb
+
+		binaryStat.processCount++
+		binaryMap[p.Username] = binaryStat
+	}
+
+	var returnMe []binaryStats
+	for _, stats := range binaryMap {
 		returnMe = append(returnMe, stats)
 	}
 
