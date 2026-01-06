@@ -100,7 +100,7 @@ func onExit(screen twin.Screen) {
 
 	// FIXME: Print error reporting instructions with the log output
 
-	fmt.Fprint(os.Stderr, log.String())
+	fmt.Fprint(os.Stderr, log.String(true))
 
 	os.Exit(1)
 }
