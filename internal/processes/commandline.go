@@ -189,6 +189,10 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parsePythonCommand(cmdline))
 	}
 
+	if command == "java" {
+		return faillog(cmdline, parseJavaCommand(cmdline))
+	}
+
 	if command == "sudo" {
 		return faillog(cmdline, parseSudoCommand(cmdline))
 	}

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/walles/ptop/internal/log"
 )
 
 // Returns nil if we failed to figure out the actual command being run
@@ -139,6 +141,149 @@ func parseAwsCommand(args []string) *string {
 
 	joined := strings.Join(result, " ")
 	return &joined
+}
+
+func prettifyFullyQualifiedJavaClass(className string) *string {
+	if className == "" {
+		return nil
+	}
+
+	parts := strings.Split(className, ".")
+	if len(parts) == 1 {
+		result := parts[len(parts)-1]
+		return &result
+	}
+
+	if parts[len(parts)-1] == "Main" {
+		result := parts[len(parts)-2] + "." + parts[len(parts)-1]
+		return &result
+	}
+
+	result := parts[len(parts)-1]
+	return &result
+}
+
+// Returns nil if we failed to figure out a good Java name
+func parseJavaCommand(cmdline string) *string {
+	array := cmdlineToSlice(cmdline, exists)
+	java := filepath.Base(array[0])
+	if len(array) == 1 {
+		return &java
+	}
+
+	state := "skip next"
+	for _, component0 := range array {
+		component := component0
+		if component == "" {
+			continue
+		}
+
+		if state == "skip next" {
+			if strings.HasPrefix(component, "-") {
+				return nil
+			}
+			state = "scanning"
+			continue
+		}
+
+		if state == "return next" {
+			if strings.HasPrefix(component, "-") {
+				return nil
+			}
+			base := filepath.Base(component)
+			return &base
+		}
+
+		if state == "scanning" {
+			if strings.HasPrefix(component, "-Djdk.java.options=") {
+				split := strings.SplitN(component, "=", 2)
+				if len(split) == 2 {
+					component = split[1]
+				}
+			}
+
+			if strings.HasPrefix(component, "-X") {
+				continue
+			}
+			if strings.HasPrefix(component, "-D") {
+				continue
+			}
+			if strings.HasPrefix(component, "-ea") {
+				continue
+			}
+			if strings.HasPrefix(component, "-da") {
+				continue
+			}
+			if strings.HasPrefix(component, "-agentlib:") {
+				continue
+			}
+			if strings.HasPrefix(component, "-javaagent:") {
+				continue
+			}
+			if strings.HasPrefix(component, "--add-modules=") {
+				continue
+			}
+			if strings.HasPrefix(component, "@") {
+				continue
+			}
+			if component == "--add-modules" {
+				state = "skip next"
+				continue
+			}
+			if strings.HasPrefix(component, "--add-opens=") {
+				continue
+			}
+			if component == "--add-opens" {
+				state = "skip next"
+				continue
+			}
+			if strings.HasPrefix(component, "--add-exports=") {
+				continue
+			}
+			if component == "--add-exports" {
+				state = "skip next"
+				continue
+			}
+			if strings.HasPrefix(component, "--add-reads=") {
+				continue
+			}
+			if component == "--add-reads" {
+				state = "skip next"
+				continue
+			}
+			if strings.HasPrefix(component, "--patch-module=") {
+				continue
+			}
+			if component == "--patch-module" {
+				state = "skip next"
+				continue
+			}
+			if component == "-server" {
+				continue
+			}
+			if component == "-noverify" {
+				continue
+			}
+			if component == "-cp" || component == "-classpath" {
+				state = "skip next"
+				continue
+			}
+			if component == "-jar" {
+				state = "return next"
+				continue
+			}
+			if strings.HasPrefix(component, "-") {
+				return nil
+			}
+
+			return prettifyFullyQualifiedJavaClass(component)
+		}
+
+		log.Infof("The Java command line parser should never get here: <%s>", cmdline)
+		return nil
+	}
+
+	return nil
 }
 
 // Returns nil if we failed to figure out the script name
