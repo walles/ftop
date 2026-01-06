@@ -1,6 +1,8 @@
 package processes
 
 import (
+	"os"
+	"path/filepath"
 	"path"
 	"slices"
 	"strings"
@@ -296,4 +298,46 @@ func TestGetCommandAws(t *testing.T) {
 		"./xxxxxx",
 	}, " ")
 	assert.Equal(t, cmdlineToCommand(cmd), "aws s3 sync")
+}
+
+func TestGetCommandSudo(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("sudo"), "sudo")
+	assert.Equal(t, cmdlineToCommand("sudo python /usr/bin/hej gris --flaska"), "sudo hej")
+
+	// With flags we give up and keep just "sudo"
+	assert.Equal(t, cmdlineToCommand("sudo -B python /usr/bin/hej"), "sudo")
+}
+
+func TestGetCommandSudoWithSpaceInCommandName(t *testing.T) {
+	dir := t.TempDir()
+	spacedPath := filepath.Join(dir, "i contain spaces")
+	err := os.WriteFile(spacedPath, []byte(""), 0o644)
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	// Verify splitting of the spaced file name
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath), "sudo i contain spaces")
+
+	// Verify splitting with more parameters on the line
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter"), "sudo i contain spaces")
+}
+
+func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
+	dir := t.TempDir()
+	spacedDir := filepath.Join(dir, "i contain spaces")
+	if err := os.MkdirAll(spacedDir, 0o755); err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+
+	spacedPath := filepath.Join(spacedDir, "runme")
+	if err := os.WriteFile(spacedPath, []byte(""), 0o755); err != nil {
+		t.Fatalf("failed to create runme file: %v", err)
+	}
+
+	// Verify splitting of the spaced file name
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath), "sudo runme")
+
+	// Verify splitting with more parameters on the line
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter"), "sudo runme")
 }
