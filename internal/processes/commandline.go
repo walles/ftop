@@ -62,8 +62,39 @@ func getTrailingAbsolutePath(partialCmdline string) *string {
 //   - false: Do not coalesce, done
 //   - nil: Undecided, add another part and try again
 func shouldCoalesce(parts []string, exists func(string) bool) *bool {
-	fake := false
-	return &fake
+	last := parts[len(parts)-1]
+	if strings.HasPrefix(last, "-") || strings.HasPrefix(last, "/") {
+		// Last part starts a command line option or a new absolute path, don't
+		// coalesce.
+		res := false
+		return &res
+	}
+
+	coalesced := strings.Join(parts, " ")
+	candidatePtr := getTrailingAbsolutePath(coalesced)
+	if candidatePtr == nil {
+		// This is not a candidate for coalescing
+		res := false
+		return &res
+	}
+
+	candidate := *candidatePtr
+	if exists(candidate) {
+		// Found it, done!
+		res := true
+		return &res
+	}
+
+	parent := filepath.Dir(candidate)
+	if exists(parent) {
+		// Found the parent directory, we're on the right track, keep looking!
+		return nil
+	}
+
+	// Candidate does not exists, and neither does its parent directory, this is
+	// not it.
+	res := false
+	return &res
 }
 
 // How many parts should be coalesced?
