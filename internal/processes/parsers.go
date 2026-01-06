@@ -119,4 +119,39 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string 
 	return &pretty
 }
 
+// Returns nil if we failed to figure out the subcommand
+func parseWithSubcommand(cmdline string, ignoreSwitches []string) *string {
+	array := cmdlineToSlice(cmdline, exists)
+
+	// Remove leading switches that match ignoreSwitches (matching up to '=')
+	ignore := make(map[string]bool, len(ignoreSwitches))
+	for _, s := range ignoreSwitches {
+		ignore[s] = true
+	}
+	for len(array) > 1 {
+		key := array[1]
+		if eq := strings.Index(key, "="); eq != -1 {
+			key = key[:eq]
+		}
+		if !ignore[key] {
+			break
+		}
+		// Drop the ignored switch
+		array = append(array[:1], array[2:]...)
+	}
+
+	command := filepath.Base(array[0])
+	if len(array) == 1 {
+		return &command
+	}
+
+	if strings.HasPrefix(array[1], "-") {
+		// Unknown option, help!
+		return nil
+	}
+
+	pretty := command + " " + array[1]
+	return &pretty
+}
+
 // (Node handling now inlined at call site in commandline.go)

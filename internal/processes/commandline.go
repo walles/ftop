@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/walles/ptop/internal/log"
@@ -216,6 +217,26 @@ func cmdlineToCommand(cmdline string) string {
 
 	if command == "dotnet" {
 		return faillog(cmdline, parseDotnetCommand(cmdline))
+	}
+
+	if slices.Contains([]string{
+		"apt-get",
+		"apt",
+		"cargo",
+		"docker",
+		"docker-compose",
+		"git",
+		"go",
+		"npm",
+		"pip",
+		"pip3",
+		"rustup",
+	}, command) {
+		return faillog(cmdline, parseWithSubcommand(cmdline, nil))
+	}
+
+	if command == "terraform" {
+		return faillog(cmdline, parseWithSubcommand(cmdline, []string{"-chdir"}))
 	}
 
 	if PERL_BIN.MatchString(command) {

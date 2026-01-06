@@ -221,3 +221,19 @@ func TestGetCommandInterpreters(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("perl /some/path/apa.pl"), "apa.pl")
 	assert.Equal(t, cmdlineToCommand("perl -option /some/path/apa.pl"), "perl")
 }
+
+func TestGetGoCommandline(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("go build ./..."), "go build")
+	assert.Equal(t, cmdlineToCommand("go --version"), "go")
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/go"), "go")
+}
+
+func TestGetGitCommandline(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("git clone git@github.com:walles/riff"), "git clone")
+	assert.Equal(t, cmdlineToCommand("git --version"), "git")
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/git"), "git")
+}
+
+func TestGetTerraformCommandline(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("terraform -chdir=dev apply -target=abc123"), "terraform apply")
+}
