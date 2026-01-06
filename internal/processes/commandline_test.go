@@ -271,3 +271,29 @@ func TestGetCommandPython(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("python -m -u"), "python")
 	assert.Equal(t, cmdlineToCommand("python    "), "python")
 }
+
+func TestGetCommandAws(t *testing.T) {
+	// Python wrapper around aws
+	assert.Equal(t, cmdlineToCommand("Python /usr/local/bin/aws"), "aws")
+	assert.Equal(t, cmdlineToCommand("python aws s3"), "aws s3")
+	assert.Equal(t, cmdlineToCommand("python3 aws s3 help"), "aws s3 help")
+	assert.Equal(t, cmdlineToCommand("/wherever/python3 aws s3 help flaska"), "aws s3 help")
+
+	assert.Equal(t, cmdlineToCommand("python aws s3 sync help"), "aws s3 sync help")
+	assert.Equal(t, cmdlineToCommand("python aws s3 sync nothelp"), "aws s3 sync")
+	assert.Equal(t, cmdlineToCommand("python aws s3 --unknown sync"), "aws s3")
+
+	// Ignore profile and region; stop at switches and paths
+	cmd := strings.Join([]string{
+		"python3",
+		"/usr/local/bin/aws",
+		"--profile=system-admin-prod",
+		"--region=eu-west-1",
+		"s3",
+		"sync",
+		"--only-show-errors",
+		"s3://xxxxxx",
+		"./xxxxxx",
+	}, " ")
+	assert.Equal(t, cmdlineToCommand(cmd), "aws s3 sync")
+}
