@@ -15,6 +15,9 @@ var LINUX_KERNEL_PROC = regexp.MustCompile(`^\[[^/ ]+/?[^/ ]+\]$`)
 // Match "(python2.7)", no grouping
 var OSX_PARENTHESIZED_PROC = regexp.MustCompile(`^\\([^()]+\\)$`)
 
+// Name of the Perl interpreter
+var PERL_BIN = regexp.MustCompile(`^perl[.0-9]*$`)
+
 // Extract a potential file path from the end of a string.
 //
 // The coalescing logic will then base decisions on whether this file path
@@ -177,6 +180,32 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parseSudoCommand(cmdline))
 	}
 
+	if command == "ruby" {
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{
+			"-a",
+			"-d",
+			"--debug",
+			"--disable",
+			"-Eascii-8bit:ascii-8bit",
+			"-l",
+			"-n",
+			"-p",
+			"-s",
+			"-S",
+			"-v",
+			"--verbose",
+			"-w",
+			"-W0",
+			"-W1",
+			"-W2",
+			"--",
+		}))
+	}
+
+	if command == "bash" || command == "sh" || command == "zsh" {
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{"-p"}))
+	}
+
 	if command == "node" {
 		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{
 			"--max_old_space_size",
@@ -187,6 +216,10 @@ func cmdlineToCommand(cmdline string) string {
 
 	if command == "dotnet" {
 		return faillog(cmdline, parseDotnetCommand(cmdline))
+	}
+
+	if PERL_BIN.MatchString(command) {
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil))
 	}
 
 	// FIXME: Do VM specific parsing here

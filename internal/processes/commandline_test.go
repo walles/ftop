@@ -192,3 +192,32 @@ func TestNodeMaxOldSpace(t *testing.T) {
 		"start.js",
 	)
 }
+
+func TestGetBashBrewShCommandline(t *testing.T) {
+	assert.Equal(t,
+		cmdlineToCommand("/bin/bash -p /usr/local/Homebrew/Library/Homebrew/brew.sh upgrade"),
+		"brew.sh upgrade",
+	)
+}
+
+func TestGetCommandInterpreters(t *testing.T) {
+	// ruby
+	assert.Equal(t, cmdlineToCommand("ruby"), "ruby")
+	assert.Equal(t, cmdlineToCommand("ruby /some/path/apa.rb"), "apa.rb")
+	assert.Equal(t, cmdlineToCommand("ruby -option /some/path/apa.rb"), "ruby")
+
+	// sh
+	assert.Equal(t, cmdlineToCommand("sh"), "sh")
+	assert.Equal(t, cmdlineToCommand("sh /some/path/apa.sh"), "apa.sh")
+	assert.Equal(t, cmdlineToCommand("sh -option /some/path/apa.sh"), "sh")
+
+	// bash
+	assert.Equal(t, cmdlineToCommand("bash"), "bash")
+	assert.Equal(t, cmdlineToCommand("bash /some/path/apa.sh"), "apa.sh")
+	assert.Equal(t, cmdlineToCommand("bash -option /some/path/apa.sh"), "bash")
+
+	// perl
+	assert.Equal(t, cmdlineToCommand("perl"), "perl")
+	assert.Equal(t, cmdlineToCommand("perl /some/path/apa.pl"), "apa.pl")
+	assert.Equal(t, cmdlineToCommand("perl -option /some/path/apa.pl"), "perl")
+}
