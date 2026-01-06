@@ -9,6 +9,21 @@ import (
 	"github.com/walles/ptop/internal/assert"
 )
 
+func TestGetTrailingAbsolutePath(t *testing.T) {
+	assert.Equal(t, *getTrailingAbsolutePath("/hello"), "/hello")
+	assert.Equal(t, *getTrailingAbsolutePath("/hello:/baloo"), "/baloo")
+
+	assert.Equal(t, *getTrailingAbsolutePath("-Dx=/hello"), "/hello")
+	assert.Equal(t, *getTrailingAbsolutePath("-Dx=/hello:/baloo"), "/baloo")
+
+	assert.Equal(t, getTrailingAbsolutePath("hello"), nil)
+	assert.Equal(t, getTrailingAbsolutePath("hello:/baloo"), nil)
+
+	assert.Equal(t, *getTrailingAbsolutePath(
+		"/A/IntelliJ IDEA.app/C/p/mm/lib/mm.jar:/A/IntelliJ IDEA.app/C/p/ms/lib/ms.jar:/A/IntelliJ"),
+		"/A/IntelliJ")
+}
+
 func TestToSliceSpaced1(t *testing.T) {
 	exists := func(path string) bool {
 		return slices.Contains([]string{
@@ -18,7 +33,7 @@ func TestToSliceSpaced1(t *testing.T) {
 		}, path)
 	}
 
-	result := cmdlineToSliceWithExists(
+	result := cmdlineToSlice(
 		"java -Dhello=/Applications/IntelliJ IDEA.app/Contents",
 		exists,
 	)
@@ -40,7 +55,7 @@ func TestToSliceSpaced2(t *testing.T) {
 		}, path)
 	}
 
-	result := cmdlineToSliceWithExists(strings.Join([]string{
+	result := cmdlineToSlice(strings.Join([]string{
 		"java",
 		"-Dhello=/Applications/IntelliJ IDEA.app/Contents/Info.plist",
 		"-classpath",
@@ -71,7 +86,7 @@ func TestToSliceSpaced3(t *testing.T) {
 		}, path)
 	}
 
-	result := cmdlineToSliceWithExists(strings.Join([]string{
+	result := cmdlineToSlice(strings.Join([]string{
 		"java",
 		"-Dhello=/Applications/IntelliJ IDEA CE.app/Contents/Info.plist",
 		"-classpath",
@@ -124,7 +139,7 @@ func TestToSliceMsEdge(t *testing.T) {
 		return slices.Contains(existsList, path)
 	}
 
-	result := cmdlineToSliceWithExists(complete+" --type=gpu-process", exists)
+	result := cmdlineToSlice(complete+" --type=gpu-process", exists)
 
 	assert.SlicesEqual(t, result, []string{complete, "--type=gpu-process"})
 }
