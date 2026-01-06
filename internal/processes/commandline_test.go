@@ -561,3 +561,20 @@ func TestGetHomebrewCommandline(t *testing.T) {
 		"brew.rb upgrade",
 	)
 }
+
+func TestGetCommandUnicode(t *testing.T) {
+	// Emoji-only command should be preserved
+	assert.Equal(t, cmdlineToCommand("😀"), "😀")
+
+	// Simple unicode executable name
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/äpple"), "äpple")
+
+	// Python running a unicode script path -> basename
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hällo.py"), "hällo.py")
+
+	// Ruby running a unicode script path -> basename
+	assert.Equal(t, cmdlineToCommand("ruby /some/path/тест.rb"), "тест.rb")
+
+	// Shell running a unicode script path -> basename
+	assert.Equal(t, cmdlineToCommand("bash /some/path/ユニコード.sh"), "ユニコード.sh")
+}
