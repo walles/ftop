@@ -99,7 +99,24 @@ func shouldCoalesce(parts []string, exists func(string) bool) *bool {
 
 // How many parts should be coalesced?
 func coalesceCount(parts []string, exists func(string) bool) int {
-	return 0
+	for coalesceCount := 2; coalesceCount <= len(parts); coalesceCount++ {
+		should := shouldCoalesce(parts[0:coalesceCount], exists)
+
+		if should == nil {
+			// Undecided, keep looking
+			continue
+		}
+
+		if !*should {
+			return 1
+		}
+
+		// should == true
+		return coalesceCount
+	}
+
+	// Undecided until the end, this means no coalescing should be done
+	return 1
 }
 
 // Helper function for keeping cmdlineToSlice testable.
