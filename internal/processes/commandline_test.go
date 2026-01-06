@@ -2,8 +2,8 @@ package processes
 
 import (
 	"os"
-	"path/filepath"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -340,4 +340,69 @@ func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
 
 	// Verify splitting with more parameters on the line
 	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter"), "sudo runme")
+}
+
+func TestGetCommandRubySwitches(t *testing.T) {
+	// ruby with warning level switch and brew.rb subcommand
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -W0 /usr/local/bin/brew.rb install rust"),
+		"brew.rb install",
+	)
+
+	// Double-dash to end options, should pick the first script after it
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -W1 -- /apa/build.rb /bepa/cmake.rb"),
+		"build.rb",
+	)
+
+	// Encoding switch should be ignored
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -Eascii-8bit:ascii-8bit /usr/sbin/google-fluentd"),
+		"google-fluentd",
+	)
+}
+
+func TestGetCommandPerl(t *testing.T) {
+	// Variants should all resolve to the script name
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/usr/bin/perl5.18",
+			"/usr/local/Cellar/cloc/1.90/libexec/bin/cloc",
+			"build-system",
+			"build_number_offset",
+			"buildbox",
+			"Random.txt",
+			"README.md",
+			"submodules",
+			"Telegram",
+			"third-party",
+			"tools",
+			"versions.json",
+			"WORKSPACE",
+		}, " ")),
+		"cloc",
+	)
+
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc"),
+		"cloc",
+	)
+	assert.Equal(t,
+		cmdlineToCommand("perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc"),
+		"cloc",
+	)
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/perl5 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc"),
+		"cloc",
+	)
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/perl5.30 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc"),
+		"cloc",
+	)
+
+	// Give up on command line switches
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/perl -S cloc"),
+		"perl",
+	)
 }
