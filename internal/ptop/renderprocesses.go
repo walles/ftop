@@ -43,6 +43,7 @@ func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen
 	doRenderProcesses(allInOneTable, widths, processesByScore, users, screen, topContentsRow, 1)
 
 	renderFrame(screen, topRow, 0, bottomRow, rightPerProcessBorderColumn, "By process")
+	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)
 	renderFrame(screen, topRow, leftPerUserBorderColumn, bottomRow, rightPerUserBorderColumn, "By user")
 }
 
@@ -247,4 +248,35 @@ func toTable(processesByScore []processes.Process, usersByScore []userStats) [][
 	}
 
 	return table
+}
+
+// Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
+// RAM load bar behind it.
+func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
+	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
+
+	// Turn up the bottom color this much so it's visible in the small legend
+	const adjustUp = 0.6
+
+	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
+	colorLoadBarMinRAM := colorLoadBarMin.Mix(colorLoadBarMaxRAM, adjustUp)
+
+	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	colorLoadBarMinCPU := colorLoadBarMin.Mix(colorLoadBarMaxCPU, adjustUp)
+
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinRAM, colorLoadBarMaxRAM)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinCPU, colorLoadBarMaxCPU)
+
+	legendX := rightmostFrameBorder - 9 // Leave some space to the right
+	drawText(screen, legendX, row, " CPU RAM ", twin.StyleDefault)
+
+	cpuLoadBar := ui.NewLoadBar(legendX, legendX+3, cpuRamp)
+	cpuLoadBar.SetCellBackground(screen, legendX+1, row, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+2, row, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+3, row, 1.0)
+
+	memLoadBar := ui.NewLoadBar(legendX+4, legendX+7, memoryRamp)
+	memLoadBar.SetCellBackground(screen, legendX+5, row, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+6, row, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+7, row, 1.0)
 }
