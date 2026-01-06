@@ -98,20 +98,20 @@ func parseTime(time_string string) (time.Time, error) {
 }
 
 func uidToUsername(uid int) string {
-	if userName, found := uidToUsernameCache[uid]; found {
-		return userName
+	if username, found := uidToUsernameCache[uid]; found {
+		return username
 	}
 
 	uidString := strconv.FormatInt(int64(uid), 10)
-	userName := uidString // Fallback when lookup fails
+	username := uidString // Fallback when lookup fails
 
 	user, err := user.LookupId(uidString)
 	if err == nil {
-		userName = user.Username
+		username = user.Username
 	}
 
-	uidToUsernameCache[uid] = userName
-	return userName
+	uidToUsernameCache[uid] = username
+	return username
 }
 
 // Convert a CPU duration string returned by ps to a Duration

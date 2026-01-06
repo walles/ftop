@@ -124,7 +124,7 @@ First, consider redoing in Go using:
 
 - Twin (from moor) for the terminal UI
 - gopsutil for process and system metrics
-  - For process info no, seems very slow at listing processes with user names
+  - For process info no, seems very slow at listing processes with usernames
     compared to just parsing `ps` output.
     - https://github.com/shirou/gopsutil/issues/842
     - https://github.com/shirou/gopsutil/issues/1711

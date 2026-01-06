@@ -123,7 +123,7 @@ func doRenderProcesses(
 	processUserColumnN := processUserColumn0 + widths[2] - 1
 	userUserColumn0 := firstScreenColumn + perUserTableStart
 	userUserColumnN := userUserColumn0 + widths[6] - 1
-	currentUserName := getCurrentUserName()
+	currentUsername := getCurrentUsername()
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -145,10 +145,10 @@ func doRenderProcesses(
 		for _, char := range line {
 			style := rowStyle
 			if x >= processUserColumn0 && x <= processUserColumnN {
-				userName := row[2]
-				if userName == "root" && currentUserName != "root" {
+				username := row[2]
+				if username == "root" && currentUsername != "root" {
 					style = style.WithAttr(twin.AttrDim)
-				} else if userName != currentUserName {
+				} else if username != currentUsername {
 					style = style.WithAttr(twin.AttrBold)
 				}
 			}
@@ -188,7 +188,7 @@ func doRenderProcesses(
 				perUserCpuAndMemBar.SetCellBackground(screen, x, firstScreenRow+rowIndex, cpuFraction, memFraction)
 
 				// Bold the current username
-				if user.username == currentUserName && x >= userUserColumn0 && x <= userUserColumnN {
+				if user.username == currentUsername && x >= userUserColumn0 && x <= userUserColumnN {
 					cell := screen.GetCell(x, firstScreenRow+rowIndex)
 					cell.Style = cell.Style.WithAttr(twin.AttrBold)
 					screen.SetCell(x, firstScreenRow+rowIndex, cell)
@@ -203,9 +203,9 @@ func doRenderProcesses(
 func toTable(processesByScore []processes.Process, usersByScore []userStats) [][]string {
 	headerLine := []string{
 		// These first ones are for the per-process table
-		"PID", "Command", "User name", "CPU", "Time", "RAM",
+		"PID", "Command", "Username", "CPU", "Time", "RAM",
 		// These columns are for the per-user table
-		"User name", "CPU", "RAM",
+		"Username", "CPU", "RAM",
 	}
 
 	var table [][]string

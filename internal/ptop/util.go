@@ -7,7 +7,7 @@ import (
 )
 
 // Or the empty string if lookup fails
-func getCurrentUserName() string {
+func getCurrentUsername() string {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Infof("Failed to look up current user: %v", err)
