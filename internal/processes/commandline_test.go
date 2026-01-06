@@ -240,6 +240,14 @@ func TestGetTerraformCommandline(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("terraform -chdir=dev apply -target=abc123"), "terraform apply")
 }
 
+func TestGetTerraformProviderCommandline(t *testing.T) {
+	// Source: https://github.com/walles/px/issues/105
+	assert.Equal(t,
+		cmdlineToCommand(".terraform/providers/registry.terraform.io/heroku/heroku/4.8.0/darwin_amd64/terraform-provider-heroku_v4.8.0"),
+		"terraform-provider-heroku_v4.8.0",
+	)
+}
+
 func TestGetCommandPython(t *testing.T) {
 	// Basics
 	assert.Equal(t, cmdlineToCommand("python"), "python")
