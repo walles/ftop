@@ -24,6 +24,34 @@ func TestGetTrailingAbsolutePath(t *testing.T) {
 		"/A/IntelliJ")
 }
 
+func TestCoalesceCount(t *testing.T) {
+	exists := func(path string) bool {
+		return slices.Contains([]string{"/", "/a b c", "/a b c/"}, path)
+	}
+
+	assert.Equal(t, coalesceCount([]string{"/a", "b", "c"}, exists), 3)
+	assert.Equal(t, coalesceCount([]string{"/a", "b", "c/"}, exists), 3)
+	assert.Equal(t, coalesceCount([]string{"/a", "b", "c", "d"}, exists), 3)
+
+	assert.Equal(t,
+		coalesceCount([]string{"/a", "b", "c:/a", "b", "c"}, exists),
+		5,
+	)
+	assert.Equal(t,
+		coalesceCount([]string{"/a", "b", "c/:/a", "b", "c/"}, exists),
+		5,
+	)
+
+	assert.Equal(t,
+		coalesceCount([]string{"/a", "b", "c:/a", "b", "c", "d"}, exists),
+		5,
+	)
+	assert.Equal(t,
+		coalesceCount([]string{"/a", "b", "c/:/a", "b", "c/", "d/"}, exists),
+		5,
+	)
+}
+
 func TestToSliceSpaced1(t *testing.T) {
 	exists := func(path string) bool {
 		return slices.Contains([]string{

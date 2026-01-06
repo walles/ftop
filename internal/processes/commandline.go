@@ -19,6 +19,25 @@ func getTrailingAbsolutePath(partialCmdline string) *string {
 	return nil
 }
 
+// Two or more (previously) space separated command line parts should be
+// coalesced if combining them with a space in between creates an existing file
+// path, or a : separated series of file paths.
+//
+// Return values:
+//
+//   - true: Coalesce, done
+//   - false: Do not coalesce, done
+//   - nil: Undecided, add another part and try again
+func shouldCoalesce(parts []string, exists func(string) bool) *bool {
+	fake := false
+	return &fake
+}
+
+// How many parts should be coalesced?
+func coalesceCount(parts []string, exists func(string) bool) int {
+	return 0
+}
+
 // Helper function for keeping cmdlineToSlice testable.
 func exists(path string) bool {
 	_, err := os.Stat(path)
