@@ -29,3 +29,11 @@ func TestColumnWidthsDoubleWidening(t *testing.T) {
 	assert.Equal(t, 2, len(uneven))
 	assert.Equal(t, 9, uneven[0]+uneven[1])
 }
+
+func TestGrow(t *testing.T) {
+	assert.SlicesEqual(t, growColumns([]int{3, 3}, 10, true), []int{5, 5})
+}
+
+func TestGrowWithoutFirst(t *testing.T) {
+	assert.SlicesEqual(t, growColumns([]int{3, 3}, 10, false), []int{3, 7})
+}

@@ -105,21 +105,20 @@ func sumWidths(widths []int) int {
 }
 
 func growColumns(widths []int, targetWidth int, growFirstColumn bool) []int {
-	toSum := widths
 	if !growFirstColumn {
-		toSum = widths[1:]
+		return append(widths[:1], growColumns(widths[1:], targetWidth-widths[0], true)...)
 	}
 
-	currentWidth := sumWidths(toSum)
+	currentWidth := sumWidths(widths)
 	missingWidth := targetWidth - currentWidth
-	addPerColumn := missingWidth / len(toSum)
-	for i := range toSum {
-		toSum[i] += addPerColumn
+	addPerColumn := missingWidth / len(widths)
+	for i := range widths {
+		widths[i] += addPerColumn
 	}
 
-	remainingToAdd := targetWidth - sumWidths(toSum)
-	for i := 0; i < remainingToAdd; i++ {
-		toSum[i%len(toSum)]++
+	remainingToAdd := targetWidth - sumWidths(widths)
+	for i := range remainingToAdd {
+		widths[i%len(widths)]++
 	}
 
 	return widths
