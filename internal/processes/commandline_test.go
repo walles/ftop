@@ -479,3 +479,85 @@ func TestGetCommandElectronMacos(t *testing.T) {
 		"VisualStudioCode",
 	)
 }
+
+func TestGetCommandFlutter(t *testing.T) {
+	// Subcommand without path/dots -> treat as subcommand
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
+			"devtools",
+		}, " ")),
+		"dart devtools",
+	)
+
+	// Dotted candidate -> treat as file
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
+			"devtools.snap",
+		}, " ")),
+		"devtools.snap",
+	)
+
+	// Path candidate -> basename
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
+			"/usr/local/bin/devtools",
+		}, " ")),
+		"devtools",
+	)
+}
+
+func TestGetCommandGuile(t *testing.T) {
+	// Plain guile
+	assert.Equal(t, cmdlineToCommand("guile"), "guile")
+
+	// -l returns its arg as the script
+	assert.Equal(t,
+		cmdlineToCommand("guile -l myscript.scm"),
+		"myscript.scm",
+	)
+
+	// Ignore common switches
+	assert.Equal(t,
+		cmdlineToCommand("guile -q --r6rs myscript.scm"),
+		"myscript.scm",
+	)
+
+	// Ignore argful switches
+	assert.Equal(t,
+		cmdlineToCommand("guile -L /usr/local/include -C /tmp -x scheme myscript.scm"),
+		"myscript.scm",
+	)
+
+	// --listen with equals form
+	assert.Equal(t,
+		cmdlineToCommand("guile --listen=localhost:37146 myscript.scm"),
+		"myscript.scm",
+	)
+
+	// Unknown switch after guile -> give up
+	assert.Equal(t,
+		cmdlineToCommand("guile --unknown myscript.scm"),
+		"guile",
+	)
+}
+
+func TestGetCommandResque(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("resque-1.20.0: a b c"), "resque-1.20.0:")
+	assert.Equal(t, cmdlineToCommand("resqued-0.7.12 x y z"), "resqued-0.7.12")
+}
+
+func TestGetHomebrewCommandline(t *testing.T) {
+	assert.Equal(t,
+		cmdlineToCommand(strings.Join([]string{
+			"/usr/local/Homebrew/Library/Homebrew/vendor/portable-ruby/current/bin/ruby",
+			"-W0",
+			"--disable=gems,did_you_mean,rubyopt",
+			"/usr/local/Homebrew/Library/Homebrew/brew.rb",
+			"upgrade",
+		}, " ")),
+		"brew.rb upgrade",
+	)
+}

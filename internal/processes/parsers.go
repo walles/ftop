@@ -141,6 +141,109 @@ func parseAwsCommand(args []string) *string {
 	return &joined
 }
 
+// Returns nil if we failed to figure out the script name
+func parseDartCommand(cmdline string) *string {
+	array := cmdlineToSlice(cmdline, exists)
+	dart := filepath.Base(array[0])
+	if len(array) == 1 {
+		return &dart
+	}
+
+	for _, candidate := range array[1:] {
+		if strings.HasPrefix(candidate, "-") {
+			continue
+		}
+
+		isAllLower := true
+		for _, ch := range candidate {
+			if ch < 'a' || ch > 'z' {
+				isAllLower = false
+				break
+			}
+		}
+
+		if isAllLower {
+			pretty := dart + " " + candidate
+			return &pretty
+		}
+
+		base := filepath.Base(candidate)
+		return &base
+	}
+
+	return nil
+}
+
+// Returns nil if we failed to figure out the script name
+func parseGuileCommand(cmdline string) *string {
+	array := cmdlineToSlice(cmdline, exists)
+	// Remove empties
+	filtered := make([]string, 0, len(array))
+	for _, s := range array {
+		if s != "" {
+			filtered = append(filtered, s)
+		}
+	}
+
+	// Ignore switches
+	ignoreSwitches := map[string]bool{
+		"-s":                   true,
+		"--listen":             true,
+		"-ds":                  true,
+		"--debug":              true,
+		"--no-debug":           true,
+		"--auto-compile":       true,
+		"--fresh-auto-compile": true,
+		"--no-auto-compile":    true,
+		"-q":                   true,
+		"--r6rs":               true,
+		"--r7rs":               true,
+		"-h":                   true,
+		"--help":               true,
+		"-v":                   true,
+		"--version":            true,
+	}
+	ignoreArgful := map[string]bool{
+		"-L": true,
+		"-C": true,
+		"-x": true,
+		"-l": true,
+		"-e": true,
+	}
+
+	// Consume leading recognized switches
+	for len(filtered) > 1 {
+		s := filtered[1]
+		if ignoreSwitches[s] || strings.HasPrefix(s, "--language=") || strings.HasPrefix(s, "--listen=") || strings.HasPrefix(s, "--use-srfi=") {
+			filtered = append(filtered[:1], filtered[2:]...)
+			continue
+		}
+		if ignoreArgful[s] {
+			// Special: -l returns its arg as the script if present
+			if s == "-l" && len(filtered) > 2 {
+				base := filepath.Base(filtered[2])
+				return &base
+			}
+			if len(filtered) > 2 {
+				filtered = append(filtered[:1], filtered[3:]...)
+			} else {
+				filtered = filtered[:1]
+			}
+			continue
+		}
+		break
+	}
+
+	if len(filtered) == 1 {
+		return nil
+	}
+	if strings.HasPrefix(filtered[1], "-") {
+		return nil
+	}
+	base := filepath.Base(filtered[1])
+	return &base
+}
+
 // Generic script VM helper: handles VMs like node, ruby, bash, etc.
 // Returns nil if we failed to figure out the script name
 func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string {

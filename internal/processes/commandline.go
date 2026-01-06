@@ -231,6 +231,14 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parseDotnetCommand(cmdline))
 	}
 
+	if command == "dart" {
+		return faillog(cmdline, parseDartCommand(cmdline))
+	}
+
+	if strings.HasPrefix(command, "guile") {
+		return faillog(cmdline, parseGuileCommand(cmdline))
+	}
+
 	if slices.Contains([]string{
 		"apt-get",
 		"apt",
