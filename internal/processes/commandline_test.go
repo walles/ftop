@@ -185,3 +185,10 @@ func TestDotnetCommandline(t *testing.T) {
 		"fable.dll",
 	)
 }
+
+func TestNodeMaxOldSpace(t *testing.T) {
+	assert.Equal(t,
+		cmdlineToCommand("node --max_old_space_size=4096 scripts/start.js"),
+		"start.js",
+	)
+}

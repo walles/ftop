@@ -177,6 +177,14 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parseSudoCommand(cmdline))
 	}
 
+	if command == "node" {
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{
+			"--max_old_space_size",
+			"--no-warnings",
+			"--enable-source-maps",
+		}))
+	}
+
 	if command == "dotnet" {
 		return faillog(cmdline, parseDotnetCommand(cmdline))
 	}

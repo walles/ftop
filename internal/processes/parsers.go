@@ -56,3 +56,67 @@ func parseDotnetCommand(cmdline string) *string {
 	pretty := command + " " + filtered[1]
 	return &pretty
 }
+
+// Generic script VM helper: handles VMs like node, ruby, bash, etc.
+// Returns nil if we failed to figure out the script name
+func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string {
+	array := cmdlineToSlice(cmdline, exists)
+
+	// Filter empties
+	filtered := make([]string, 0, len(array))
+	for _, p := range array {
+		if p != "" {
+			filtered = append(filtered, p)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil
+	}
+
+	// Remove leading switches that match ignoreSwitches (matching up to '=' )
+	ignore := make(map[string]bool, len(ignoreSwitches))
+	for _, s := range ignoreSwitches {
+		ignore[s] = true
+	}
+	for len(filtered) > 1 {
+		key := filtered[1]
+		if eq := strings.Index(key, "="); eq != -1 {
+			key = key[:eq]
+		}
+		if !ignore[key] {
+			break
+		}
+		// Drop the ignored switch
+		filtered = append(filtered[:1], filtered[2:]...)
+	}
+
+	vm := filepath.Base(filtered[0])
+	if len(filtered) == 1 {
+		return &vm
+	}
+
+	if strings.HasPrefix(filtered[1], "-") {
+		// Unknown option, help!
+		return nil
+	}
+
+	script := filepath.Base(filtered[1])
+	if len(filtered) == 2 {
+		return &script
+	}
+
+	if script != "brew.rb" && script != "brew.sh" && script != "yarn.js" {
+		return &script
+	}
+
+	sub := filtered[2]
+	if strings.HasPrefix(sub, "-") {
+		return &script
+	}
+
+	pretty := script + " " + sub
+	return &pretty
+}
+
+// (Node handling now inlined at call site in commandline.go)
