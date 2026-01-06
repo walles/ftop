@@ -177,6 +177,10 @@ func cmdlineToCommand(cmdline string) string {
 		return faillog(cmdline, parseSudoCommand(cmdline))
 	}
 
+	if command == "dotnet" {
+		return faillog(cmdline, parseDotnetCommand(cmdline))
+	}
+
 	// FIXME: Do VM specific parsing here
 
 	return command

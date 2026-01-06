@@ -171,3 +171,17 @@ func TestToSliceMsEdge(t *testing.T) {
 
 	assert.SlicesEqual(t, result, []string{complete, "--type=gpu-process"})
 }
+
+func TestDotnetCommandline(t *testing.T) {
+	// Unclear whether "fable" is a builtin or a separate tool, go with "dotnet fable".
+	assert.Equal(t,
+		cmdlineToCommand("libexec/dotnet fable core/Core.Test.fsproj"),
+		"dotnet fable",
+	)
+
+	// The DLL has a path, so it can't be a builtin. Go with just "fable.dll"
+	assert.Equal(t,
+		cmdlineToCommand("libexec/dotnet any/fable.dll core/Core.Test.fsproj"),
+		"fable.dll",
+	)
+}
