@@ -176,6 +176,9 @@ func cmdlineToCommand(cmdline string) string {
 	}
 
 	command := filepath.Base(cmdlineToSlice(cmdline, exists)[0])
+	if strings.HasPrefix(command, "python") || command == "Python" {
+		return faillog(cmdline, parsePythonCommand(cmdline))
+	}
 
 	if command == "sudo" {
 		return faillog(cmdline, parseSudoCommand(cmdline))
@@ -242,8 +245,6 @@ func cmdlineToCommand(cmdline string) string {
 	if PERL_BIN.MatchString(command) {
 		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil))
 	}
-
-	// FIXME: Do VM specific parsing here
 
 	return command
 }

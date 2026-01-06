@@ -237,3 +237,37 @@ func TestGetGitCommandline(t *testing.T) {
 func TestGetTerraformCommandline(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("terraform -chdir=dev apply -target=abc123"), "terraform apply")
 }
+
+func TestGetCommandPython(t *testing.T) {
+	// Basics
+	assert.Equal(t, cmdlineToCommand("python"), "python")
+	assert.Equal(t, cmdlineToCommand("/apa/Python"), "Python")
+	assert.Equal(t, cmdlineToCommand("python --help"), "python")
+
+	// Running scripts / modules
+	assert.Equal(t, cmdlineToCommand("python apa.py"), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/apa.py"), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python2.7 /usr/bin/apa.py"), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej"), "hej")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej gris --flaska"), "hej")
+	assert.Equal(t, cmdlineToCommand("python -c cmd"), "python")
+	assert.Equal(t, cmdlineToCommand("python -m mod"), "mod")
+	assert.Equal(t, cmdlineToCommand("python -m mod --hej gris --frukt"), "mod")
+	assert.Equal(t, cmdlineToCommand("Python -"), "Python")
+
+	// Ignoring switches
+	assert.Equal(t, cmdlineToCommand("python -E apa.py"), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python3 -E"), "python3")
+	assert.Equal(t, cmdlineToCommand("python -u -t -m mod"), "mod")
+
+	// -W switches unsupported for now
+	assert.Equal(t, cmdlineToCommand("python -W warning:spec apa.py"), "python")
+
+	// Invalid command lines
+	assert.Equal(t, cmdlineToCommand("python -W"), "python")
+	assert.Equal(t, cmdlineToCommand("python -c"), "python")
+	assert.Equal(t, cmdlineToCommand("python -m"), "python")
+	assert.Equal(t, cmdlineToCommand("python -m   "), "python")
+	assert.Equal(t, cmdlineToCommand("python -m -u"), "python")
+	assert.Equal(t, cmdlineToCommand("python    "), "python")
+}
