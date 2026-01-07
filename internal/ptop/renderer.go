@@ -34,7 +34,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 		ioStatsWidth = 0
 	}
 
-	// Processes use the remaining height
+	// Processes use the remaining height. This number includes borders.
 	processesHeight := height - overviewHeight - launchedBinariesHeight
 
 	screen.Clear()
@@ -47,8 +47,18 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 		renderIoTopList(screen, ioStats, overviewWidth, width-1)
 	}
 
-	// 5 = room for the overview section at the top
-	prepAndRenderProcesses(processesRaw, screen, overviewHeight, overviewHeight+processesHeight-1)
+	// -2 to skip the borders
+	processesTable, usersHeight, processes, users, binaries := createProcessesTable(processesRaw, processesHeight-2)
+	renderProcesses(
+		screen,
+		processesTable,
+		processes,
+		overviewHeight,
+		overviewHeight+processesHeight-1,
+		users,
+		usersHeight+2,
+		binaries,
+	)
 
 	renderLaunchedBinaries(screen, overviewHeight+processesHeight, height-1)
 

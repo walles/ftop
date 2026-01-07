@@ -182,9 +182,9 @@ func aggregatePerUser(processes []processes.Process) []userStats {
 func aggregatePerBinary(processes []processes.Process) []binaryStats {
 	binaryMap := make(map[string]binaryStats)
 	for _, p := range processes {
-		binaryStat, exists := binaryMap[p.Username]
+		binaryStat, exists := binaryMap[p.Command]
 		if !exists {
-			binaryStat = binaryStats{binaryName: p.Username}
+			binaryStat = binaryStats{binaryName: p.Command}
 		}
 
 		if p.CpuTime != nil {

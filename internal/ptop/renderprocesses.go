@@ -8,72 +8,158 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
-// Top and bottom row values are inclusive
-func prepAndRenderProcesses(processesRaw []processes.Process, screen twin.Screen, topRow int, bottomRow int) {
-	width, _ := screen.Size()
-	height := 1 + bottomRow - topRow
+// Render three tables and combine them: per-process (on the left), per-user
+// (top right), and per-binary (bottom right).
+//
+// Returns the combined table, as well as the row count (including headers) of
+// the per-user section.
+//
+// processesHeight is the height of the table, without borders
+func createProcessesTable(processesRaw []processes.Process, processesHeight int) (
+	[][]string,
+	int,
+	[]processes.Process,
+	[]userStats,
+	[]binaryStats,
+) {
+	usersHeight := processesHeight / 2
+	binariesHeight := processesHeight - usersHeight
 
-	// Decide on section heights
-	processesHeightWithoutBorders := height - 2 // 2 = top and bottom frame lines
+	procsHeaders := []string{
+		"PID", "Command", "Username", "CPU", "Time", "RAM",
+	}
+	usersHeaders := []string{
+		"Username", "CPU", "RAM",
+	}
+	binariesHeaders := []string{
+		"Binary", "CPU", "RAM",
+	}
 
-	// The -1s are for the separator lines between sections
-	usersHeightWithoutBorders := processesHeightWithoutBorders/2 - 1
-	binariesHeightWithoutBorders := processesHeightWithoutBorders - usersHeightWithoutBorders - 1
-
-	// Collect data to show
-	procsHeightWithoutHeaders := processesHeightWithoutBorders - 1
+	procsTable := [][]string{
+		procsHeaders,
+	}
 	processesByScore := ProcessesByScore(processesRaw)
-	if len(processesByScore) > procsHeightWithoutHeaders-1 {
-		processesByScore = processesByScore[:procsHeightWithoutHeaders]
+	for _, p := range processesByScore {
+		if len(procsTable) >= processesHeight {
+			break
+		}
+
+		row := []string{
+			fmt.Sprintf("%d", p.Pid),
+			p.Command,
+			p.Username,
+			p.CpuPercentString(),
+			p.CpuTimeString(),
+			ui.FormatMemory(int64(p.RssKb) * 1024),
+		}
+
+		procsTable = append(procsTable, row)
+	}
+	for len(procsTable) < processesHeight {
+		procsTable = append(procsTable, make([]string, len(procsHeaders)))
 	}
 
-	usersHeightWithoutHeaders := usersHeightWithoutBorders - 1
+	usersTable := [][]string{
+		usersHeaders,
+	}
 	users := UsersByScore(processesRaw)
-	if len(users) > usersHeightWithoutHeaders-1 {
-		users = users[:usersHeightWithoutHeaders]
+	for _, u := range users {
+		if len(usersTable) >= usersHeight {
+			break
+		}
+
+		row := []string{
+			u.username,
+			ui.FormatDuration(u.cpuTime),
+			ui.FormatMemory(1024 * int64(u.rssKb)),
+		}
+
+		usersTable = append(usersTable, row)
+	}
+	for len(usersTable) < usersHeight {
+		usersTable = append(usersTable, make([]string, len(usersHeaders)))
 	}
 
-	binariesHeightWithoutHeaders := binariesHeightWithoutBorders - 1
+	binariesTable := [][]string{
+		binariesHeaders,
+	}
 	binaries := BinariesByScore(processesRaw)
-	if len(binaries) > binariesHeightWithoutHeaders-1 {
-		binaries = binaries[:binariesHeightWithoutHeaders]
+	for _, b := range binaries {
+		if len(binariesTable) >= binariesHeight {
+			break
+		}
+
+		row := []string{
+			b.binaryName,
+			ui.FormatDuration(b.cpuTime),
+			ui.FormatMemory(1024 * int64(b.rssKb)),
+		}
+
+		binariesTable = append(binariesTable, row)
+	}
+	for len(binariesTable) < binariesHeight {
+		binariesTable = append(binariesTable, make([]string, len(binariesHeaders)))
 	}
 
-	// Figure out column widths
-	allInOneTable := toTable(processesByScore, users, binaries)
-	// 1=left frame, 5=per-process column separators, 2="||", 2=per-user column separators, 1=right frame
-	rowSpacing := 1 + 5 + 2 + 2 + 1
-	widths := ui.ColumnWidths(allInOneTable, width-rowSpacing, false) // Don't grow the PID column, that looks weird
+	combinedTable := [][]string{}
+
+	// If the users table would be 1 long:
+	// 0: users header
+	// 1: --- bottom separator ---
+	// 2: --- top separator ---
+	// 3: binaries start here
+	//
+	// So the binaries start at 1 + 2 = 3
+	binariesStartRow := len(usersTable) + 2
+	for i, procRow := range procsTable {
+		row := make([]string, 0, len(procRow)+len(usersTable[0]))
+		row = append(row, procRow...)
+		if i < len(usersTable) {
+			row = append(row, usersTable[i]...)
+		} else if i >= binariesStartRow {
+			binariesIndex := i - binariesStartRow
+			row = append(row, binariesTable[binariesIndex]...)
+		} else {
+			// Neither user nor binary row, pad with empty cells
+			for range binariesHeaders {
+				row = append(row, "")
+			}
+		}
+
+		combinedTable = append(combinedTable, row)
+	}
+
+	return combinedTable, len(usersTable), processesByScore, users, binaries
+}
+
+// The processes table contains cells for all three sections: per-process (on
+// the left), per-user (top right), and per-binary (bottom right).
+//
+// topRow and bottomRow are screen rows. Screen borders go on those rows.
+//
+// usersHeight is the number of table lines in the per-user section, including
+// borders. Borders is not included in this number. The binaries table will use
+// the remaining space below the users table.
+func renderProcesses(
+	screen twin.Screen,
+	table [][]string,
+	processes []processes.Process,
+	firstScreenRow int,
+	bottomRow int,
+	users []userStats,
+	usersHeight int,
+	binaries []binaryStats,
+) {
+	width, _ := screen.Size()
+
+	// Don't grow the PID column, that looks weird
+	widths := ui.ColumnWidths(table, width-2, false)
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 	rightPerProcessBorderColumn := perProcessTableWidth + 1 // +1 for the left frame line
 	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1
 	rightPerUserBorderColumn := leftPerUserBorderColumn + widths[6] + 1 + widths[7] + 1 + widths[8] + 1
 
-	// Render!
-	topContentsRow := topRow + 1 // +1 for the top frame line
-	doRenderProcesses(allInOneTable, widths, processesByScore, users, binaries, screen, topContentsRow, 1)
-
-	renderFrame(screen, topRow, 0, bottomRow, rightPerProcessBorderColumn, "By process")
-	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)
-
-	usersBottomBorder := topRow + 1 + usersHeightWithoutBorders
-	renderFrame(screen, topRow, leftPerUserBorderColumn, usersBottomBorder, rightPerUserBorderColumn, "By user")
-
-	binariesTopRow := usersBottomBorder + 1
-	binariesBottomRow := bottomRow
-	renderFrame(screen, binariesTopRow, leftPerUserBorderColumn, binariesBottomRow, rightPerUserBorderColumn, "By binary")
-}
-
-func doRenderProcesses(
-	table [][]string,
-	widths []int,
-	processes []processes.Process,
-	users []userStats,
-	screen twin.Screen,
-	firstScreenRow int,
-	firstScreenColumn int,
-) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds||%%-%d.%ds %%%d.%ds %%%d.%ds",
@@ -87,6 +173,10 @@ func doRenderProcesses(
 		widths[7], widths[7],
 		widths[8], widths[8],
 	)
+
+	//
+	// Rendering setup
+	//
 
 	// NOTE: Use some online OKLCH color picker for experimenting with colors
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
@@ -105,10 +195,14 @@ func doRenderProcesses(
 	// 1.0 = ignore the header line
 	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
 
-	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
-
 	perUserTableWidth := widths[6] + 1 + widths[7] + 1 + widths[8]
-	perUserTableStart := perProcessTableWidth + 2 // +2 for the "||" divider
+	perUserTableScreenColumn := perProcessTableWidth + 2 // +2 for the "||" divider
+
+	processUserColumn0 := 1 + widths[0] + 1 + widths[1] + 1
+	processUserColumnN := processUserColumn0 + widths[2] - 1
+	userUserColumn0 := 1 + perUserTableScreenColumn
+	userUserColumnN := userUserColumn0 + widths[6] - 1
+	currentUsername := getCurrentUsername()
 
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
@@ -133,16 +227,26 @@ func doRenderProcesses(
 		}
 	}
 
-	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(
-		firstScreenColumn, firstScreenColumn+perProcessTableWidth-1, cpuRamp, memoryRamp)
-	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(
-		firstScreenColumn+perUserTableStart, firstScreenColumn+perUserTableStart+perUserTableWidth-1, cpuRamp, memoryRamp)
+	maxCpuSecondsPerBinary := 0.0
+	maxRssKbPerBinary := 0
+	for _, b := range binaries {
+		cpuSeconds := b.cpuTime.Seconds()
+		if cpuSeconds > maxCpuSecondsPerBinary {
+			maxCpuSecondsPerBinary = cpuSeconds
+		}
+		if b.rssKb > maxRssKbPerBinary {
+			maxRssKbPerBinary = b.rssKb
+		}
+	}
 
-	processUserColumn0 := firstScreenColumn + widths[0] + 1 + widths[1] + 1
-	processUserColumnN := processUserColumn0 + widths[2] - 1
-	userUserColumn0 := firstScreenColumn + perUserTableStart
-	userUserColumnN := userUserColumn0 + widths[6] - 1
-	currentUsername := getCurrentUsername()
+	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(
+		1, 1+perProcessTableWidth-1, cpuRamp, memoryRamp)
+	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(
+		1+perUserTableScreenColumn, 1+perUserTableScreenColumn+perUserTableWidth-1, cpuRamp, memoryRamp)
+
+	//
+	// Render table contents
+	//
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
@@ -159,7 +263,10 @@ func doRenderProcesses(
 		}
 
 		// x is relative to the left edge of the table, not to the screen
-		x := firstScreenColumn
+		x := 1
+
+		// y is a screen row
+		y := firstScreenRow + 1 + rowIndex
 
 		for _, char := range line {
 			style := rowStyle
@@ -172,7 +279,7 @@ func doRenderProcesses(
 				}
 			}
 
-			screen.SetCell(x, firstScreenRow+rowIndex, twin.StyledRune{Rune: char, Style: style})
+			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
@@ -191,10 +298,10 @@ func doRenderProcesses(
 				if maxRssKbPerProcess > 0 {
 					memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
 				}
-				perProcessCpuAndMemBar.SetCellBackground(screen, x, firstScreenRow+rowIndex, cpuFraction, memFraction)
+				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 			}
 
-			if index < len(users) {
+			if index < usersHeight-1 {
 				user := users[index]
 				cpuFraction := 0.0
 				if maxCpuSecondsPerUser > 0.0 {
@@ -204,68 +311,63 @@ func doRenderProcesses(
 				if maxRssKbPerUser > 0 {
 					memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
 				}
-				perUserCpuAndMemBar.SetCellBackground(screen, x, firstScreenRow+rowIndex, cpuFraction, memFraction)
+				perUserCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 
 				// Bold the current username
 				if user.username == currentUsername && x >= userUserColumn0 && x <= userUserColumnN {
-					cell := screen.GetCell(x, firstScreenRow+rowIndex)
+					cell := screen.GetCell(x, y)
 					cell.Style = cell.Style.WithAttr(twin.AttrBold)
-					screen.SetCell(x, firstScreenRow+rowIndex, cell)
+					screen.SetCell(x, y, cell)
+				}
+			}
+
+			if index == usersHeight-1 {
+				// Bold the binaries header row
+				if x >= userUserColumn0 {
+					cell := screen.GetCell(x, y)
+					cell.Style = cell.Style.WithAttr(twin.AttrBold)
+					screen.SetCell(x, y, cell)
 				}
 			}
 
 			x++
 		}
 	}
-}
 
-func toTable(processesByScore []processes.Process, usersByScore []userStats) [][]string {
-	headerLine := []string{
-		// These first ones are for the per-process table
-		"PID", "Command", "Username", "CPU", "Time", "RAM",
-		// These columns are for the per-user table
-		"Username", "CPU", "RAM",
-	}
+	//
+	// Render frames
+	//
 
-	var table [][]string
+	renderFrame(
+		screen,
+		firstScreenRow,
+		0,
+		bottomRow,
+		rightPerProcessBorderColumn,
+		"By process",
+	)
+	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)
 
-	// Header line
-	table = append(table, headerLine)
+	usersBottomBorder := firstScreenRow + 1 + usersHeight - 2 // -2 to skip the borders
+	renderFrame(
+		screen,
+		firstScreenRow,
+		leftPerUserBorderColumn,
+		usersBottomBorder,
+		rightPerUserBorderColumn,
+		"By user",
+	)
 
-	for i := 0; i < max(len(processesByScore), len(usersByScore)); i++ {
-		row := make([]string, 0, len(headerLine))
-
-		if i < len(processesByScore) {
-			p := processesByScore[i]
-			row = append(row,
-				fmt.Sprintf("%d", p.Pid),
-				p.Command,
-				p.Username,
-				p.CpuPercentString(),
-				p.CpuTimeString(),
-				ui.FormatMemory(int64(p.RssKb)*1024),
-			)
-		} else {
-			// Pad out with empty per-process data
-			row = append(row, "", "", "", "", "", "")
-		}
-
-		if i < len(usersByScore) {
-			u := usersByScore[i]
-			row = append(row,
-				u.username,
-				ui.FormatDuration(u.cpuTime),
-				ui.FormatMemory(1024*int64(u.rssKb)),
-			)
-		} else {
-			// Pad out with empty per-user data
-			row = append(row, "", "", "")
-		}
-
-		table = append(table, row)
-	}
-
-	return table
+	binariesTopRow := usersBottomBorder + 1
+	binariesBottomRow := bottomRow
+	renderFrame(
+		screen,
+		binariesTopRow,
+		leftPerUserBorderColumn,
+		binariesBottomRow,
+		rightPerUserBorderColumn,
+		"By binary",
+	)
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
