@@ -155,8 +155,12 @@ func renderProcessesBlock(
 ) {
 	width, _ := screen.Size()
 
+	// -2 for borders, -5 for column dividers, -2 for the two borders between
+	// sections and -2 for column dividers in the right section
+	availableToColumns := width - 2 - 5 - 2 - 2
+
 	// Don't grow the PID column, that looks weird
-	widths := ui.ColumnWidths(table, width-2, false)
+	widths := ui.ColumnWidths(table, availableToColumns, false)
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
@@ -286,13 +290,123 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 }
 
 func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
+	widths = widths[6:] // Skip the per-process columns
+
+	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
+	// 5", and the "-" means left-align.
+	formatString := fmt.Sprintf("%%-%d.%ds %%%d.%ds %%%d.%ds",
+		widths[0], widths[0],
+		widths[1], widths[1],
+		widths[2], widths[2],
+	)
+
+	// NOTE: Use some online OKLCH color picker for experimenting with colors
+	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
+	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
+	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+
+	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	if screen.TerminalBackground() != nil {
+		colorBg = *screen.TerminalBackground()
+	}
+
+	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
+	colorBottom := colorTop.Mix(colorBg, 0.66)
+	// 1.0 = ignore the header line
+	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+
+	usernameColumn0 := x0 + 1                          // Screen column
+	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
+	currentUsername := getCurrentUsername()
+
+	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
+	// borders
+	rowsWithHeaderWithoutBorders := y1 - y0 - 1
+
+	maxCpuSecondsPerUser := 0.0
+	maxRssKbPerUser := 0
+	for _, u := range users {
+		if u.cpuTime.Seconds() > maxCpuSecondsPerUser {
+			maxCpuSecondsPerUser = u.cpuTime.Seconds()
+		}
+		if u.rssKb > maxRssKbPerUser {
+			maxRssKbPerUser = u.rssKb
+		}
+	}
+
+	cpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
+
+	//
+	// Render table contents
+	//
+
+	for rowIndex, row := range table {
+		if rowIndex >= rowsWithHeaderWithoutBorders {
+			// No more room
+			break
+		}
+
+		row = row[6:] // Skip the per-process columns
+		line := fmt.Sprintf(formatString,
+			row[0], row[1], row[2],
+		)
+
+		var rowStyle twin.Style
+		if rowIndex == 0 {
+			// Header row, header style
+			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
+		} else {
+			rowStyle = twin.StyleDefault
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+		}
+
+		x := x0 + 1            // screen column
+		y := y0 + 1 + rowIndex // screen row
+
+		for _, char := range line {
+			style := rowStyle
+			if x >= usernameColumn0 && x <= usernameColumnN {
+				username := row[0]
+				if username == currentUsername {
+					style = style.WithAttr(twin.AttrBold)
+				}
+			}
+
+			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
+
+			if rowIndex == 0 {
+				// Header row, no load bars here
+				x++
+				continue
+			}
+
+			index := rowIndex - 1 // Because rowIndex 0 is the header
+			if index < len(users) {
+				user := users[index]
+				cpuFraction := 0.0
+				if maxCpuSecondsPerUser > 0.0 {
+					cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
+				}
+				memFraction := 0.0
+				if maxRssKbPerUser > 0 {
+					memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
+				}
+				cpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
+			}
+
+			x++
+		}
+	}
+
 	renderFrame(
 		screen,
 		y0,
 		x0,
 		y1,
 		x1,
-		"FIXME: By user",
+		"By user",
 	)
 }
 
