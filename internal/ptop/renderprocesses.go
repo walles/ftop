@@ -132,6 +132,9 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	return combinedTable, len(usersTable), processesByScore, users, binaries
 }
 
+// Render the three sections: per-process (on the left), per-user (top right),
+// and per-binary (bottom right).
+//
 // The processes table contains cells for all three sections: per-process (on
 // the left), per-user (top right), and per-binary (bottom right).
 //
@@ -140,7 +143,179 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 // usersHeight is the number of table lines in the per-user section, including
 // borders. Borders is not included in this number. The binaries table will use
 // the remaining space below the users table.
-func renderProcesses(
+func renderProcessesBlock(
+	screen twin.Screen,
+	table [][]string,
+	processes []processes.Process,
+	firstScreenRow int,
+	bottomRow int,
+	users []userStats,
+	usersHeight int,
+	binaries []binaryStats,
+) {
+	width, _ := screen.Size()
+
+	// Don't grow the PID column, that looks weird
+	widths := ui.ColumnWidths(table, width-2, false)
+
+	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
+	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
+	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1 // Screen column
+
+	usersBottomBorder := firstScreenRow + 1 + usersHeight - 2 // -2 to skip the borders
+	binariesTopRow := usersBottomBorder + 1
+
+	renderProcesses(screen, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
+	renderPerUser(screen, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
+	renderPerBinary(screen, leftPerUserBorderColumn, binariesTopRow, width-1, bottomRow, table, widths, binaries)
+}
+
+func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
+	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
+	// 5", and the "-" means left-align.
+	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
+		widths[0], widths[0],
+		widths[1], widths[1],
+		widths[2], widths[2],
+		widths[3], widths[3],
+		widths[4], widths[4],
+		widths[5], widths[5],
+	)
+
+	// NOTE: Use some online OKLCH color picker for experimenting with colors
+	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
+	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
+	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+
+	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
+	if screen.TerminalBackground() != nil {
+		colorBg = *screen.TerminalBackground()
+	}
+
+	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
+	colorBottom := colorTop.Mix(colorBg, 0.66)
+	// 1.0 = ignore the header line
+	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+
+	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
+	userColumnN := userColumn0 + widths[2] - 1        // Screen column
+	currentUsername := getCurrentUsername()
+
+	maxCpuSecondsPerProcess := 0.0
+	maxRssKbPerProcess := 0
+	for _, p := range processes {
+		if p.CpuTime != nil && p.CpuTime.Seconds() > maxCpuSecondsPerProcess {
+			maxCpuSecondsPerProcess = p.CpuTime.Seconds()
+		}
+		if p.RssKb > maxRssKbPerProcess {
+			maxRssKbPerProcess = p.RssKb
+		}
+	}
+
+	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
+
+	//
+	// Render table contents
+	//
+
+	for rowIndex, row := range table {
+		line := fmt.Sprintf(formatString,
+			row[0], row[1], row[2], row[3], row[4], row[5],
+		)
+
+		var rowStyle twin.Style
+		if rowIndex == 0 {
+			// Header row, header style
+			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
+		} else {
+			rowStyle = twin.StyleDefault
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+		}
+
+		x := 0                 // screen column
+		y := y0 + 1 + rowIndex // screen row
+
+		for _, char := range line {
+			style := rowStyle
+			if x >= userColumn0 && x <= userColumnN {
+				username := row[2]
+				if username == "root" && currentUsername != "root" {
+					style = style.WithAttr(twin.AttrDim)
+				} else if username != currentUsername {
+					style = style.WithAttr(twin.AttrBold)
+				}
+			}
+
+			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
+
+			if rowIndex == 0 {
+				// Header row, no load bars here
+				x++
+				continue
+			}
+
+			index := rowIndex - 1 // Because rowIndex 0 is the header
+			if index < len(processes) {
+				process := processes[index]
+				cpuFraction := 0.0
+				if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
+					cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
+				}
+				memFraction := 0.0
+				if maxRssKbPerProcess > 0 {
+					memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
+				}
+				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
+			}
+
+			x++
+		}
+	}
+
+	renderFrame(
+		screen,
+		y0,
+		x0,
+		y1,
+		x1,
+		"By process",
+	)
+	renderLegend(screen, y1, x1)
+}
+
+func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
+	renderFrame(
+		screen,
+		y0,
+		x0,
+		y1,
+		x1,
+		"FIXME: By user",
+	)
+}
+
+func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, binaries []binaryStats) {
+	renderFrame(
+		screen,
+		y0,
+		x0,
+		y1,
+		x1,
+		"FIXME: By binary",
+	)
+}
+
+// The processes table contains cells for all three sections: per-process (on
+// the left), per-user (top right), and per-binary (bottom right).
+//
+// topRow and bottomRow are screen rows. Screen borders go on those rows.
+//
+// usersHeight is the number of table lines in the per-user section, including
+// borders. Borders is not included in this number. The binaries table will use
+// the remaining space below the users table.
+func formerRenderProcesses(
 	screen twin.Screen,
 	table [][]string,
 	processes []processes.Process,

@@ -49,7 +49,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 
 	// -2 to skip the borders
 	processesTable, usersHeight, processes, users, binaries := createProcessesTable(processesRaw, processesHeight-2)
-	renderProcesses(
+	renderProcessesBlock(
 		screen,
 		processesTable,
 		processes,
