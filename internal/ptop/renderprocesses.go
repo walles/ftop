@@ -200,8 +200,8 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.66)
-	// 1.0 = ignore the header line
-	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+	// +2 = ignore top border and the header line
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
@@ -229,18 +229,18 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 			row[0], row[1], row[2], row[3], row[4], row[5],
 		)
 
+		y := y0 + 1 + rowIndex // screen row
+
 		var rowStyle twin.Style
 		if rowIndex == 0 {
 			// Header row, header style
 			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
 			rowStyle = twin.StyleDefault
-			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
 		}
 
-		x := 0                 // screen column
-		y := y0 + 1 + rowIndex // screen row
-
+		x := 0 // screen column
 		for _, char := range line {
 			style := rowStyle
 			if x >= userColumn0 && x <= userColumnN {
@@ -314,8 +314,8 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.66)
-	// 1.0 = ignore the header line
-	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+	// +2 = ignore top border and the header line
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
 
 	usernameColumn0 := x0 + 1                          // Screen column
 	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
@@ -353,18 +353,18 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 			row[0], row[1], row[2],
 		)
 
+		y := y0 + 1 + rowIndex // screen row
+
 		var rowStyle twin.Style
 		if rowIndex == 0 {
 			// Header row, header style
 			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
 			rowStyle = twin.StyleDefault
-			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
 		}
 
-		x := x0 + 1            // screen column
-		y := y0 + 1 + rowIndex // screen row
-
+		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
 			if x >= usernameColumn0 && x <= usernameColumnN {
