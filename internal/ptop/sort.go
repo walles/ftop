@@ -111,7 +111,7 @@ func UsersByScore(processes []processes.Process) []userStats {
 		}
 
 		// Fall back to name comparison for stability at the bottom of the list
-		return cmp.Compare(ui.username, uj.username)
+		return cmp.Compare(ui.name, uj.name)
 	})
 
 	return sorted
@@ -155,7 +155,7 @@ func BinariesByScore(processes []processes.Process) []binaryStats {
 		}
 
 		// Fall back to name comparison for stability at the bottom of the list
-		return cmp.Compare(bi.binaryName, bj.binaryName)
+		return cmp.Compare(bi.name, bj.name)
 	})
 
 	return sorted
@@ -166,7 +166,7 @@ func aggregatePerUser(processes []processes.Process) []userStats {
 	for _, p := range processes {
 		userStat, exists := userMap[p.Username]
 		if !exists {
-			userStat = userStats{username: p.Username}
+			userStat = userStats{stats: stats{name: p.Username}}
 		}
 
 		if p.CpuTime != nil {
@@ -192,7 +192,7 @@ func aggregatePerBinary(processes []processes.Process) []binaryStats {
 	for _, p := range processes {
 		binaryStat, exists := binaryMap[p.Command]
 		if !exists {
-			binaryStat = binaryStats{binaryName: p.Command}
+			binaryStat = binaryStats{stats: stats{name: p.Command}}
 		}
 
 		if p.CpuTime != nil {

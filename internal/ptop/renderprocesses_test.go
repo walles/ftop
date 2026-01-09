@@ -24,19 +24,20 @@ func TestCreateProcessTable(t *testing.T) {
 	assert.Equal(t, usersHeight, 2) // Header line + 1 user line
 	assert.Equal(t, reflect.DeepEqual(returnedSortedProcs, sortedProcs), true)
 	assert.SlicesEqual(t, binaries, []binaryStats{
-		{binaryName: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1},
-		{binaryName: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1},
-		{binaryName: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1},
-		{binaryName: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1},
-		{binaryName: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1},
-		{binaryName: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1}})
+		{stats{name: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1}},
+		{stats{name: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1}},
+		{stats{name: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1}},
+		{stats{name: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1}},
+		{stats{name: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1}},
+		{stats{name: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1}},
+	})
 	assert.SlicesEqual(t, users, []userStats{
-		{username: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1},
-		{username: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1},
-		{username: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1},
-		{username: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1},
-		{username: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1},
-		{username: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1},
+		{stats{name: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1}},
+		{stats{name: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1}},
+		{stats{name: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1}},
+		{stats{name: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1}},
+		{stats{name: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1}},
+		{stats{name: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1}},
 	})
 
 	assert.Equal(t, reflect.DeepEqual(table, [][]string{

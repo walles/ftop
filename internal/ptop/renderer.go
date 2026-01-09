@@ -8,18 +8,19 @@ import (
 	"github.com/walles/ptop/internal/processes"
 )
 
-type userStats struct {
-	username     string
+type stats struct {
+	name         string
 	cpuTime      time.Duration
 	rssKb        int
 	processCount int
 }
 
+type userStats struct {
+	stats
+}
+
 type binaryStats struct {
-	binaryName   string
-	cpuTime      time.Duration
-	rssKb        int
-	processCount int
+	stats
 }
 
 func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {

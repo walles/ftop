@@ -69,7 +69,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		}
 
 		row := []string{
-			u.username,
+			u.name,
 			ui.FormatDuration(u.cpuTime),
 			ui.FormatMemory(1024 * int64(u.rssKb)),
 		}
@@ -90,7 +90,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		}
 
 		row := []string{
-			b.binaryName,
+			b.name,
 			ui.FormatDuration(b.cpuTime),
 			ui.FormatMemory(1024 * int64(b.rssKb)),
 		}
