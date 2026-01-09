@@ -22,7 +22,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	[]userStats,
 	[]binaryStats,
 ) {
-	usersHeight := processesHeight / 2
+	usersHeight := processesHeight/2 - 1
 	binariesHeight := processesHeight - usersHeight
 
 	procsHeaders := []string{
