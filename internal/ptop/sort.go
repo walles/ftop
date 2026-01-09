@@ -73,8 +73,12 @@ func ProcessesByScore(procs []processes.Process) []processes.Process {
 	return sorted
 }
 
-func UsersByScore(processes []processes.Process) []userStats {
-	sorted := aggregatePerUser(processes)
+func UsersByScore(procs []processes.Process) []userStats {
+	sorted := aggregate(
+		procs,
+		func(p processes.Process) string { return p.Username },
+		func(s stats) userStats { return userStats{stats: s} },
+	)
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
@@ -117,8 +121,12 @@ func UsersByScore(processes []processes.Process) []userStats {
 	return sorted
 }
 
-func BinariesByScore(processes []processes.Process) []binaryStats {
-	sorted := aggregatePerBinary(processes)
+func BinariesByScore(procs []processes.Process) []binaryStats {
+	sorted := aggregate(
+		procs,
+		func(p processes.Process) string { return p.Command },
+		func(s stats) binaryStats { return binaryStats{stats: s} },
+	)
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
@@ -161,52 +169,26 @@ func BinariesByScore(processes []processes.Process) []binaryStats {
 	return sorted
 }
 
-func aggregatePerUser(processes []processes.Process) []userStats {
-	userMap := make(map[string]userStats)
+func aggregate[T any](processes []processes.Process, getGroup func(p processes.Process) string, cast func(stat stats) T) []T {
+	statsMap := make(map[string]stats)
 	for _, p := range processes {
-		userStat, exists := userMap[p.Username]
+		stat, exists := statsMap[getGroup(p)]
 		if !exists {
-			userStat = userStats{stats: stats{name: p.Username}}
+			stat = stats{name: getGroup(p)}
 		}
 
 		if p.CpuTime != nil {
-			userStat.cpuTime += *p.CpuTime
+			stat.cpuTime += *p.CpuTime
 		}
-		userStat.rssKb += p.RssKb
+		stat.rssKb += p.RssKb
 
-		userStat.processCount++
-
-		userMap[p.Username] = userStat
+		stat.processCount++
+		statsMap[getGroup(p)] = stat
 	}
 
-	var returnMe []userStats
-	for _, stats := range userMap {
-		returnMe = append(returnMe, stats)
-	}
-
-	return returnMe
-}
-
-func aggregatePerBinary(processes []processes.Process) []binaryStats {
-	binaryMap := make(map[string]binaryStats)
-	for _, p := range processes {
-		binaryStat, exists := binaryMap[p.Command]
-		if !exists {
-			binaryStat = binaryStats{stats: stats{name: p.Command}}
-		}
-
-		if p.CpuTime != nil {
-			binaryStat.cpuTime += *p.CpuTime
-		}
-		binaryStat.rssKb += p.RssKb
-
-		binaryStat.processCount++
-		binaryMap[p.Command] = binaryStat
-	}
-
-	var returnMe []binaryStats
-	for _, stats := range binaryMap {
-		returnMe = append(returnMe, stats)
+	var returnMe []T
+	for _, stats := range statsMap {
+		returnMe = append(returnMe, cast(stats))
 	}
 
 	return returnMe
