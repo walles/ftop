@@ -23,6 +23,14 @@ func ProcessesByScore(procs []processes.Process) []processes.Process {
 		}
 	}
 
+	// Avoid division by zero later
+	if maxCpuTime == 0 {
+		maxCpuTime = 1
+	}
+	if maxRssKb == 0 {
+		maxRssKb = 1
+	}
+
 	slices.SortFunc(sorted, func(pi processes.Process, pj processes.Process) int {
 		var cpuScoreI float64
 		if pi.CpuTime != nil {
