@@ -166,11 +166,19 @@ func renderProcessesBlock(
 	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
 	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1 // Screen column
 
-	usersBottomBorder := firstScreenRow + 1 + usersHeight - 2 // -2 to skip the borders
+	usersBottomBorder := firstScreenRow + 1 + usersHeight
 	binariesTopRow := usersBottomBorder + 1
 
 	renderProcesses(screen, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
 	renderPerUser(screen, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
+
+	// Skip the per-user rows. If usersHeight is 0:
+	// 0: post-users separator line
+	// 1: post-users separator line number two
+	// 2: binaries start here
+	//
+	// So for usersHeight = 0, we should start at index 2
+	table = table[usersHeight+2:]
 	renderPerBinary(screen, leftPerUserBorderColumn, binariesTopRow, width-1, bottomRow, table, widths, binaries)
 }
 
@@ -410,62 +418,17 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 	)
 }
 
+// Assumes the first row of the table contains the binaries header line
 func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, binaries []binaryStats) {
-	renderFrame(
-		screen,
-		y0,
-		x0,
-		y1,
-		x1,
-		"FIXME: By binary",
-	)
-}
-
-// The processes table contains cells for all three sections: per-process (on
-// the left), per-user (top right), and per-binary (bottom right).
-//
-// topRow and bottomRow are screen rows. Screen borders go on those rows.
-//
-// usersHeight is the number of table lines in the per-user section, including
-// borders. Borders is not included in this number. The binaries table will use
-// the remaining space below the users table.
-func formerRenderProcesses(
-	screen twin.Screen,
-	table [][]string,
-	processes []processes.Process,
-	firstScreenRow int,
-	bottomRow int,
-	users []userStats,
-	usersHeight int,
-	binaries []binaryStats,
-) {
-	width, _ := screen.Size()
-
-	// Don't grow the PID column, that looks weird
-	widths := ui.ColumnWidths(table, width-2, false)
-
-	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
-	rightPerProcessBorderColumn := perProcessTableWidth + 1 // +1 for the left frame line
-	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1
-	rightPerUserBorderColumn := leftPerUserBorderColumn + widths[6] + 1 + widths[7] + 1 + widths[8] + 1
+	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
-	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds||%%-%d.%ds %%%d.%ds %%%d.%ds",
+	formatString := fmt.Sprintf("%%-%d.%ds %%%d.%ds %%%d.%ds",
 		widths[0], widths[0],
 		widths[1], widths[1],
 		widths[2], widths[2],
-		widths[3], widths[3],
-		widths[4], widths[4],
-		widths[5], widths[5],
-		widths[6], widths[6],
-		widths[7], widths[7],
-		widths[8], widths[8],
 	)
-
-	//
-	// Rendering setup
-	//
 
 	// NOTE: Use some online OKLCH color picker for experimenting with colors
 	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
@@ -481,66 +444,42 @@ func formerRenderProcesses(
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.66)
-	// 1.0 = ignore the header line
-	topBottomRamp := ui.NewColorRamp(1.0, float64(len(table)-1), colorTop, colorBottom)
+	// +2 = ignore top border and the header line
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
 
-	perUserTableWidth := widths[6] + 1 + widths[7] + 1 + widths[8]
-	perUserTableScreenColumn := perProcessTableWidth + 2 // +2 for the "||" divider
-
-	processUserColumn0 := 1 + widths[0] + 1 + widths[1] + 1
-	processUserColumnN := processUserColumn0 + widths[2] - 1
-	userUserColumn0 := 1 + perUserTableScreenColumn
-	userUserColumnN := userUserColumn0 + widths[6] - 1
-	currentUsername := getCurrentUsername()
-
-	maxCpuSecondsPerProcess := 0.0
-	maxRssKbPerProcess := 0
-	for _, p := range processes {
-		if p.CpuTime != nil && p.CpuTime.Seconds() > maxCpuSecondsPerProcess {
-			maxCpuSecondsPerProcess = p.CpuTime.Seconds()
-		}
-		if p.RssKb > maxRssKbPerProcess {
-			maxRssKbPerProcess = p.RssKb
-		}
-	}
-
-	maxCpuSecondsPerUser := 0.0
-	maxRssKbPerUser := 0
-	for _, u := range users {
-		cpuSeconds := u.cpuTime.Seconds()
-		if cpuSeconds > maxCpuSecondsPerUser {
-			maxCpuSecondsPerUser = cpuSeconds
-		}
-		if u.rssKb > maxRssKbPerUser {
-			maxRssKbPerUser = u.rssKb
-		}
-	}
+	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
+	// borders
+	rowsWithHeaderWithoutBorders := y1 - y0 - 1
 
 	maxCpuSecondsPerBinary := 0.0
 	maxRssKbPerBinary := 0
 	for _, b := range binaries {
-		cpuSeconds := b.cpuTime.Seconds()
-		if cpuSeconds > maxCpuSecondsPerBinary {
-			maxCpuSecondsPerBinary = cpuSeconds
+		if b.cpuTime.Seconds() > maxCpuSecondsPerBinary {
+			maxCpuSecondsPerBinary = b.cpuTime.Seconds()
 		}
 		if b.rssKb > maxRssKbPerBinary {
 			maxRssKbPerBinary = b.rssKb
 		}
 	}
 
-	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(
-		1, 1+perProcessTableWidth-1, cpuRamp, memoryRamp)
-	perUserCpuAndMemBar := ui.NewOverlappingLoadBars(
-		1+perUserTableScreenColumn, 1+perUserTableScreenColumn+perUserTableWidth-1, cpuRamp, memoryRamp)
+	cpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
 
 	//
 	// Render table contents
 	//
 
 	for rowIndex, row := range table {
+		if rowIndex >= rowsWithHeaderWithoutBorders {
+			// No more room
+			break
+		}
+
+		row = row[6:] // Skip the per-process columns
 		line := fmt.Sprintf(formatString,
-			row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
+			row[0], row[1], row[2],
 		)
+
+		y := y0 + 1 + rowIndex // screen row
 
 		var rowStyle twin.Style
 		if rowIndex == 0 {
@@ -548,26 +487,12 @@ func formerRenderProcesses(
 			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
 		} else {
 			rowStyle = twin.StyleDefault
-			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(rowIndex))
+			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
 		}
 
-		// x is relative to the left edge of the table, not to the screen
-		x := 1
-
-		// y is a screen row
-		y := firstScreenRow + 1 + rowIndex
-
+		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
-			if x >= processUserColumn0 && x <= processUserColumnN {
-				username := row[2]
-				if username == "root" && currentUsername != "root" {
-					style = style.WithAttr(twin.AttrDim)
-				} else if username != currentUsername {
-					style = style.WithAttr(twin.AttrBold)
-				}
-			}
-
 			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
 
 			if rowIndex == 0 {
@@ -577,84 +502,29 @@ func formerRenderProcesses(
 			}
 
 			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(processes) {
-				process := processes[index]
+			if index < len(binaries) {
+				binary := binaries[index]
 				cpuFraction := 0.0
-				if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
-					cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
+				if maxCpuSecondsPerBinary > 0.0 {
+					cpuFraction = binary.cpuTime.Seconds() / maxCpuSecondsPerBinary
 				}
 				memFraction := 0.0
-				if maxRssKbPerProcess > 0 {
-					memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
+				if maxRssKbPerBinary > 0 {
+					memFraction = float64(binary.rssKb) / float64(maxRssKbPerBinary)
 				}
-				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
-			}
-
-			if index < usersHeight-1 {
-				user := users[index]
-				cpuFraction := 0.0
-				if maxCpuSecondsPerUser > 0.0 {
-					cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
-				}
-				memFraction := 0.0
-				if maxRssKbPerUser > 0 {
-					memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
-				}
-				perUserCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
-
-				// Bold the current username
-				if user.username == currentUsername && x >= userUserColumn0 && x <= userUserColumnN {
-					cell := screen.GetCell(x, y)
-					cell.Style = cell.Style.WithAttr(twin.AttrBold)
-					screen.SetCell(x, y, cell)
-				}
-			}
-
-			if index == usersHeight-1 {
-				// Bold the binaries header row
-				if x >= userUserColumn0 {
-					cell := screen.GetCell(x, y)
-					cell.Style = cell.Style.WithAttr(twin.AttrBold)
-					screen.SetCell(x, y, cell)
-				}
+				cpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 			}
 
 			x++
 		}
 	}
 
-	//
-	// Render frames
-	//
-
 	renderFrame(
 		screen,
-		firstScreenRow,
-		0,
-		bottomRow,
-		rightPerProcessBorderColumn,
-		"By process",
-	)
-	renderLegend(screen, bottomRow, rightPerProcessBorderColumn)
-
-	usersBottomBorder := firstScreenRow + 1 + usersHeight - 2 // -2 to skip the borders
-	renderFrame(
-		screen,
-		firstScreenRow,
-		leftPerUserBorderColumn,
-		usersBottomBorder,
-		rightPerUserBorderColumn,
-		"By user",
-	)
-
-	binariesTopRow := usersBottomBorder + 1
-	binariesBottomRow := bottomRow
-	renderFrame(
-		screen,
-		binariesTopRow,
-		leftPerUserBorderColumn,
-		binariesBottomRow,
-		rightPerUserBorderColumn,
+		y0,
+		x0,
+		y1,
+		x1,
 		"By binary",
 	)
 }

@@ -56,7 +56,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 		overviewHeight,
 		overviewHeight+processesHeight-1,
 		users,
-		usersHeight+2,
+		usersHeight,
 		binaries,
 	)
 
