@@ -240,7 +240,7 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
 		}
 
-		x := 0 // screen column
+		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
 			if x >= userColumn0 && x <= userColumnN {
