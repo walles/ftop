@@ -193,7 +193,7 @@ func aggregatePerBinary(processes []processes.Process) []binaryStats {
 		binaryStat.rssKb += p.RssKb
 
 		binaryStat.processCount++
-		binaryMap[p.Username] = binaryStat
+		binaryMap[p.Command] = binaryStat
 	}
 
 	var returnMe []binaryStats
