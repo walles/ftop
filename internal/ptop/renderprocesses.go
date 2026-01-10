@@ -10,7 +10,7 @@ import (
 )
 
 // Render three tables and combine them: per-process (on the left), per-user
-// (top right), and per-binary (bottom right).
+// (top right), and per-command (bottom right).
 //
 // Returns the combined table, as well as the row count (including headers) of
 // the per-user section.
@@ -21,10 +21,10 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	int,
 	[]processes.Process,
 	[]userStats,
-	[]binaryStats,
+	[]commandStats,
 ) {
 	usersHeight := processesHeight/2 - 1
-	binariesHeight := processesHeight - usersHeight
+	commandsHeight := processesHeight - usersHeight
 
 	procsHeaders := []string{
 		"PID", "Command", "Username", "CPU", "Time", "RAM",
@@ -32,8 +32,8 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	usersHeaders := []string{
 		"Username", "CPU", "RAM",
 	}
-	binariesHeaders := []string{
-		"Binary", "CPU", "RAM",
+	commandsHeaders := []string{
+		"Command", "CPU", "RAM",
 	}
 
 	procsTable := [][]string{
@@ -96,18 +96,18 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		usersTable = append(usersTable, make([]string, len(usersHeaders)))
 	}
 
-	binaries := aggregate(processesRaw, func(p processes.Process) string { return p.Command }, func(stat stats) binaryStats {
-		return binaryStats{stats: stat}
+	commands := aggregate(processesRaw, func(p processes.Process) string { return p.Command }, func(stat stats) commandStats {
+		return commandStats{stats: stat}
 	})
-	binaries = SortByScore(binaries, func(b binaryStats) stats {
+	commands = SortByScore(commands, func(b commandStats) stats {
 		return b.stats
 	})
 
-	binariesTable := [][]string{
-		binariesHeaders,
+	commandsTable := [][]string{
+		commandsHeaders,
 	}
-	for _, b := range binaries {
-		if len(binariesTable) >= binariesHeight {
+	for _, b := range commands {
+		if len(commandsTable) >= commandsHeight {
 			break
 		}
 
@@ -117,10 +117,10 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 			ui.FormatMemory(1024 * int64(b.rssKb)),
 		}
 
-		binariesTable = append(binariesTable, row)
+		commandsTable = append(commandsTable, row)
 	}
-	for len(binariesTable) < binariesHeight {
-		binariesTable = append(binariesTable, make([]string, len(binariesHeaders)))
+	for len(commandsTable) < commandsHeight {
+		commandsTable = append(commandsTable, make([]string, len(commandsHeaders)))
 	}
 
 	combinedTable := [][]string{}
@@ -129,21 +129,21 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	// 0: users header
 	// 1: --- bottom separator ---
 	// 2: --- top separator ---
-	// 3: binaries start here
+	// 3: commands start here
 	//
-	// So the binaries start at 1 + 2 = 3
-	binariesStartRow := len(usersTable) + 2
+	// So the commands start at 1 + 2 = 3
+	commandsStartRow := len(usersTable) + 2
 	for i, procRow := range procsTable {
 		row := make([]string, 0, len(procRow)+len(usersTable[0]))
 		row = append(row, procRow...)
 		if i < len(usersTable) {
 			row = append(row, usersTable[i]...)
-		} else if i >= binariesStartRow {
-			binariesIndex := i - binariesStartRow
-			row = append(row, binariesTable[binariesIndex]...)
+		} else if i >= commandsStartRow {
+			commandsIndex := i - commandsStartRow
+			row = append(row, commandsTable[commandsIndex]...)
 		} else {
-			// Neither user nor binary row, pad with empty cells
-			for range binariesHeaders {
+			// Neither user nor command row, pad with empty cells
+			for range commandsHeaders {
 				row = append(row, "")
 			}
 		}
@@ -151,19 +151,19 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		combinedTable = append(combinedTable, row)
 	}
 
-	return combinedTable, len(usersTable), processesByScore, users, binaries
+	return combinedTable, len(usersTable), processesByScore, users, commands
 }
 
 // Render the three sections: per-process (on the left), per-user (top right),
-// and per-binary (bottom right).
+// and per-command (bottom right).
 //
 // The processes table contains cells for all three sections: per-process (on
-// the left), per-user (top right), and per-binary (bottom right).
+// the left), per-user (top right), and per-command (bottom right).
 //
 // topRow and bottomRow are screen rows. Screen borders go on those rows.
 //
 // usersHeight is the number of table lines in the per-user section, including
-// borders. Borders is not included in this number. The binaries table will use
+// borders. Borders is not included in this number. The commands table will use
 // the remaining space below the users table.
 func renderProcessesBlock(
 	screen twin.Screen,
@@ -173,7 +173,7 @@ func renderProcessesBlock(
 	bottomRow int,
 	users []userStats,
 	usersHeight int,
-	binaries []binaryStats,
+	commands []commandStats,
 ) {
 	width, _ := screen.Size()
 
@@ -189,7 +189,7 @@ func renderProcessesBlock(
 	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1 // Screen column
 
 	usersBottomBorder := firstScreenRow + 1 + usersHeight
-	binariesTopRow := usersBottomBorder + 1
+	commandsTopRow := usersBottomBorder + 1
 
 	renderProcesses(screen, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
 	renderPerUser(screen, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
@@ -197,11 +197,11 @@ func renderProcessesBlock(
 	// Skip the per-user rows. If usersHeight is 0:
 	// 0: post-users separator line
 	// 1: post-users separator line number two
-	// 2: binaries start here
+	// 2: commands start here
 	//
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
-	renderPerBinary(screen, leftPerUserBorderColumn, binariesTopRow, width-1, bottomRow, table, widths, binaries)
+	renderPerCommand(screen, leftPerUserBorderColumn, commandsTopRow, width-1, bottomRow, table, widths, commands)
 }
 
 func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
@@ -308,7 +308,7 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By process")
+	renderFrame(screen, x0, y0, x1, y1, "By Process")
 	renderLegend(screen, y1, x1)
 }
 
@@ -423,11 +423,11 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By user")
+	renderFrame(screen, x0, y0, x1, y1, "By User")
 }
 
-// Assumes the first row of the table contains the binaries header line
-func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, binaries []binaryStats) {
+// Assumes the first row of the table contains the commands header line
+func renderPerCommand(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
 	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
@@ -459,14 +459,14 @@ func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 	// borders
 	rowsWithHeaderWithoutBorders := y1 - y0 - 1
 
-	maxCpuSecondsPerBinary := 0.0
-	maxRssKbPerBinary := 0
-	for _, b := range binaries {
-		if b.cpuTime.Seconds() > maxCpuSecondsPerBinary {
-			maxCpuSecondsPerBinary = b.cpuTime.Seconds()
+	maxCpuSecondsPerCommand := 0.0
+	maxRssKbPerCommand := 0
+	for _, c := range commands {
+		if c.cpuTime.Seconds() > maxCpuSecondsPerCommand {
+			maxCpuSecondsPerCommand = c.cpuTime.Seconds()
 		}
-		if b.rssKb > maxRssKbPerBinary {
-			maxRssKbPerBinary = b.rssKb
+		if c.rssKb > maxRssKbPerCommand {
+			maxRssKbPerCommand = c.rssKb
 		}
 	}
 
@@ -510,15 +510,15 @@ func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 			}
 
 			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(binaries) {
-				binary := binaries[index]
+			if index < len(commands) {
+				command := commands[index]
 				cpuFraction := 0.0
-				if maxCpuSecondsPerBinary > 0.0 {
-					cpuFraction = binary.cpuTime.Seconds() / maxCpuSecondsPerBinary
+				if maxCpuSecondsPerCommand > 0.0 {
+					cpuFraction = command.cpuTime.Seconds() / maxCpuSecondsPerCommand
 				}
 				memFraction := 0.0
-				if maxRssKbPerBinary > 0 {
-					memFraction = float64(binary.rssKb) / float64(maxRssKbPerBinary)
+				if maxRssKbPerCommand > 0 {
+					memFraction = float64(command.rssKb) / float64(maxRssKbPerCommand)
 				}
 				cpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 			}
@@ -527,7 +527,7 @@ func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By binary")
+	renderFrame(screen, x0, y0, x1, y1, "By Command")
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a

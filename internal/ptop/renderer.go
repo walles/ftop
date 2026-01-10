@@ -18,13 +18,13 @@ type userStats struct {
 	stats
 }
 
-type binaryStats struct {
+type commandStats struct {
 	stats
 }
 
 func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
 	const overviewHeight = 5         // Including borders
-	const launchedBinariesHeight = 7 // Including borders
+	const launchedCommandsHeight = 7 // Including borders
 
 	width, height := screen.Size()
 	ioStatsWidth := 25                    // Including borders
@@ -35,7 +35,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	}
 
 	// Processes use the remaining height. This number includes borders.
-	processesHeight := height - overviewHeight - launchedBinariesHeight
+	processesHeight := height - overviewHeight - launchedCommandsHeight
 
 	screen.Clear()
 
@@ -48,7 +48,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	}
 
 	// -2 to skip the borders
-	processesTable, usersHeight, processes, users, binaries := createProcessesTable(processesRaw, processesHeight-2)
+	processesTable, usersHeight, processes, users, commands := createProcessesTable(processesRaw, processesHeight-2)
 	renderProcessesBlock(
 		screen,
 		processesTable,
@@ -57,10 +57,10 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 		overviewHeight+processesHeight-1,
 		users,
 		usersHeight,
-		binaries,
+		commands,
 	)
 
-	renderLaunchedBinaries(screen, overviewHeight+processesHeight, height-1)
+	renderLaunchedCommands(screen, overviewHeight+processesHeight, height-1)
 
 	screen.Show()
 }

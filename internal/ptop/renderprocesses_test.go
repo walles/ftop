@@ -19,11 +19,11 @@ func TestCreateProcessTable(t *testing.T) {
 		{Pid: 1, Command: "one", Username: "one", RssKb: 10, CpuTime: toDuration(10)},
 	}
 
-	table, usersHeight, returnedSortedProcs, users, binaries := createProcessesTable(sortedProcs, 6)
+	table, usersHeight, returnedSortedProcs, users, commands := createProcessesTable(sortedProcs, 6)
 
 	assert.Equal(t, usersHeight, 2) // Header line + 1 user line
 	assert.Equal(t, reflect.DeepEqual(returnedSortedProcs, sortedProcs), true)
-	assert.SlicesEqual(t, binaries, []binaryStats{
+	assert.SlicesEqual(t, commands, []commandStats{
 		{stats{name: "six", cpuTime: 60000000000, rssKb: 60}},
 		{stats{name: "five", cpuTime: 50000000000, rssKb: 50}},
 		{stats{name: "four", cpuTime: 40000000000, rssKb: 40}},
@@ -45,7 +45,7 @@ func TestCreateProcessTable(t *testing.T) {
 		{"6", "six", "six", "--", "1m00s", "60k", "six", "1m00s", "60k"},
 		{"5", "five", "five", "--", "50.00s", "50k", "", "", ""},
 		{"4", "four", "four", "--", "40.00s", "40k", "", "", ""},
-		{"3", "three", "three", "--", "30.00s", "30k", "Binary", "CPU", "RAM"},
+		{"3", "three", "three", "--", "30.00s", "30k", "Command", "CPU", "RAM"},
 		{"2", "two", "two", "--", "20.00s", "20k", "six", "1m00s", "60k"},
 	}), true)
 }
