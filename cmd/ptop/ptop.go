@@ -67,12 +67,12 @@ func internalMain() int {
 
 		if _, ok := event.(twin.EventResize); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(allProcesses, ioTracker.Stats(), screen)
+			ptop.Render(screen, allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(allProcesses, ioTracker.Stats(), screen)
+			ptop.Render(screen, allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if event, ok := event.(twin.EventRune); ok {

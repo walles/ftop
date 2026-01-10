@@ -22,7 +22,7 @@ type commandStats struct {
 	stats
 }
 
-func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Screen) {
+func Render(screen twin.Screen, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
 	const overviewHeight = 5         // Including borders
 	const launchedCommandsHeight = 7 // Including borders
 
@@ -60,7 +60,9 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 		commands,
 	)
 
-	renderLaunchedCommands(screen, overviewHeight+processesHeight, height-1)
+	// FIXME: Skip this section if launches is nil. Adjust height based on the
+	// height of the rendered graph.
+	renderLaunchedCommands(screen, launches, overviewHeight+processesHeight, height-1)
 
 	screen.Show()
 }

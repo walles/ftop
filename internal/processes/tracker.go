@@ -50,7 +50,7 @@ func (tracker *Tracker) update() {
 	tracker.mutex.Lock()
 
 	if tracker.current != nil {
-		// Update launches tree
+		// Update launch counts tree
 		tracker.launches = updateLaunches(tracker.launches, tracker.current, procsMap)
 	}
 
@@ -95,4 +95,33 @@ func (tracker *Tracker) Processes() []Process {
 		procs = append(procs, proc)
 	}
 	return procs
+}
+
+func (tracker *Tracker) Launches() *LaunchNode {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+
+	// Make a copy of our launches tree so that the caller can traverse it
+	// without holing or lock.
+	if tracker.launches == nil {
+		return nil
+	}
+
+	var clone func(source *LaunchNode) *LaunchNode
+	clone = func(source *LaunchNode) *LaunchNode {
+		cloned := &LaunchNode{
+			Command:     source.Command,
+			LaunchCount: source.LaunchCount,
+		}
+
+		if len(source.Children) > 0 {
+			cloned.Children = make([]*LaunchNode, 0, len(source.Children))
+			for _, ch := range source.Children {
+				cloned.Children = append(cloned.Children, clone(ch))
+			}
+		}
+		return cloned
+	}
+
+	return clone(tracker.launches)
 }
