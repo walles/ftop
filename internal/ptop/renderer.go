@@ -70,34 +70,34 @@ func renderOverview(screen twin.Screen, ioStats []io.Stat, overviewWidth int) {
 	renderMemoryUsage(screen, overviewWidth)
 	renderIOLoad(ioStats, screen, overviewWidth)
 
-	renderFrame(screen, 0, 0, 4, overviewWidth-1, "Overview")
+	renderFrame(screen, 0, 0, overviewWidth-1, 4, "Overview")
 }
 
-func renderFrame(screen twin.Screen, topRow int, leftColumn int, bottomRow int, rightColumn int, title string) {
+func renderFrame(screen twin.Screen, x0, y0, x1, y1 int, title string) {
 	colorTitle := twin.NewColorHex(0xffc0c0) // FIXME: Get this from the theme
 	colorFrame := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
 
 	dividerStyle := twin.StyleDefault.WithForeground(colorFrame)
 
-	for col := leftColumn + 1; col < rightColumn; col++ {
-		screen.SetCell(col, topRow, twin.StyledRune{Rune: '─', Style: dividerStyle})
-		screen.SetCell(col, bottomRow, twin.StyledRune{Rune: '─', Style: dividerStyle})
+	for col := x0 + 1; col < x1; col++ {
+		screen.SetCell(col, y0, twin.StyledRune{Rune: '─', Style: dividerStyle})
+		screen.SetCell(col, y1, twin.StyledRune{Rune: '─', Style: dividerStyle})
 	}
-	for row := topRow + 1; row < bottomRow; row++ {
-		screen.SetCell(leftColumn, row, twin.StyledRune{Rune: '│', Style: dividerStyle})
-		screen.SetCell(rightColumn, row, twin.StyledRune{Rune: '│', Style: dividerStyle})
+	for row := y0 + 1; row < y1; row++ {
+		screen.SetCell(x0, row, twin.StyledRune{Rune: '│', Style: dividerStyle})
+		screen.SetCell(x1, row, twin.StyledRune{Rune: '│', Style: dividerStyle})
 	}
-	screen.SetCell(leftColumn, topRow, twin.StyledRune{Rune: '┌', Style: dividerStyle})
-	screen.SetCell(rightColumn, topRow, twin.StyledRune{Rune: '┐', Style: dividerStyle})
-	screen.SetCell(leftColumn, bottomRow, twin.StyledRune{Rune: '└', Style: dividerStyle})
-	screen.SetCell(rightColumn, bottomRow, twin.StyledRune{Rune: '┘', Style: dividerStyle})
+	screen.SetCell(x0, y0, twin.StyledRune{Rune: '┌', Style: dividerStyle})
+	screen.SetCell(x1, y0, twin.StyledRune{Rune: '┐', Style: dividerStyle})
+	screen.SetCell(x0, y1, twin.StyledRune{Rune: '└', Style: dividerStyle})
+	screen.SetCell(x1, y1, twin.StyledRune{Rune: '┘', Style: dividerStyle})
 
 	// Title
 	titleStyle := twin.StyleDefault.WithForeground(colorTitle)
 	titleRunes := []rune(title)
 	for i, r := range titleRunes {
-		if leftColumn+2+i < rightColumn {
-			screen.SetCell(leftColumn+2+i, topRow, twin.StyledRune{Rune: r, Style: titleStyle})
+		if x0+2+i < x1 {
+			screen.SetCell(x0+2+i, y0, twin.StyledRune{Rune: r, Style: titleStyle})
 		}
 	}
 }

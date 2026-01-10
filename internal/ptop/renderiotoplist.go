@@ -89,5 +89,5 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) 
 		}
 	}
 
-	renderFrame(screen, y0, x0, y1, x1, "IO")
+	renderFrame(screen, x0, y0, x1, y1, "IO")
 }

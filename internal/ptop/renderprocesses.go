@@ -308,14 +308,7 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		}
 	}
 
-	renderFrame(
-		screen,
-		y0,
-		x0,
-		y1,
-		x1,
-		"By process",
-	)
+	renderFrame(screen, x0, y0, x1, y1, "By process")
 	renderLegend(screen, y1, x1)
 }
 
@@ -430,14 +423,7 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 		}
 	}
 
-	renderFrame(
-		screen,
-		y0,
-		x0,
-		y1,
-		x1,
-		"By user",
-	)
+	renderFrame(screen, x0, y0, x1, y1, "By user")
 }
 
 // Assumes the first row of the table contains the binaries header line
@@ -541,19 +527,12 @@ func renderPerBinary(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		}
 	}
 
-	renderFrame(
-		screen,
-		y0,
-		x0,
-		y1,
-		x1,
-		"By binary",
-	)
+	renderFrame(screen, x0, y0, x1, y1, "By binary")
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
-func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
+func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
 	colorText := twin.NewColorHex(0x7070a0)       // FIXME: Get this from the theme. Same as the frame color.
 	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
 
@@ -571,16 +550,16 @@ func renderLegend(screen twin.Screen, row int, rightmostFrameBorder int) {
 
 	const text = " Legend: CPU RAM "
 	const barsOffset = 9
-	legendX := rightmostFrameBorder - len(text) // Leave some space to the right
-	drawText(screen, legendX, row, text, twin.StyleDefault.WithForeground(colorText))
+	legendX := rightFrameBorder - len(text) // Leave some space to the right
+	drawText(screen, legendX, y, text, twin.StyleDefault.WithForeground(colorText))
 
 	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)
-	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset, row, 1.0)
-	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+1, row, 1.0)
-	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+2, row, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset, y, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+1, y, 1.0)
+	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset+2, y, 1.0)
 
 	memLoadBar := ui.NewLoadBar(legendX+barsOffset+4, legendX+barsOffset+6, memoryRamp)
-	memLoadBar.SetCellBackground(screen, legendX+barsOffset+4, row, 1.0)
-	memLoadBar.SetCellBackground(screen, legendX+barsOffset+5, row, 1.0)
-	memLoadBar.SetCellBackground(screen, legendX+barsOffset+6, row, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+4, y, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+5, y, 1.0)
+	memLoadBar.SetCellBackground(screen, legendX+barsOffset+6, y, 1.0)
 }
