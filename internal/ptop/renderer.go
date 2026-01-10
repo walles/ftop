@@ -44,7 +44,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 	// Draw IO stats to the right of the overview...
 	if ioStatsWidth > 0 {
 		// ... but only when there is room for it.
-		renderIoTopList(screen, ioStats, overviewWidth, width-1)
+		renderIoTopList(screen, ioStats, overviewWidth, 0, width-1, 4)
 	}
 
 	// -2 to skip the borders

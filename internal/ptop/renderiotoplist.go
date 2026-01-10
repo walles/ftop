@@ -11,7 +11,7 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, rightColumn int) {
+func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) {
 	slices.SortFunc(ioStats, func(s1, s2 io.Stat) int {
 		comparison := cmp.Compare(s1.HighWatermark, s2.HighWatermark)
 		if comparison != 0 {
@@ -29,13 +29,13 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, righ
 
 	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
 	colorBottom := colorTop.Mix(colorBg, 0.5)
-	// 1.0 = ignore the header line
-	firstIoLine := 1
-	lastIoLine := 3
+
+	firstIoLine := y0 + 1 // Screen row number
+	lastIoLine := y1 - 1  // Screen row number
 	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), colorTop, colorBottom)
 
 	for i, stat := range ioStats {
-		y := i + 1
+		y := firstIoLine + i
 
 		bottomContentRow := lastIoLine
 		if y > bottomContentRow {
@@ -45,7 +45,7 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, righ
 		bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(stat.BytesPerSecond)), "B") + "B/s"
 
 		paddedDeviceName := fmt.Sprintf("%-7s ", stat.DeviceName)
-		x := leftColumn + 2
+		x := x0 + 1
 		x += drawText(
 			screen,
 			x,
@@ -75,20 +75,19 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, leftColumn int, righ
 		ioRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxIO)
 
 		for i, stat := range ioStats {
-			y := i + 1
+			y := firstIoLine + i
 
-			bottomContentRow := lastIoLine
-			if y > bottomContentRow {
+			if y > lastIoLine {
 				break
 			}
 
-			loadBar := ui.NewLoadBar(leftColumn+2, rightColumn-1, ioRamp)
+			loadBar := ui.NewLoadBar(x0+1, x1-1, ioRamp)
 			loadBar.SetWatermark(stat.HighWatermark / maxPeak)
-			for column := leftColumn + 2; column < rightColumn-1; column++ {
-				loadBar.SetCellBackground(screen, column, y, stat.BytesPerSecond/maxPeak)
+			for x := x0 + 1; x < x1; x++ {
+				loadBar.SetCellBackground(screen, x, y, stat.BytesPerSecond/maxPeak)
 			}
 		}
 	}
 
-	renderFrame(screen, 0, leftColumn, 4, rightColumn, "IO")
+	renderFrame(screen, y0, x0, y1, x1, "IO")
 }
