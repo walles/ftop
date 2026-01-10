@@ -33,11 +33,8 @@ func ColumnWidths(rows [][]string, targetWidth int, growFirstColumn bool) []int 
 		return growColumns(widths, targetWidth, growFirstColumn)
 	}
 
-	for {
-		if sumWidths(widths) == targetWidth {
-			break
-		}
-
+	// Shrink columns
+	for sumWidths(widths) > targetWidth {
 		// Now, let's say we shorten one width. How many character containing
 		// cells would we lose?
 		narrowingCosts := make([]int, len(widths))

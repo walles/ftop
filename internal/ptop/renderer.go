@@ -68,7 +68,7 @@ func Render(processesRaw []processes.Process, ioStats []io.Stat, screen twin.Scr
 func renderOverview(screen twin.Screen, ioStats []io.Stat, overviewWidth int) {
 	renderSysload(screen, overviewWidth)
 	renderMemoryUsage(screen, overviewWidth)
-	renderIOLoad(ioStats, screen, overviewWidth)
+	renderIOLoad(ioStats, screen)
 
 	renderFrame(screen, 0, 0, overviewWidth-1, 4, "Overview")
 }

@@ -42,7 +42,7 @@ func renderSysload(screen twin.Screen, width int) {
 	x += drawText(screen, x, y, averageGraph, twin.StyleDefault.WithAttr(twin.AttrBold))
 	brailleEndColumn := x - 1
 
-	x += drawText(screen, x, y, "]", twin.StyleDefault)
+	x += drawText(screen, x, y, "]", twin.StyleDefault) // nolint:ineffassign
 
 	// Text in place, now color the braille graph
 

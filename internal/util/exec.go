@@ -24,11 +24,11 @@ func Exec(commandline []string, perLineCallback func(line string) error) error {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("Failed to get stdout pipe for %s: %v", commandline[0], err)
+		return fmt.Errorf("failed to get stdout pipe for %s: %v", commandline[0], err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("Failed to start %s: %v", commandline[0], err)
+		return fmt.Errorf("failed to start %s: %v", commandline[0], err)
 	}
 
 	scanner := bufio.NewScanner(stdout)
@@ -39,7 +39,7 @@ func Exec(commandline []string, perLineCallback func(line string) error) error {
 		err := perLineCallback(line)
 		if err != nil {
 			if readErr == nil {
-				readErr = fmt.Errorf("Failed to parse %s line: %v", commandline[0], err)
+				readErr = fmt.Errorf("failed to parse %s line: %v", commandline[0], err)
 			}
 			continue
 		}
@@ -47,7 +47,7 @@ func Exec(commandline []string, perLineCallback func(line string) error) error {
 
 	if err := scanner.Err(); err != nil {
 		if readErr == nil {
-			readErr = fmt.Errorf("Error reading %s output: %v", commandline[0], err)
+			readErr = fmt.Errorf("error reading %s output: %v", commandline[0], err)
 		}
 	}
 

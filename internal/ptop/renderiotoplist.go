@@ -52,7 +52,7 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) 
 			y,
 			paddedDeviceName,
 			twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y)).WithAttr(twin.AttrBold))
-		x += drawText(
+		x += drawText( // nolint:ineffassign
 			screen,
 			x,
 			y,

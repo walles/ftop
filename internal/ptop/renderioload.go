@@ -9,7 +9,7 @@ import (
 )
 
 // Renders max current device BPS vs highest measured BPS
-func renderIOLoad(ioStats []io.Stat, screen twin.Screen, width int) {
+func renderIOLoad(ioStats []io.Stat, screen twin.Screen) {
 	maxBytesPerSecond := 0.0
 	maxHighWatermark := 0.0
 	maxDevice := "N/A"
@@ -35,5 +35,5 @@ func renderIOLoad(ioStats []io.Stat, screen twin.Screen, width int) {
 	x += drawText(screen, x, y, " / ", twin.StyleDefault)
 	x += drawText(screen, x, y, watermarkStringWithTrailingB, twin.StyleDefault)
 	x += drawText(screen, x, y, "] ", twin.StyleDefault)
-	x += drawText(screen, x, y, maxDevice, twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, maxDevice, twin.StyleDefault.WithAttr(twin.AttrBold)) //nolint:ineffassign
 }

@@ -36,12 +36,10 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 		si := asStats(ui)
 		sj := asStats(uj)
 
-		var cpuScoreI float64
-		cpuScoreI = si.cpuTime.Seconds() / maxCpuTime.Seconds()
+		cpuScoreI := si.cpuTime.Seconds() / maxCpuTime.Seconds()
 		memScoreI := float64(si.rssKb) / float64(maxRssKb)
 
-		var cpuScoreJ float64
-		cpuScoreJ = sj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		cpuScoreJ := sj.cpuTime.Seconds() / maxCpuTime.Seconds()
 		memScoreJ := float64(sj.rssKb) / float64(maxRssKb)
 
 		primaryI := max(memScoreI, cpuScoreI)
