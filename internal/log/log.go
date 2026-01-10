@@ -140,7 +140,7 @@ func formatMessage(level LogLevel, message string, highlighted bool) string {
 	for i := 1; i < len(lines); i++ {
 		if stage == "dimming" {
 			result.WriteString(dim + lines[i] + normal + "\n")
-			if strings.HasPrefix(lines[i], "\truntime/panic.go") {
+			if strings.HasPrefix(lines[i], "\truntime/panic.go") || strings.Contains(lines[i], "/runtime/panic.go:") {
 				stage = "normal1"
 			}
 			continue
