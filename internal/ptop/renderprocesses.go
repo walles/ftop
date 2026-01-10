@@ -533,11 +533,13 @@ func renderPerCommand(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
 func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
-	colorText := twin.NewColorHex(0x7070a0)       // FIXME: Get this from the theme. Same as the frame color.
+	colorTextLegend := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme. Same as the frame color.
+	colorTextCpuRam := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme. Same as the top color.
+
 	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
 
 	// Turn up the bottom color this much so it's visible in the small legend
-	const adjustUp = 0.6
+	const adjustUp = 0.5
 
 	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
 	colorLoadBarMinRAM := colorLoadBarMin.Mix(colorLoadBarMaxRAM, adjustUp)
@@ -548,16 +550,26 @@ func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinRAM, colorLoadBarMaxRAM)
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinCPU, colorLoadBarMaxCPU)
 
-	const text = " Legend: CPU RAM "
+	const textLegend = " Legend:"
+	const textCpuRam = " CPU RAM "
 	const barsOffset = 9
-	legendX := rightFrameBorder - len(text) // Leave some space to the right
-	drawText(
+	legendX := rightFrameBorder - len(textLegend) - len(textCpuRam)
+	x := legendX
+	x += drawText(
 		screen,
-		legendX,
+		x,
 		y,
 		rightFrameBorder,
-		text,
-		twin.StyleDefault.WithForeground(colorText),
+		textLegend,
+		twin.StyleDefault.WithForeground(colorTextLegend),
+	)
+	drawText(
+		screen,
+		x,
+		y,
+		rightFrameBorder,
+		textCpuRam,
+		twin.StyleDefault.WithForeground(colorTextCpuRam),
 	)
 
 	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)
