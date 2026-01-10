@@ -70,3 +70,33 @@ func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode 
 
 	return root
 }
+
+// Convert tree to a slice of slices, which each internal slice representing one
+// possible path from the root to a leaf
+func (ln *LaunchNode) Flatten() [][]*LaunchNode {
+	if ln == nil {
+		return nil
+	}
+
+	var result [][]*LaunchNode
+	var helper func(node *LaunchNode, path []*LaunchNode)
+	helper = func(node *LaunchNode, path []*LaunchNode) {
+		path = append(path, node)
+
+		if len(node.Children) == 0 {
+			// Leaf node, add path to result
+			copiedPath := make([]*LaunchNode, len(path))
+			copy(copiedPath, path)
+			result = append(result, copiedPath)
+			return
+		}
+
+		for _, child := range node.Children {
+			helper(child, path)
+		}
+	}
+
+	helper(ln, []*LaunchNode{})
+
+	return result
+}
