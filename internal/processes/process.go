@@ -9,13 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/walles/ptop/internal/log"
 	"github.com/walles/ptop/internal/ui"
 	"github.com/walles/ptop/internal/util"
 )
 
 type Process struct {
 	Pid      int
-	ppid     *int
+	ppid     int // The init process can have 0 here, meaning it has no parent
 	children []*Process
 	parent   *Process
 
@@ -232,7 +233,7 @@ func psLineToProcess(line string) (*Process, error) {
 
 	return &Process{
 		Pid:              pid,
-		ppid:             &ppid,
+		ppid:             ppid,
 		RssKb:            rss_kb,
 		startTime:        start_time,
 		Username:         username,
@@ -246,7 +247,7 @@ func psLineToProcess(line string) (*Process, error) {
 }
 
 func GetAll() ([]*Process, error) {
-	processes := []*Process{}
+	processes := make(map[int]*Process, 0)
 
 	command := []string{
 		"/bin/ps",
@@ -260,7 +261,7 @@ func GetAll() ([]*Process, error) {
 			return err
 		}
 
-		processes = append(processes, proc)
+		processes[proc.Pid] = proc
 		return nil
 	})
 
@@ -268,11 +269,47 @@ func GetAll() ([]*Process, error) {
 		return nil, fmt.Errorf("Failed to get process list: %v", err)
 	}
 
-	// FIXME: Resolve parent-child relationships
+	// Resolve parent-child relationships
+	resolveLinks(processes)
 
 	// FIXME: Censor out ourselves
 
-	return processes, nil
+	processList := make([]*Process, 0, len(processes))
+	for _, proc := range processes {
+		processList = append(processList, proc)
+	}
+	return processList, nil
+}
+
+// On entry, this function assumes that all processes have a "ppid" field
+// containing the PID of their parent process.
+//
+// When done, all processes will have a "parent" field with a reference to the
+// process' parent process object.
+//
+// Also, all processes will have a (possibly empty) "children" field containing
+// a set of references to child processes.
+func resolveLinks(processes map[int]*Process) {
+	for _, proc := range processes {
+		if proc.ppid == 0 {
+			if proc.Pid != 1 {
+				log.Infof("Non-init process without parent PID: %s", proc.String())
+			}
+			proc.parent = nil
+			continue
+		}
+
+		parent, found := processes[proc.ppid]
+		if !found {
+			log.Infof("Failed to find parent process %d for process %s", proc.ppid, proc.String())
+			proc.parent = nil
+			continue
+		}
+		proc.parent = parent
+
+		// Found our parent, say hello!
+		proc.parent.children = append(proc.parent.children, proc)
+	}
 }
 
 func (p *Process) CpuPercentString() string {
