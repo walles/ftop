@@ -9,7 +9,7 @@ import (
 )
 
 // Renders max current device BPS vs highest measured BPS
-func renderIOLoad(ioStats []io.Stat, screen twin.Screen) {
+func renderIOLoad(ioStats []io.Stat, screen twin.Screen, width int) {
 	maxBytesPerSecond := 0.0
 	maxHighWatermark := 0.0
 	maxDevice := "N/A"
@@ -27,13 +27,15 @@ func renderIOLoad(ioStats []io.Stat, screen twin.Screen) {
 	bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(maxBytesPerSecond)), "B") + "B/s"
 	watermarkStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(maxHighWatermark)), "B") + "B/s"
 
+	x1 := width - 1
+
 	x := 2
 	y := 3
-	x += drawText(screen, x, y, "IO Load:      ", twin.StyleDefault.WithAttr(twin.AttrBold))
-	x += drawText(screen, x, y, "[", twin.StyleDefault)
-	x += drawText(screen, x, y, bpsStringWithTrailingB, twin.StyleDefault.WithAttr(twin.AttrBold))
-	x += drawText(screen, x, y, " / ", twin.StyleDefault)
-	x += drawText(screen, x, y, watermarkStringWithTrailingB, twin.StyleDefault)
-	x += drawText(screen, x, y, "] ", twin.StyleDefault)
-	x += drawText(screen, x, y, maxDevice, twin.StyleDefault.WithAttr(twin.AttrBold)) //nolint:ineffassign
+	x += drawText(screen, x, y, x1, "IO Load:      ", twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, x1, "[", twin.StyleDefault)
+	x += drawText(screen, x, y, x1, bpsStringWithTrailingB, twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, x1, " / ", twin.StyleDefault)
+	x += drawText(screen, x, y, x1, watermarkStringWithTrailingB, twin.StyleDefault)
+	x += drawText(screen, x, y, x1, "] ", twin.StyleDefault)
+	x += drawText(screen, x, y, x1, maxDevice, twin.StyleDefault.WithAttr(twin.AttrBold)) //nolint:ineffassign
 }

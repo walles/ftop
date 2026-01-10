@@ -551,7 +551,14 @@ func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
 	const text = " Legend: CPU RAM "
 	const barsOffset = 9
 	legendX := rightFrameBorder - len(text) // Leave some space to the right
-	drawText(screen, legendX, y, text, twin.StyleDefault.WithForeground(colorText))
+	drawText(
+		screen,
+		legendX,
+		y,
+		rightFrameBorder,
+		text,
+		twin.StyleDefault.WithForeground(colorText),
+	)
 
 	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)
 	cpuLoadBar.SetCellBackground(screen, legendX+barsOffset, y, 1.0)
