@@ -8,18 +8,19 @@ import (
 	"github.com/walles/ptop/internal/processes"
 )
 
-func ProcessesByScore(procs []processes.Process) []processes.Process {
-	sorted := make([]processes.Process, len(procs))
-	copy(sorted, procs)
+func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
+	sorted := make([]T, len(unordered))
+	copy(sorted, unordered)
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
-	for _, p := range procs {
-		if p.CpuTime != nil && *p.CpuTime > maxCpuTime {
-			maxCpuTime = *p.CpuTime
+	for _, u := range unordered {
+		stat := asStats(u)
+		if stat.cpuTime > maxCpuTime {
+			maxCpuTime = stat.cpuTime
 		}
-		if p.RssKb > maxRssKb {
-			maxRssKb = p.RssKb
+		if stat.rssKb > maxRssKb {
+			maxRssKb = stat.rssKb
 		}
 	}
 
@@ -31,18 +32,17 @@ func ProcessesByScore(procs []processes.Process) []processes.Process {
 		maxRssKb = 1
 	}
 
-	slices.SortFunc(sorted, func(pi processes.Process, pj processes.Process) int {
+	slices.SortFunc(sorted, func(ui T, uj T) int {
+		si := asStats(ui)
+		sj := asStats(uj)
+
 		var cpuScoreI float64
-		if pi.CpuTime != nil {
-			cpuScoreI = pi.CpuTime.Seconds() / maxCpuTime.Seconds()
-		}
-		memScoreI := float64(pi.RssKb) / float64(maxRssKb)
+		cpuScoreI = si.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreI := float64(si.rssKb) / float64(maxRssKb)
 
 		var cpuScoreJ float64
-		if pj.CpuTime != nil {
-			cpuScoreJ = pj.CpuTime.Seconds() / maxCpuTime.Seconds()
-		}
-		memScoreJ := float64(pj.RssKb) / float64(maxRssKb)
+		cpuScoreJ = sj.cpuTime.Seconds() / maxCpuTime.Seconds()
+		memScoreJ := float64(sj.rssKb) / float64(maxRssKb)
 
 		primaryI := max(memScoreI, cpuScoreI)
 		secondaryI := min(memScoreI, cpuScoreI)
@@ -60,110 +60,8 @@ func ProcessesByScore(procs []processes.Process) []processes.Process {
 			return -secondaryCmp
 		}
 
-		// Fall back to command name comparison for stability at the top of the list
-		nameCmp := cmp.Compare(pi.Command, pj.Command)
-		if nameCmp != 0 {
-			return nameCmp
-		}
-
-		// Finally, sort by PID to get a stable sort
-		return cmp.Compare(pi.Pid, pj.Pid)
-	})
-
-	return sorted
-}
-
-func UsersByScore(procs []processes.Process) []userStats {
-	sorted := aggregate(
-		procs,
-		func(p processes.Process) string { return p.Username },
-		func(s stats) userStats { return userStats{stats: s} },
-	)
-
-	maxCpuTime := time.Duration(0)
-	maxRssKb := 0
-	for _, u := range sorted {
-		if u.cpuTime > maxCpuTime {
-			maxCpuTime = u.cpuTime
-		}
-		if u.rssKb > maxRssKb {
-			maxRssKb = u.rssKb
-		}
-	}
-
-	slices.SortFunc(sorted, func(ui userStats, uj userStats) int {
-		cpuScoreI := ui.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreI := float64(ui.rssKb) / float64(maxRssKb)
-
-		cpuScoreJ := uj.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreJ := float64(uj.rssKb) / float64(maxRssKb)
-
-		primaryI := max(memScoreI, cpuScoreI)
-		secondaryI := min(memScoreI, cpuScoreI)
-
-		primaryJ := max(memScoreJ, cpuScoreJ)
-		secondaryJ := min(memScoreJ, cpuScoreJ)
-
-		primaryCmp := cmp.Compare(primaryI, primaryJ)
-		if primaryCmp != 0 {
-			return -primaryCmp
-		}
-
-		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
-		if secondaryCmp != 0 {
-			return -secondaryCmp
-		}
-
-		// Fall back to name comparison for stability at the bottom of the list
-		return cmp.Compare(ui.name, uj.name)
-	})
-
-	return sorted
-}
-
-func BinariesByScore(procs []processes.Process) []binaryStats {
-	sorted := aggregate(
-		procs,
-		func(p processes.Process) string { return p.Command },
-		func(s stats) binaryStats { return binaryStats{stats: s} },
-	)
-
-	maxCpuTime := time.Duration(0)
-	maxRssKb := 0
-	for _, b := range sorted {
-		if b.cpuTime > maxCpuTime {
-			maxCpuTime = b.cpuTime
-		}
-		if b.rssKb > maxRssKb {
-			maxRssKb = b.rssKb
-		}
-	}
-
-	slices.SortFunc(sorted, func(bi binaryStats, bj binaryStats) int {
-		cpuScoreI := bi.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreI := float64(bi.rssKb) / float64(maxRssKb)
-
-		cpuScoreJ := bj.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreJ := float64(bj.rssKb) / float64(maxRssKb)
-
-		primaryI := max(memScoreI, cpuScoreI)
-		secondaryI := min(memScoreI, cpuScoreI)
-
-		primaryJ := max(memScoreJ, cpuScoreJ)
-		secondaryJ := min(memScoreJ, cpuScoreJ)
-
-		primaryCmp := cmp.Compare(primaryI, primaryJ)
-		if primaryCmp != 0 {
-			return -primaryCmp
-		}
-
-		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
-		if secondaryCmp != 0 {
-			return -secondaryCmp
-		}
-
-		// Fall back to name comparison for stability at the bottom of the list
-		return cmp.Compare(bi.name, bj.name)
+		// Fall back to name comparison for stability when the other scores are equal
+		return cmp.Compare(si.name, sj.name)
 	})
 
 	return sorted
@@ -182,7 +80,6 @@ func aggregate[T any](processes []processes.Process, getGroup func(p processes.P
 		}
 		stat.rssKb += p.RssKb
 
-		stat.processCount++
 		statsMap[getGroup(p)] = stat
 	}
 

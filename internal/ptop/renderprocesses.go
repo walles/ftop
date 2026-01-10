@@ -2,6 +2,7 @@ package ptop
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
@@ -38,7 +39,16 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	procsTable := [][]string{
 		procsHeaders,
 	}
-	processesByScore := ProcessesByScore(processesRaw)
+	processesByScore := SortByScore(processesRaw, func(p processes.Process) stats {
+		return stats{
+			// The name in this case is really the third sort key. Since PIDs
+			// are unique, we want to use those for sorting if RAM and CPU time
+			// are equal.
+			name:    strconv.Itoa(p.Pid),
+			cpuTime: p.CpuTimeOrZero(),
+			rssKb:   p.RssKb,
+		}
+	})
 	for _, p := range processesByScore {
 		if len(procsTable) >= processesHeight {
 			break
@@ -59,10 +69,16 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		procsTable = append(procsTable, make([]string, len(procsHeaders)))
 	}
 
+	users := aggregate(processesRaw, func(p processes.Process) string { return p.Username }, func(stat stats) userStats {
+		return userStats{stats: stat}
+	})
+	users = SortByScore(users, func(u userStats) stats {
+		return u.stats
+	})
+
 	usersTable := [][]string{
 		usersHeaders,
 	}
-	users := UsersByScore(processesRaw)
 	for _, u := range users {
 		if len(usersTable) >= usersHeight {
 			break
@@ -80,10 +96,16 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		usersTable = append(usersTable, make([]string, len(usersHeaders)))
 	}
 
+	binaries := aggregate(processesRaw, func(p processes.Process) string { return p.Command }, func(stat stats) binaryStats {
+		return binaryStats{stats: stat}
+	})
+	binaries = SortByScore(binaries, func(b binaryStats) stats {
+		return b.stats
+	})
+
 	binariesTable := [][]string{
 		binariesHeaders,
 	}
-	binaries := BinariesByScore(processesRaw)
 	for _, b := range binaries {
 		if len(binariesTable) >= binariesHeight {
 			break

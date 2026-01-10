@@ -8,13 +8,18 @@ import (
 )
 
 func TestProcessesByScore(t *testing.T) {
-	processes := []processes.Process{
+	procs := []processes.Process{
 		{RssKb: 300},
 		{RssKb: 100},
 		{RssKb: 200},
 	}
 
-	sorted := ProcessesByScore(processes)
+	sorted := SortByScore(procs, func(p processes.Process) stats {
+		return stats{
+			rssKb: p.RssKb,
+		}
+	})
+
 	assert.Equal(t, sorted[0].RssKb, 300)
 	assert.Equal(t, sorted[1].RssKb, 200)
 	assert.Equal(t, sorted[2].RssKb, 100)

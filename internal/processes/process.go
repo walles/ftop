@@ -304,3 +304,11 @@ func (p *Process) CpuTimeString() string {
 
 	return ui.FormatDuration(*p.CpuTime)
 }
+
+func (p *Process) CpuTimeOrZero() time.Duration {
+	if p.CpuTime == nil {
+		return 0
+	}
+
+	return *p.CpuTime
+}

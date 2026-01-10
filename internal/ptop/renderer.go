@@ -9,10 +9,9 @@ import (
 )
 
 type stats struct {
-	name         string
-	cpuTime      time.Duration
-	rssKb        int
-	processCount int
+	name    string
+	cpuTime time.Duration
+	rssKb   int
 }
 
 type userStats struct {

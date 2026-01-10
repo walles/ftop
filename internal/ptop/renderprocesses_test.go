@@ -24,20 +24,20 @@ func TestCreateProcessTable(t *testing.T) {
 	assert.Equal(t, usersHeight, 2) // Header line + 1 user line
 	assert.Equal(t, reflect.DeepEqual(returnedSortedProcs, sortedProcs), true)
 	assert.SlicesEqual(t, binaries, []binaryStats{
-		{stats{name: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1}},
-		{stats{name: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1}},
-		{stats{name: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1}},
-		{stats{name: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1}},
-		{stats{name: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1}},
-		{stats{name: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1}},
+		{stats{name: "six", cpuTime: 60000000000, rssKb: 60}},
+		{stats{name: "five", cpuTime: 50000000000, rssKb: 50}},
+		{stats{name: "four", cpuTime: 40000000000, rssKb: 40}},
+		{stats{name: "three", cpuTime: 30000000000, rssKb: 30}},
+		{stats{name: "two", cpuTime: 20000000000, rssKb: 20}},
+		{stats{name: "one", cpuTime: 10000000000, rssKb: 10}},
 	})
 	assert.SlicesEqual(t, users, []userStats{
-		{stats{name: "six", cpuTime: 60000000000, rssKb: 60, processCount: 1}},
-		{stats{name: "five", cpuTime: 50000000000, rssKb: 50, processCount: 1}},
-		{stats{name: "four", cpuTime: 40000000000, rssKb: 40, processCount: 1}},
-		{stats{name: "three", cpuTime: 30000000000, rssKb: 30, processCount: 1}},
-		{stats{name: "two", cpuTime: 20000000000, rssKb: 20, processCount: 1}},
-		{stats{name: "one", cpuTime: 10000000000, rssKb: 10, processCount: 1}},
+		{stats{name: "six", cpuTime: 60000000000, rssKb: 60}},
+		{stats{name: "five", cpuTime: 50000000000, rssKb: 50}},
+		{stats{name: "four", cpuTime: 40000000000, rssKb: 40}},
+		{stats{name: "three", cpuTime: 30000000000, rssKb: 30}},
+		{stats{name: "two", cpuTime: 20000000000, rssKb: 20}},
+		{stats{name: "one", cpuTime: 10000000000, rssKb: 10}},
 	})
 
 	assert.Equal(t, reflect.DeepEqual(table, [][]string{
