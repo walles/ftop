@@ -12,6 +12,7 @@ type Tracker struct {
 	mutex    sync.Mutex
 	baseline map[int]*Process
 	current  map[int]*Process
+	launches *LaunchNode
 
 	OnUpdate chan struct{} // Call GetProcesses() to get the updated list
 }
@@ -47,11 +48,18 @@ func (tracker *Tracker) update() {
 	}
 
 	tracker.mutex.Lock()
+
+	if tracker.current != nil {
+		// Update launches tree
+		tracker.launches = updateLaunches(tracker.launches, tracker.current, procsMap)
+	}
+
 	if tracker.baseline == nil {
 		// First iteration
 		tracker.baseline = procsMap
 	}
 	tracker.current = procsMap
+
 	tracker.mutex.Unlock()
 
 	// Notify asynchronously in case nobody is listening
