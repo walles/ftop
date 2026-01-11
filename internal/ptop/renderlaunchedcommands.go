@@ -21,6 +21,8 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 	x0s := []int{}     // Starting screen X positions for each column
 	xAfters := []int{} // Screen X positions after each column
 
+	// FIXME: Should we color the text using a topBottomRamp like the other tables?
+
 	x0 := 1
 	for rowIndex, path := range launchSlices {
 		x := x0
