@@ -52,7 +52,7 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 
 			if x > x0 {
 				// Not the first column, start with an arrow as separator
-				x += drawText(screen, x, y, rightBorder, "->", twin.StyleDefault)
+				x += drawText(screen, x, y, rightBorder, "─▶", twin.StyleDefault)
 			}
 
 			style := twin.StyleDefault
