@@ -103,11 +103,11 @@ func (ln *LaunchNode) Flatten() [][]*LaunchNode {
 	// Sort the result slices by the highest max launch count in each path, descending
 	slices.SortFunc(result, func(a, b []*LaunchNode) int {
 		maxA := slices.MaxFunc(a, func(n1, n2 *LaunchNode) int {
-			return -cmp.Compare(n1.LaunchCount, n2.LaunchCount)
+			return cmp.Compare(n1.LaunchCount, n2.LaunchCount)
 		}).LaunchCount
 
 		maxB := slices.MaxFunc(b, func(n1, n2 *LaunchNode) int {
-			return -cmp.Compare(n1.LaunchCount, n2.LaunchCount)
+			return cmp.Compare(n1.LaunchCount, n2.LaunchCount)
 		}).LaunchCount
 
 		return -cmp.Compare(maxA, maxB)
