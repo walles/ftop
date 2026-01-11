@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 )
@@ -72,7 +73,8 @@ func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode 
 }
 
 // Convert tree to a slice of slices, which each internal slice representing one
-// possible path from the root to a leaf
+// possible path from the root to a leaf. The slices will be sorted, with the
+// slice with the highest max launch count first.
 func (ln *LaunchNode) Flatten() [][]*LaunchNode {
 	if ln == nil {
 		return nil
@@ -97,6 +99,19 @@ func (ln *LaunchNode) Flatten() [][]*LaunchNode {
 	}
 
 	helper(ln, []*LaunchNode{})
+
+	// Sort the result slices by the highest max launch count in each path, descending
+	slices.SortFunc(result, func(a, b []*LaunchNode) int {
+		maxA := slices.MaxFunc(a, func(n1, n2 *LaunchNode) int {
+			return -cmp.Compare(n1.LaunchCount, n2.LaunchCount)
+		}).LaunchCount
+
+		maxB := slices.MaxFunc(b, func(n1, n2 *LaunchNode) int {
+			return -cmp.Compare(n1.LaunchCount, n2.LaunchCount)
+		}).LaunchCount
+
+		return -cmp.Compare(maxA, maxB)
+	})
 
 	return result
 }
