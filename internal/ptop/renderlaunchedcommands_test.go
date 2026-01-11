@@ -1,11 +1,11 @@
 package ptop
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/assert"
 )
 
 func TestRenderLaunchedCommands(t *testing.T) {
@@ -30,11 +30,34 @@ func TestRenderLaunchedCommands(t *testing.T) {
 		screenRows = append(screenRows, row)
 	}
 
-	assert.SlicesEqual(t, screenRows, []string{
+	expected := []string{
 		"a┬▶b─▶c─▶d",
 		" ├▶e",
 		" ├▶f┬▶g",
 		" │  └▶h─▶i",
 		" └▶j",
-	})
+	}
+
+	if reflect.DeepEqual(screenRows, expected) {
+		// That's what we wanted!
+		return
+	}
+
+	// Failed, print diagnostics: print each slice element on its own line.
+	// First "Expected" with rows below each other, then "Actual" the same way.
+	join := func(s []string) string {
+		if len(s) == 0 {
+			return " (empty)"
+		}
+
+		out := ""
+		for _, line := range s {
+			out += "\n" + line
+		}
+
+		return out
+	}
+
+	t.Fatalf("\nExpected:%s\n\nActual:%s",
+		join(expected), join(screenRows))
 }
