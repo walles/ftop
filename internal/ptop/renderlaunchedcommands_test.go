@@ -6,14 +6,30 @@ import (
 	"testing"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/processes"
 )
 
 func TestRenderLaunchedCommands(t *testing.T) {
-	width, height := 10, 10
+	width, height := 20, 10
 	screen := twin.NewFakeScreen(width, height)
 	screen.Clear()
 
-	renderLaunchedCommands(screen, nil, 0, height-1)
+	nd := processes.LaunchNode{Command: "d"}
+	nc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nd}}
+	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc}}
+	ne := processes.LaunchNode{Command: "e"}
+	ng := processes.LaunchNode{Command: "g"}
+	ni := processes.LaunchNode{Command: "i"}
+	nh := processes.LaunchNode{Command: "h", Children: []*processes.LaunchNode{&ni}}
+	nf := processes.LaunchNode{Command: "f", Children: []*processes.LaunchNode{&ng, &nh}}
+	nj := processes.LaunchNode{Command: "j"}
+	na := processes.LaunchNode{
+		Command:  "a",
+		Children: []*processes.LaunchNode{&nb, &ne, &nf, &nj},
+	}
+
+	root := &na
+	renderLaunchedCommands(screen, root, 0, height-1)
 
 	screenRows := []string{}
 	for y := 1; y < height-1; y++ {
