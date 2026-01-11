@@ -18,6 +18,9 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 
 	launchSlices := launches.Flatten()
 
+	x0s := []int{}     // Starting screen X positions for each column
+	xAfters := []int{} // Screen X positions after each column
+
 	x0 := 1
 	for rowIndex, path := range launchSlices {
 		x := x0
@@ -27,8 +30,28 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 			return
 		}
 
-		for _, node := range path {
+		hidingRedundantColumns := true
+		for column, node := range path {
+			if hidingRedundantColumns {
+				if rowIndex > 0 {
+					// Check is we're still drawing the same column as the row above
+					rowAbove := launchSlices[rowIndex-1]
+					if column < len(rowAbove) && node.Command == rowAbove[column].Command {
+						// Same command as above, skip drawing this column
+						x = xAfters[column]
+						continue
+					}
+				}
+
+				hidingRedundantColumns = false
+				x0s = x0s[:column]
+				xAfters = xAfters[:column]
+			}
+
+			// Invariant: No more columns to hide, draw this!
+
 			if x > x0 {
+				// Not the first column, start with an arrow as separator
 				x += drawText(screen, x, y, rightBorder, "->", twin.StyleDefault)
 			}
 
@@ -36,14 +59,14 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 			if node.LaunchCount > 0 {
 				style = style.WithAttr(twin.AttrBold)
 			}
+
+			x0s = append(x0s, x)
 			x += drawText(screen, x, y, rightBorder, node.Command, style)
+
 			if node.LaunchCount > 0 {
 				x += drawText(screen, x, y, rightBorder, "("+strconv.Itoa(node.LaunchCount)+")", twin.StyleDefault)
 			}
-
-			if len(node.Children) == 0 {
-				break
-			}
+			xAfters = append(xAfters, x)
 		}
 	}
 }
