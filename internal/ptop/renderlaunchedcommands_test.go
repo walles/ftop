@@ -83,3 +83,25 @@ func TestRenderLaunchedCommands(t *testing.T) {
 		" └▶j",
 	})
 }
+
+func TestRenderLaunchedCommands_sameOrderDifferentForks(t *testing.T) {
+	nxd := processes.LaunchNode{Command: "d"}
+	nxc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nxd}}
+
+	nyd := processes.LaunchNode{Command: "d"}
+	nyc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nyd}}
+
+	nx := processes.LaunchNode{Command: "x", Children: []*processes.LaunchNode{&nxc}}
+	ny := processes.LaunchNode{Command: "y", Children: []*processes.LaunchNode{&nyc}}
+	na := processes.LaunchNode{
+		Command:  "a",
+		Children: []*processes.LaunchNode{&nx, &ny},
+	}
+
+	root := &na
+
+	assertRenderLaunchedCommands(t, root, []string{
+		"a┬▶x─▶c─▶d",
+		" └▶y─▶c─▶d",
+	})
+}
