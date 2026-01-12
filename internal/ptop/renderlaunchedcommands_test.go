@@ -9,26 +9,13 @@ import (
 	"github.com/walles/ptop/internal/processes"
 )
 
-func TestRenderLaunchedCommands(t *testing.T) {
+func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expected []string) {
+	t.Helper()
+
 	width, height := 20, 10
 	screen := twin.NewFakeScreen(width, height)
 	screen.Clear()
 
-	nd := processes.LaunchNode{Command: "d"}
-	nc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nd}}
-	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc}}
-	ne := processes.LaunchNode{Command: "e"}
-	ng := processes.LaunchNode{Command: "g"}
-	ni := processes.LaunchNode{Command: "i"}
-	nh := processes.LaunchNode{Command: "h", Children: []*processes.LaunchNode{&ni}}
-	nf := processes.LaunchNode{Command: "f", Children: []*processes.LaunchNode{&ng, &nh}}
-	nj := processes.LaunchNode{Command: "j"}
-	na := processes.LaunchNode{
-		Command:  "a",
-		Children: []*processes.LaunchNode{&nb, &ne, &nf, &nj},
-	}
-
-	root := &na
 	renderLaunchedCommands(screen, root, 0, height-1)
 
 	screenRows := []string{}
@@ -46,16 +33,8 @@ func TestRenderLaunchedCommands(t *testing.T) {
 		screenRows = append(screenRows, row)
 	}
 
-	expected := []string{
-		"a┬▶b─▶c─▶d",
-		" ├▶e",
-		" ├▶f┬▶g",
-		" │  └▶h─▶i",
-		" └▶j",
-	}
-
 	if reflect.DeepEqual(screenRows, expected) {
-		// That's what we wanted!
+		// We got what we wanted
 		return
 	}
 
@@ -76,4 +55,31 @@ func TestRenderLaunchedCommands(t *testing.T) {
 
 	t.Fatalf("\nExpected:%s\n\nActual:%s",
 		join(expected), join(screenRows))
+
+}
+
+func TestRenderLaunchedCommands(t *testing.T) {
+	nd := processes.LaunchNode{Command: "d"}
+	nc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nd}}
+	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc}}
+	ne := processes.LaunchNode{Command: "e"}
+	ng := processes.LaunchNode{Command: "g"}
+	ni := processes.LaunchNode{Command: "i"}
+	nh := processes.LaunchNode{Command: "h", Children: []*processes.LaunchNode{&ni}}
+	nf := processes.LaunchNode{Command: "f", Children: []*processes.LaunchNode{&ng, &nh}}
+	nj := processes.LaunchNode{Command: "j"}
+	na := processes.LaunchNode{
+		Command:  "a",
+		Children: []*processes.LaunchNode{&nb, &ne, &nf, &nj},
+	}
+
+	root := &na
+
+	assertRenderLaunchedCommands(t, root, []string{
+		"a┬▶b─▶c─▶d",
+		" ├▶e",
+		" ├▶f┬▶g",
+		" │  └▶h─▶i",
+		" └▶j",
+	})
 }
