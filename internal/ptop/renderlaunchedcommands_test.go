@@ -120,3 +120,21 @@ func TestRenderLaunchedCommands_forkAfterMultipleParents(t *testing.T) {
 		"    └▶e",
 	})
 }
+
+func TestRenderLaunchedCommands_somethingBetweenUs(t *testing.T) {
+	nd := processes.LaunchNode{Command: "d", LaunchCount: 3}
+	nc := processes.LaunchNode{Command: "c", Children: []*processes.LaunchNode{&nd}}
+	ne := processes.LaunchNode{Command: "e", LaunchCount: 2}
+	ng := processes.LaunchNode{Command: "g", LaunchCount: 1}
+	nf := processes.LaunchNode{Command: "f", Children: []*processes.LaunchNode{&ng}}
+	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc, &ne, &nf}}
+	na := processes.LaunchNode{Command: "a", Children: []*processes.LaunchNode{&nb}}
+
+	root := &na
+
+	assertRenderLaunchedCommands(t, root, []string{
+		"a─▶b┬▶c─▶d(3)",
+		"    ├▶e(2)",
+		"    └▶f─▶g(1)",
+	})
+}
