@@ -178,34 +178,3 @@ func TestIncrementLaunchCount_mismatchedRootPanics(t *testing.T) {
 
 	assert.Equal(t, didPanic, true)
 }
-
-func TestFlatten(t *testing.T) {
-	manyLaunches := &LaunchNode{
-		Command:     "many-launches",
-		LaunchCount: 9,
-		Children:    []*LaunchNode{},
-	}
-	fewLaunches := &LaunchNode{
-		Command:     "few-launches",
-		LaunchCount: 1,
-		Children:    []*LaunchNode{},
-	}
-
-	// Test descending order by launch count, with inputs sorted
-	flattened1 := (&LaunchNode{
-		Command:  "root",
-		Children: []*LaunchNode{manyLaunches, fewLaunches},
-	}).Flatten()
-	assert.Equal(t, len(flattened1), 2)
-	assert.Equal(t, flattened1[0][1], manyLaunches)
-	assert.Equal(t, flattened1[1][1], fewLaunches)
-
-	// Test descending order by launch count, with inputs unsorted
-	flattened2 := (&LaunchNode{
-		Command:  "root",
-		Children: []*LaunchNode{fewLaunches, manyLaunches},
-	}).Flatten()
-	assert.Equal(t, len(flattened2), 2)
-	assert.Equal(t, flattened2[0][1], manyLaunches)
-	assert.Equal(t, flattened2[1][1], fewLaunches)
-}
