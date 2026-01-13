@@ -7,6 +7,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/ui"
 )
 
 func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expected []string) {
@@ -151,7 +152,8 @@ func TestRenderLaunchedCommand_dontClipTooEarly(t *testing.T) {
 	root := &na
 
 	// Limit last y to 1. We should still get the whole graph, since it goes from y=0 to y=1.
-	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 1)
+	topBottomRamp := ui.NewColorRamp(0, 9, twin.NewColorHex(0xffffff), twin.NewColorHex(0x808080))
+	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 1, topBottomRamp)
 
 	expected := []string{
 		"a──b┬─c",
@@ -211,7 +213,8 @@ func TestRenderLaunchedCommand_dontClipTooLate(t *testing.T) {
 	root := &na
 
 	// Limit last y to 0. We should get exactly one line of graph, since the second should be clipped out.
-	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 0)
+	topBottomRamp := ui.NewColorRamp(0, 9, twin.NewColorHex(0xffffff), twin.NewColorHex(0x808080))
+	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 0, topBottomRamp)
 
 	expected := []string{
 		"a──b┬─c",
