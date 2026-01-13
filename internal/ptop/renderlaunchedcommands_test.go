@@ -55,7 +55,6 @@ func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expe
 
 	t.Fatalf("\nExpected:%s\n\nActual:%s",
 		join(expected), join(screenRows))
-
 }
 
 func TestRenderLaunchedCommands(t *testing.T) {
@@ -138,3 +137,136 @@ func TestRenderLaunchedCommands_somethingBetweenUs(t *testing.T) {
 		"    └▶f─▶g(1)",
 	})
 }
+
+func TestRenderLaunchedCommand_dontClipTooEarly(t *testing.T) {
+	width, height := 20, 10
+	screen := twin.NewFakeScreen(width, height)
+	screen.Clear()
+
+	nc := processes.LaunchNode{Command: "c"}
+	nd := processes.LaunchNode{Command: "d"}
+	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc, &nd}}
+	na := processes.LaunchNode{Command: "a", Children: []*processes.LaunchNode{&nb}}
+
+	root := &na
+
+	// Limit last y to 1. We should still get the whole graph, since it goes from y=0 to y=1.
+	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 1)
+
+	expected := []string{
+		"a─▶b┬▶c",
+		"    └▶d",
+	}
+
+	screenRows := []string{}
+	for y := range height {
+		row := ""
+		for x := range width {
+			row += string(screen.GetCell(x, y).Rune)
+		}
+
+		row = strings.TrimRight(row, " ")
+		if row == "" {
+			// No more content lines
+			break
+		}
+		screenRows = append(screenRows, row)
+	}
+
+	if reflect.DeepEqual(screenRows, expected) {
+		// We got what we wanted
+		return
+	}
+
+	// Failed, print diagnostics: print each slice element on its own line.
+	// First "Expected" with rows below each other, then "Actual" the same way.
+	join := func(s []string) string {
+		if len(s) == 0 {
+			return " (empty)"
+		}
+
+		out := ""
+		for _, line := range s {
+			out += "\n" + line
+		}
+
+		return out
+	}
+
+	t.Fatalf("\nExpected:%s\n\nActual:%s",
+		join(expected), join(screenRows))
+
+}
+
+func TestRenderLaunchedCommand_dontClipTooLate(t *testing.T) {
+	width, height := 20, 10
+	screen := twin.NewFakeScreen(width, height)
+	screen.Clear()
+
+	nc := processes.LaunchNode{Command: "c"}
+	nd := processes.LaunchNode{Command: "d"}
+	nb := processes.LaunchNode{Command: "b", Children: []*processes.LaunchNode{&nc, &nd}}
+	na := processes.LaunchNode{Command: "a", Children: []*processes.LaunchNode{&nb}}
+
+	root := &na
+
+	// Limit last y to 0. We should get exactly one line of graph, since the second should be clipped out.
+	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 0)
+
+	expected := []string{
+		"a─▶b┬▶c",
+	}
+
+	screenRows := []string{}
+	for y := range height {
+		row := ""
+		for x := range width {
+			row += string(screen.GetCell(x, y).Rune)
+		}
+
+		row = strings.TrimRight(row, " ")
+		if row == "" {
+			// No more content lines
+			break
+		}
+		screenRows = append(screenRows, row)
+	}
+
+	if reflect.DeepEqual(screenRows, expected) {
+		// We got what we wanted
+		return
+	}
+
+	// Failed, print diagnostics: print each slice element on its own line.
+	// First "Expected" with rows below each other, then "Actual" the same way.
+	join := func(s []string) string {
+		if len(s) == 0 {
+			return " (empty)"
+		}
+
+		out := ""
+		for _, line := range s {
+			out += "\n" + line
+		}
+
+		return out
+	}
+
+	t.Fatalf("\nExpected:%s\n\nActual:%s",
+		join(expected), join(screenRows))
+
+}
+
+/*
+Here's real world output.
+
+Note how it looks like crap, has an empty line in it and ends one line too early.
+
+```
+launchd┬▶iTerm2─▶iTermServer-3.6.6─▶login─▶-fish┬▶go run(1)┬▶(cgo)(1)
+       │       │                  │      │      │
+       │       │                  │      │                 └▶ptop(1)
+       │       │                  │      │      │▶ptop─▶ps(64)
+
+```
+*/
