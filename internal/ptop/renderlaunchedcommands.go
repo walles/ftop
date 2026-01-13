@@ -16,26 +16,18 @@ func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, 
 		return
 	}
 
-	renderLaunchedCommand(screen, launches, 1, y0+1, rightBorder-1, y1-1)
+	// "" is the empty prefix for the root node
+	renderLaunchedCommand(screen, "", launches, 1, y0+1, rightBorder-1, y1-1)
 }
 
 // Returns the next Y position to write to after rendering this node and its children.
-func renderLaunchedCommand(screen twin.Screen, node *processes.LaunchNode, x, y, xMax, yMax int) int {
+func renderLaunchedCommand(screen twin.Screen, prefix string, node *processes.LaunchNode, x, y, xMax, yMax int) int {
 	if y > yMax {
 		return y
 	}
 
-	const x0 = 1 // Leftmost position for text, just insie the border
-
-	if x > x0 {
-		// This is not the root node, draw the arrow prefix
-
-		// FIXME: Use the right character based on position in tree
-		shaft := "─"
-
-		head := "▶"
-		x += drawText(screen, x, y, xMax, shaft+head, twin.StyleDefault)
-	}
+	// Draw the arrow prefix
+	x += drawText(screen, x, y, xMax, prefix, twin.StyleDefault)
 
 	// Render the command name
 	textStyle := twin.StyleDefault
@@ -50,9 +42,42 @@ func renderLaunchedCommand(screen twin.Screen, node *processes.LaunchNode, x, y,
 		x += drawText(screen, x, y, xMax, launchCountText, twin.StyleDefault)
 	}
 
+	if len(node.Children) == 0 {
+		// No children, we're done
+		return y + 1
+	}
+
 	// Draw the children
+	const arrowHead = "▶"
+	singleChild := len(node.Children) == 1
 	for childIndex, child := range node.Children {
-		y = renderLaunchedCommand(screen, child, x, y+childIndex, xMax, yMax)
+		isLastChild := childIndex == len(node.Children)-1
+
+		var shaft string
+		if singleChild {
+			shaft = "─"
+		} else {
+			if childIndex == 0 {
+				// First child
+				shaft = "┬"
+			} else if isLastChild {
+				// Last child
+				shaft = "└"
+			} else {
+				// Middle child
+				shaft = "├"
+			}
+		}
+		nextY := renderLaunchedCommand(screen, shaft+arrowHead, child, x, y, xMax, yMax)
+
+		if !isLastChild {
+			// Draw any intermediate vertical shafts
+			for y = y + 1; y < nextY; y++ {
+				drawText(screen, x, y, xMax, "│", twin.StyleDefault)
+			}
+		}
+
+		y = nextY
 	}
 
 	return y
