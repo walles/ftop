@@ -48,7 +48,7 @@ func renderLaunchedCommand(screen twin.Screen, prefix string, node *processes.La
 	}
 
 	// Draw the children
-	const arrowHead = "▶"
+	const arrowHead = "─"
 	singleChild := len(node.Children) == 1
 	for childIndex, child := range node.Children {
 		isLastChild := childIndex == len(node.Children)-1

@@ -75,11 +75,11 @@ func TestRenderLaunchedCommands(t *testing.T) {
 	root := &na
 
 	assertRenderLaunchedCommands(t, root, []string{
-		"a┬▶b─▶c─▶d",
-		" ├▶e",
-		" ├▶f┬▶g",
-		" │  └▶h─▶i",
-		" └▶j",
+		"a┬─b──c──d",
+		" ├─e",
+		" ├─f┬─g",
+		" │  └─h──i",
+		" └─j",
 	})
 }
 
@@ -100,8 +100,8 @@ func TestRenderLaunchedCommands_sameOrderDifferentForks(t *testing.T) {
 	root := &na
 
 	assertRenderLaunchedCommands(t, root, []string{
-		"a┬▶x─▶c─▶d",
-		" └▶y─▶c─▶d",
+		"a┬─x──c──d",
+		" └─y──c──d",
 	})
 }
 
@@ -115,8 +115,8 @@ func TestRenderLaunchedCommands_forkAfterMultipleParents(t *testing.T) {
 	root := &na
 
 	assertRenderLaunchedCommands(t, root, []string{
-		"a─▶b┬▶c─▶d",
-		"    └▶e",
+		"a──b┬─c──d",
+		"    └─e",
 	})
 }
 
@@ -132,9 +132,9 @@ func TestRenderLaunchedCommands_somethingBetweenUs(t *testing.T) {
 	root := &na
 
 	assertRenderLaunchedCommands(t, root, []string{
-		"a─▶b┬▶c─▶d(3)",
-		"    ├▶e(2)",
-		"    └▶f─▶g(1)",
+		"a──b┬─c──d(3)",
+		"    ├─e(2)",
+		"    └─f──g(1)",
 	})
 }
 
@@ -154,8 +154,8 @@ func TestRenderLaunchedCommand_dontClipTooEarly(t *testing.T) {
 	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 1)
 
 	expected := []string{
-		"a─▶b┬▶c",
-		"    └▶d",
+		"a──b┬─c",
+		"    └─d",
 	}
 
 	screenRows := []string{}
@@ -214,7 +214,7 @@ func TestRenderLaunchedCommand_dontClipTooLate(t *testing.T) {
 	renderLaunchedCommand(screen, "", root, 0, 0, width-1, 0)
 
 	expected := []string{
-		"a─▶b┬▶c",
+		"a──b┬─c",
 	}
 
 	screenRows := []string{}
@@ -263,10 +263,10 @@ Here's real world output.
 Note how it looks like crap, has an empty line in it and ends one line too early.
 
 ```
-launchd┬▶iTerm2─▶iTermServer-3.6.6─▶login─▶-fish┬▶go run(1)┬▶(cgo)(1)
+launchd┬─iTerm2──iTermServer-3.6.6──login──-fish┬─go run(1)┬─(cgo)(1)
        │       │                  │      │      │
-       │       │                  │      │                 └▶ptop(1)
-       │       │                  │      │      │▶ptop─▶ps(64)
+       │       │                  │      │                 └─ptop(1)
+       │       │                  │      │      │─ptop──ps(64)
 
 ```
 */
