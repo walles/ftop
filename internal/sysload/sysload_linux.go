@@ -5,7 +5,12 @@ import (
 )
 
 func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
-	FIXME
+	memInfo, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return parseProcMemInfo(string(memInfo))
 }
 
 func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {

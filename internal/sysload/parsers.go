@@ -47,3 +47,108 @@ func parseProcCpuInfo(procCpuInfoStr string) (coresLogical int, coresPhysical in
 
 	return logical, physical, nil
 }
+
+func parseProcMemInfo(procMemInfoStr string) (usedBytes uint64, totalBytes uint64, err error) {
+	var (
+		totalKB, availableKB, freeKB, buffersKB, cachedKB *uint64
+		swapcachedKB, swaptotalKB, swapfreeKB             *uint64
+	)
+
+	scanner := bufio.NewScanner(strings.NewReader(procMemInfoStr))
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// helper to parse a kB value from lines like "MemTotal:       16384256 kB"
+		parseIf := func(name string) (*uint64, bool) {
+			if !strings.HasPrefix(line, name+":") {
+				return nil, false
+			}
+
+			parts := strings.Fields(line)
+			if len(parts) < 2 {
+				return nil, false
+			}
+
+			v, err := strconv.ParseUint(parts[1], 10, 64)
+			if err != nil {
+				return nil, false
+			}
+
+			return &v, true
+		}
+
+		if v, ok := parseIf("MemTotal"); ok && totalKB == nil {
+			totalKB = v
+			continue
+		}
+
+		if v, ok := parseIf("MemAvailable"); ok && availableKB == nil {
+			availableKB = v
+			continue
+		}
+
+		if v, ok := parseIf("MemFree"); ok && freeKB == nil {
+			freeKB = v
+			continue
+		}
+
+		if v, ok := parseIf("Buffers"); ok && buffersKB == nil {
+			buffersKB = v
+			continue
+		}
+
+		if v, ok := parseIf("Cached"); ok && cachedKB == nil {
+			cachedKB = v
+			continue
+		}
+
+		if v, ok := parseIf("SwapCached"); ok && swapcachedKB == nil {
+			swapcachedKB = v
+			continue
+		}
+
+		if v, ok := parseIf("SwapTotal"); ok && swaptotalKB == nil {
+			swaptotalKB = v
+			continue
+		}
+
+		if v, ok := parseIf("SwapFree"); ok && swapfreeKB == nil {
+			swapfreeKB = v
+			continue
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, 0, fmt.Errorf("failed scanning meminfo: %w", err)
+	}
+
+	if totalKB == nil {
+		return 0, 0, fmt.Errorf("MemTotal not found in meminfo")
+	}
+	if swaptotalKB == nil || swapfreeKB == nil {
+		return 0, 0, fmt.Errorf("SwapTotal or SwapFree not found in meminfo")
+	}
+
+	swapUsedKB := *swaptotalKB - *swapfreeKB
+
+	if availableKB != nil {
+		// Prefer MemAvailable if present
+		ramUsedKB := *totalKB - *availableKB
+
+		totalBytes = *totalKB * 1024
+		usedBytes = (swapUsedKB + ramUsedKB) * 1024
+
+		return usedBytes, totalBytes, nil
+	}
+
+	if freeKB == nil || buffersKB == nil || cachedKB == nil || swapcachedKB == nil {
+		return 0, 0, fmt.Errorf("insufficient fields in meminfo to calculate memory used")
+	}
+
+	ramUsedKB := *totalKB - (*freeKB + *buffersKB + *cachedKB + *swapcachedKB)
+
+	totalBytes = *totalKB * 1024
+	usedBytes = (swapUsedKB + ramUsedKB) * 1024
+
+	return usedBytes, totalBytes, nil
+}
