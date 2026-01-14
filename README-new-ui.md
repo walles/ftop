@@ -141,6 +141,7 @@ First, consider redoing in Go using:
 1. OK: Downsample colors to 256 colors and verify it still looks OK
 1. OK: Get the UI structure right with plain text only. Pressing ESC / q should
    exit.
+1. Make sure we build on Linux
 1. Make sure we work on Linux
 1. Consider all FIXMEs
 1. Create a light and a dark color theme

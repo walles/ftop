@@ -16,7 +16,7 @@ import (
 //
 // If you look carefully at the output, this regex will only match lines with
 // error counts, which is only one line per interface.
-var NETSTAT_IB_LINE_RE = regexp.MustCompile(`^([^ ]+).*[0-9]+ +([0-9]+) +[0-9]+ +[0-9]+ +([0-9]+) +[0-9]+$`)
+var NETSTAT_BNI_LINE_RE = regexp.MustCompile(`^([^ ]+).*[0-9]+ +([0-9]+) +[0-9]+ +[0-9]+ +([0-9]+) +[0-9]+$`)
 
 // NOTE: iostat does not give us separate values for read and write, so we can't
 // tell them apart.
@@ -32,7 +32,7 @@ func GetNetworkStats() (map[string]uint64, error) {
 			return nil
 		}
 
-		matches := NETSTAT_IB_LINE_RE.FindStringSubmatch(line)
+		matches := NETSTAT_BNI_LINE_RE.FindStringSubmatch(line)
 		if matches == nil {
 			return nil // Ignore non-matching lines
 		}
