@@ -34,3 +34,16 @@ func TestParseProcMemInfo(t *testing.T) {
 	assert.Equal(t, totalBytes, uint64(6_737_555_456))
 	assert.Equal(t, usedBytes, uint64(560_615_424))
 }
+
+func TestParseProcLoadAvg(t *testing.T) {
+	exampleBytes, err := os.ReadFile("parsers_test/proc/loadavg.txt")
+	assert.Equal(t, err, nil)
+
+	load1M, load5M, load15M, err := parseProcLoadAvg(string(exampleBytes))
+	assert.Equal(t, err, nil)
+
+	// From a Docker container
+	assert.Equal(t, load1M, 0.77)
+	assert.Equal(t, load5M, 0.24)
+	assert.Equal(t, load15M, 0.08)
+}

@@ -21,3 +21,12 @@ func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
 
 	return parseProcCpuInfo(string(cpuInfo))
 }
+
+func getLoadAverages() (load1M float64, load5M float64, load15M float64, err error) {
+	loadAvg, err := os.ReadFile("/proc/loadavg")
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return parseProcLoadAvg(string(loadAvg))
+}

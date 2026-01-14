@@ -152,3 +152,27 @@ func parseProcMemInfo(procMemInfoStr string) (usedBytes uint64, totalBytes uint6
 
 	return usedBytes, totalBytes, nil
 }
+
+func parseProcLoadAvg(procLoadAvgStr string) (load1M float64, load5M float64, load15M float64, err error) {
+	parts := strings.Fields(procLoadAvgStr)
+	if len(parts) < 3 {
+		return 0, 0, 0, fmt.Errorf("unexpected format of /proc/loadavg")
+	}
+
+	load1M, err = strconv.ParseFloat(parts[0], 64)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse 1-minute load average: %w", err)
+	}
+
+	load5M, err = strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse 5-minute load average: %w", err)
+	}
+
+	load15M, err = strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse 15-minute load average: %w", err)
+	}
+
+	return load1M, load5M, load15M, nil
+}
