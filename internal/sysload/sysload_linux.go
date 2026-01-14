@@ -14,9 +14,5 @@ func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
 		return 0, 0, err
 	}
 
-	return parseCpuInfo(string(cpuInfo))
-}
-
-func getLoadAverages() (load1M float64, load5M float64, load15M float64, err error) {
-	FIXME
+	return parseProcCpuInfo(string(cpuInfo))
 }
