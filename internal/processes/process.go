@@ -2,6 +2,7 @@ package processes
 
 import (
 	"fmt"
+	"os"
 	"os/user"
 	"regexp"
 	"slices"
@@ -271,7 +272,9 @@ func GetAll() ([]*Process, error) {
 	// Resolve parent-child relationships
 	resolveLinks(processes)
 
-	// FIXME: Censor out ourselves
+	// Without this our every-second calls to ps will mess up the launched
+	// commands view.
+	removeSelfChildren(processes, os.Getpid())
 
 	processList := make([]*Process, 0, len(processes))
 	for _, proc := range processes {
@@ -309,6 +312,25 @@ func resolveLinks(processes map[int]*Process) {
 		// Found our parent, say hello!
 		proc.parent.children = append(proc.parent.children, proc)
 	}
+}
+
+func removeSelfChildren(processes map[int]*Process, selfPid int) {
+	selfProcess, found := processes[selfPid]
+	if !found {
+		return
+	}
+
+	// Remove all children from selfProcess
+	toDelete := make([]int, 0)
+	for _, child := range selfProcess.children {
+		child.parent = nil
+		toDelete = append(toDelete, child.Pid)
+	}
+	for _, pid := range toDelete {
+		delete(processes, pid)
+	}
+
+	selfProcess.children = []*Process{}
 }
 
 func (p *Process) CpuPercentString() string {

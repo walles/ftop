@@ -131,28 +131,33 @@ First, consider redoing in Go using:
 - Do what gotop does for system info / process listing? It uses gopsutil but
   overrides (at least) process listing and uses `ps` instead on not-Windows.
 
-1. Get the UI structure right with plain text only. Verify it works with
-   terminal window resizing, even at really small sizes. Pressing ESC / q should
-   exit.
-1. Consider performance without -race, are we using too much CPU ourselves?
-1. Consider startup time without -race, is it acceptable?
-1. Consider looks at startup, is there a jarring experience between the first
-   two frames?
-1. Consider all FIXMEs
+1. OK: Consider performance without -race, are we using too much CPU ourselves?
+1. OK: Consider startup time without -race, is it acceptable?
+1. OK: Consider looks at startup, is there a jarring experience between the
+   first two frames?
 1. OK: Ensure goroutine panics are logged
+1. OK: Put the braille section labels in place
+1. OK: Color things in 24 bit color
+1. OK: Downsample colors to 256 colors and verify it still looks OK
+1. OK: Get the UI structure right with plain text only. Pressing ESC / q should
+   exit.
+1. Make sure we work on Linux
+1. Consider all FIXMEs
+1. Create a light and a dark color theme
+1. Auto pick light / dark theme based on terminal background
+1. Enable picking color theme from the command line
+1. Enable picking color theme from an environment variable
+1. Make sure we have Prettiness ^ covered
+1. Make sure we don't break down on really small terminal sizes.
 1. Implement a crash reporting screen
 1. Implement filtering
 1. Implement section switching with TAB
 1. Implement process picking with arrow keys
 1. Implement the I-picked-a-process-by-pressing-enter menu screen
 1. Verify we have all Use Cases ^ covered
-1. Put the braille section labels in place
-1. Color things in 24 bit color
 1. Make sure we have two different color themes and the ability to pick. Test
    them on light and dark terminal backgrounds and verify they look OK.
-1. Downsample colors to 256 colors and verify it still looks OK
 1. Auto pick terminal color depth
-1. Make sure we have Prettiness ^ covered
 1. Update screenshot(s) in the README
 1. Decide on what to do with `px`. It should probably use the same color depth +
    themes logic as `ptop`.
