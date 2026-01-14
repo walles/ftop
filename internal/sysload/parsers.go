@@ -8,7 +8,7 @@ import (
 )
 
 // Parses /proc/cpuinfo and returns logical and physical core counts
-func parseProcCpuInfo(procCpuInfoStr string) (coresLogical int, coresPhysical int, err error) {
+func parseProcCpuInfo(procCpuInfoStr string) (coresLogical int, coresPhysical int, err error) { // nolint:unused
 	// Note the trailing spaces, they must be there for number extraction to work!
 	const PROCESSOR_COUNT_PREFIX = "processor\t: "
 	const CORE_ID_PREFIX = "core id\t\t: "
@@ -48,7 +48,7 @@ func parseProcCpuInfo(procCpuInfoStr string) (coresLogical int, coresPhysical in
 	return logical, physical, nil
 }
 
-func parseProcMemInfo(procMemInfoStr string) (usedBytes uint64, totalBytes uint64, err error) {
+func parseProcMemInfo(procMemInfoStr string) (usedBytes uint64, totalBytes uint64, err error) { // nolint:unused
 	var (
 		totalKB, availableKB, freeKB, buffersKB, cachedKB *uint64
 		swapcachedKB, swaptotalKB, swapfreeKB             *uint64
@@ -153,7 +153,7 @@ func parseProcMemInfo(procMemInfoStr string) (usedBytes uint64, totalBytes uint6
 	return usedBytes, totalBytes, nil
 }
 
-func parseProcLoadAvg(procLoadAvgStr string) (load1M float64, load5M float64, load15M float64, err error) {
+func parseProcLoadAvg(procLoadAvgStr string) (load1M float64, load5M float64, load15M float64, err error) { // nolint:unused
 	parts := strings.Fields(procLoadAvgStr)
 	if len(parts) < 3 {
 		return 0, 0, 0, fmt.Errorf("unexpected format of /proc/loadavg")

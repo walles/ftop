@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func parseProcNetDev(procNetDevStr string) (map[string]uint64, error) {
+func parseProcNetDev(procNetDevStr string) (map[string]uint64, error) { // nolint:unused
 	// Parse one line of /proc/net/dev
 	//
 	// Example input (includes leading whitespace):
@@ -50,7 +50,7 @@ func parseProcNetDev(procNetDevStr string) (map[string]uint64, error) {
 	return result, nil
 }
 
-func parseProcDiskstats(procDiskstatsStr string) (map[string]uint64, error) {
+func parseProcDiskstats(procDiskstatsStr string) (map[string]uint64, error) { // nolint:unused
 	// Parse a line from /proc/diskstats
 	//
 	// First group is the name. To get partitions rather than disks we require
