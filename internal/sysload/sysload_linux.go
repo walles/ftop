@@ -13,6 +13,16 @@ func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 }
 
 func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
+	cpuInfo, err := os.ReadFile("/proc/cpuinfo")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return parseCpuInfo(string(cpuInfo))
+}
+
+// Parses /proc/cpuinfo and returns logical and physical core counts
+func parseCpuInfo(procCpuInfoStr string) (coresLogical int, coresPhysical int, err error) {
 	// Note the trailing spaces, they must be there for number extraction to work!
 	const PROCESSOR_COUNT_PREFIX = "processor\t: "
 	const CORE_ID_PREFIX = "core id\t\t: "
@@ -20,13 +30,7 @@ func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
 	coreIds := map[int]struct{}{}
 	maxProcessorNo := 0
 
-	// Iterate over lines in /proc/cpuinfo
-	cpuInfo, err := os.Open("/proc/cpuinfo")
-	if err != nil {
-		return 0, 0, err
-	}
-
-	scanner := bufio.NewScanner(cpuInfo)
+	scanner := bufio.NewScanner(strings.NewReader(procCpuInfoStr))
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, PROCESSOR_COUNT_PREFIX) {
