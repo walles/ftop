@@ -6,10 +6,11 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/sysload"
+	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderSysload(screen twin.Screen, width int) {
+func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 	sysload, err := sysload.GetSysload()
 	if err != nil {
 		// FIXME: Handle this better. What would the user want here?
@@ -23,15 +24,12 @@ func renderSysload(screen twin.Screen, width int) {
 	x += drawText(screen, x, y, x1, "Sysload: ", twin.StyleDefault.WithAttr(twin.AttrBold))
 
 	loadNumberStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
-	green := twin.NewColorHex(0x00ff00)  // FIXME: Get this from the theme
-	yellow := twin.NewColorHex(0xffff00) // FIXME: Get this from the theme
-	red := twin.NewColorHex(0xff0000)    // FIXME: Get this from the theme
 	if sysload.LoadAverage1M <= float64(sysload.CpuCoresLogical) {
-		loadNumberStyle = loadNumberStyle.WithForeground(green)
+		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadLow())
 	} else if sysload.LoadAverage1M <= float64(sysload.CpuCoresPhysical) {
-		loadNumberStyle = loadNumberStyle.WithForeground(yellow)
+		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadMedium())
 	} else {
-		loadNumberStyle = loadNumberStyle.WithForeground(red)
+		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadHigh())
 	}
 	x += drawText(screen, x, y, x1, fmt.Sprintf("%.1f", sysload.LoadAverage1M), loadNumberStyle)
 
@@ -48,8 +46,8 @@ func renderSysload(screen twin.Screen, width int) {
 	// Text in place, now color the braille graph
 
 	brailleRamp := ui.NewColorRamp(float64(brailleStartColumn), float64(brailleEndColumn),
-		twin.NewColorHex(0x555555), // FIXME: Get this from the theme
-		twin.NewColorHex(0xffffff), // FIXME: Get this from the theme
+		theme.Bottom(),
+		theme.Top(),
 	)
 	for column := brailleStartColumn; column <= brailleEndColumn; column++ {
 		cell := screen.GetCell(column, 1)
@@ -59,9 +57,7 @@ func renderSysload(screen twin.Screen, width int) {
 
 	// Finally, draw the load bar behind our text
 
-	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
-	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 	loadBar := ui.NewLoadBar(2, width-2, cpuRamp)
 
 	for column := 2; column < width-2; column++ {

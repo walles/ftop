@@ -7,6 +7,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
 )
 
@@ -17,7 +18,8 @@ func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expe
 	screen := twin.NewFakeScreen(width, height)
 	screen.Clear()
 
-	renderLaunchedCommands(screen, root, 0, height-1)
+	theme := themes.NewDarkTheme(nil)
+	renderLaunchedCommands(screen, theme, root, 0, height-1)
 
 	screenRows := []string{}
 	for y := 1; y < height-1; y++ {

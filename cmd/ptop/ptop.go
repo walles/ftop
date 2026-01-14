@@ -10,6 +10,7 @@ import (
 	"github.com/walles/ptop/internal/log"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/ptop"
+	"github.com/walles/ptop/internal/themes"
 )
 
 type processListUpdated struct{}
@@ -41,6 +42,8 @@ func internalMain() int {
 		log.PanicHandler("main", recover(), debug.Stack())
 	}()
 
+	theme := themes.NewDarkTheme(screen.TerminalBackground())
+
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()
 
@@ -67,12 +70,12 @@ func internalMain() int {
 
 		if _, ok := event.(twin.EventResize); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(screen, allProcesses, ioTracker.Stats(), procsTracker.Launches())
+			ptop.Render(screen, theme, allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(screen, allProcesses, ioTracker.Stats(), procsTracker.Launches())
+			ptop.Render(screen, theme, allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if event, ok := event.(twin.EventRune); ok {

@@ -143,12 +143,12 @@ First, consider redoing in Go using:
    exit.
 1. OK: Make sure we build on Linux
 1. OK: Make sure we work on Linux
-1. Consider all FIXMEs
 1. Create a light and a dark color theme
 1. Auto pick light / dark theme based on terminal background
 1. Enable picking color theme from the command line
 1. Enable picking color theme from an environment variable
 1. Make sure we have Prettiness ^ covered
+1. Consider all FIXMEs
 1. Make sure we don't break down on really small terminal sizes.
 1. Implement a crash reporting screen
 1. Implement filtering

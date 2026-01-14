@@ -6,6 +6,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
 )
 
@@ -167,6 +168,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 // the remaining space below the users table.
 func renderProcessesBlock(
 	screen twin.Screen,
+	theme themes.Theme,
 	table [][]string,
 	processes []processes.Process,
 	firstScreenRow int,
@@ -191,8 +193,8 @@ func renderProcessesBlock(
 	usersBottomBorder := firstScreenRow + 1 + usersHeight
 	commandsTopRow := usersBottomBorder + 1
 
-	renderProcesses(screen, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
-	renderPerUser(screen, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
+	renderProcesses(screen, theme, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
+	renderPerUser(screen, theme, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
 
 	// Skip the per-user rows. If usersHeight is 0:
 	// 0: post-users separator line
@@ -201,10 +203,10 @@ func renderProcessesBlock(
 	//
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
-	renderPerCommand(screen, leftPerUserBorderColumn, commandsTopRow, width-1, bottomRow, table, widths, commands)
+	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, bottomRow, table, widths, commands)
 }
 
-func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
+func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
@@ -216,22 +218,11 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		widths[5], widths[5],
 	)
 
-	// NOTE: Use some online OKLCH color picker for experimenting with colors
-	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
-	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
-	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
-	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
-	if screen.TerminalBackground() != nil {
-		colorBg = *screen.TerminalBackground()
-	}
-
-	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
@@ -308,11 +299,11 @@ func renderProcesses(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, w
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By Process")
-	renderLegend(screen, y1, x1)
+	renderFrame(screen, theme, x0, y0, x1, y1, "By Process")
+	renderLegend(screen, theme, y1, x1)
 }
 
-func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
+func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
 	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
@@ -323,22 +314,11 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 		widths[2], widths[2],
 	)
 
-	// NOTE: Use some online OKLCH color picker for experimenting with colors
-	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
-	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
-	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
-	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
-	if screen.TerminalBackground() != nil {
-		colorBg = *screen.TerminalBackground()
-	}
-
-	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
 
 	usernameColumn0 := x0 + 1                          // Screen column
 	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
@@ -423,11 +403,11 @@ func renderPerUser(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, wid
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By User")
+	renderFrame(screen, theme, x0, y0, x1, y1, "By User")
 }
 
 // Assumes the first row of the table contains the commands header line
-func renderPerCommand(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
+func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
 	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
@@ -438,22 +418,11 @@ func renderPerCommand(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, 
 		widths[2], widths[2],
 	)
 
-	// NOTE: Use some online OKLCH color picker for experimenting with colors
-	colorLoadBarMin := twin.NewColorHex(0x000000)    // FIXME: Get this from the theme
-	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
-	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxRAM)
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxCPU)
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
-	colorBg := twin.NewColor24Bit(0, 0, 0) // FIXME: Get this fallback from the theme
-	if screen.TerminalBackground() != nil {
-		colorBg = *screen.TerminalBackground()
-	}
-
-	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.66)
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), colorTop, colorBottom)
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
 
 	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
 	// borders
@@ -527,25 +496,20 @@ func renderPerCommand(screen twin.Screen, x0, y0, x1, y1 int, table [][]string, 
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "By Command")
+	renderFrame(screen, theme, x0, y0, x1, y1, "By Command")
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
-func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
-	colorTextLegend := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme. Same as the frame color.
-	colorTextCpuRam := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme. Same as the top color.
-
-	colorLoadBarMin := twin.NewColorHex(0x000000) // FIXME: Get this from the theme
-
+func renderLegend(screen twin.Screen, theme themes.Theme, y int, rightFrameBorder int) {
 	// Turn up the bottom color this much so it's visible in the small legend
 	const adjustUp = 0.5
 
-	colorLoadBarMaxRAM := twin.NewColorHex(0x2020ff) // FIXME: Get this from the theme
-	colorLoadBarMinRAM := colorLoadBarMin.Mix(colorLoadBarMaxRAM, adjustUp)
+	colorLoadBarMaxRAM := theme.LoadBarMaxRam()
+	colorLoadBarMinRAM := theme.LoadBarMin().Mix(colorLoadBarMaxRAM, adjustUp)
 
-	colorLoadBarMaxCPU := twin.NewColorHex(0x801020) // FIXME: Get this from the theme
-	colorLoadBarMinCPU := colorLoadBarMin.Mix(colorLoadBarMaxCPU, adjustUp)
+	colorLoadBarMaxCPU := theme.LoadBarMaxCpu()
+	colorLoadBarMinCPU := theme.LoadBarMin().Mix(colorLoadBarMaxCPU, adjustUp)
 
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinRAM, colorLoadBarMaxRAM)
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMinCPU, colorLoadBarMaxCPU)
@@ -561,7 +525,7 @@ func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
 		y,
 		rightFrameBorder,
 		textLegend,
-		twin.StyleDefault.WithForeground(colorTextLegend),
+		twin.StyleDefault.WithForeground(theme.Border()),
 	)
 	drawText(
 		screen,
@@ -569,7 +533,7 @@ func renderLegend(screen twin.Screen, y int, rightFrameBorder int) {
 		y,
 		rightFrameBorder,
 		textCpuRam,
-		twin.StyleDefault.WithForeground(colorTextCpuRam),
+		twin.StyleDefault.WithForeground(theme.Top()),
 	)
 
 	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)

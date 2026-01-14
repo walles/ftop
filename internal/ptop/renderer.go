@@ -6,6 +6,7 @@ import (
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/io"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/themes"
 )
 
 type stats struct {
@@ -22,7 +23,7 @@ type commandStats struct {
 	stats
 }
 
-func Render(screen twin.Screen, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
+func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
 	const overviewHeight = 5         // Including borders
 	const launchedCommandsHeight = 7 // Including borders
 
@@ -39,18 +40,19 @@ func Render(screen twin.Screen, processesRaw []processes.Process, ioStats []io.S
 
 	screen.Clear()
 
-	renderOverview(screen, ioStats, overviewWidth)
+	renderOverview(screen, theme, ioStats, overviewWidth)
 
 	// Draw IO stats to the right of the overview...
 	if ioStatsWidth > 0 {
 		// ... but only when there is room for it.
-		renderIoTopList(screen, ioStats, overviewWidth, 0, width-1, 4)
+		renderIoTopList(screen, theme, ioStats, overviewWidth, 0, width-1, 4)
 	}
 
 	// -2 to skip the borders
 	processesTable, usersHeight, processes, users, commands := createProcessesTable(processesRaw, processesHeight-2)
 	renderProcessesBlock(
 		screen,
+		theme,
 		processesTable,
 		processes,
 		overviewHeight,
@@ -62,24 +64,21 @@ func Render(screen twin.Screen, processesRaw []processes.Process, ioStats []io.S
 
 	// FIXME: Skip this section if launches is nil. Adjust height based on the
 	// height of the rendered graph.
-	renderLaunchedCommands(screen, launches, overviewHeight+processesHeight, height-1)
+	renderLaunchedCommands(screen, theme, launches, overviewHeight+processesHeight, height-1)
 
 	screen.Show()
 }
 
-func renderOverview(screen twin.Screen, ioStats []io.Stat, overviewWidth int) {
-	renderSysload(screen, overviewWidth)
-	renderMemoryUsage(screen, overviewWidth)
+func renderOverview(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, overviewWidth int) {
+	renderSysload(screen, theme, overviewWidth)
+	renderMemoryUsage(screen, theme, overviewWidth)
 	renderIOLoad(ioStats, screen, overviewWidth)
 
-	renderFrame(screen, 0, 0, overviewWidth-1, 4, "Overview")
+	renderFrame(screen, theme, 0, 0, overviewWidth-1, 4, "Overview")
 }
 
-func renderFrame(screen twin.Screen, x0, y0, x1, y1 int, title string) {
-	colorTitle := twin.NewColorHex(0xffc0c0) // FIXME: Get this from the theme
-	colorFrame := twin.NewColorHex(0x7070a0) // FIXME: Get this from the theme
-
-	dividerStyle := twin.StyleDefault.WithForeground(colorFrame)
+func renderFrame(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, title string) {
+	dividerStyle := twin.StyleDefault.WithForeground(theme.Border())
 
 	for col := x0 + 1; col < x1; col++ {
 		screen.SetCell(col, y0, twin.StyledRune{Rune: '─', Style: dividerStyle})
@@ -95,7 +94,7 @@ func renderFrame(screen twin.Screen, x0, y0, x1, y1 int, title string) {
 	screen.SetCell(x1, y1, twin.StyledRune{Rune: '┘', Style: dividerStyle})
 
 	// Title
-	titleStyle := twin.StyleDefault.WithForeground(colorTitle)
+	titleStyle := twin.StyleDefault.WithForeground(theme.BorderTitle())
 	titleRunes := []rune(title)
 	for i, r := range titleRunes {
 		if x0+2+i < x1 {

@@ -8,10 +8,11 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/io"
+	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) {
+func renderIoTopList(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, x0, y0, x1, y1 int) {
 	slices.SortFunc(ioStats, func(s1, s2 io.Stat) int {
 		comparison := cmp.Compare(s1.HighWatermark, s2.HighWatermark)
 		if comparison != 0 {
@@ -22,17 +23,9 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) 
 		return cmp.Compare(s1.DeviceName, s2.DeviceName)
 	})
 
-	colorBg := twin.NewColorHex(0x000000) // FIXME: Get this fallback from the theme
-	if screen.TerminalBackground() != nil {
-		colorBg = *screen.TerminalBackground()
-	}
-
-	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.5)
-
 	firstIoLine := y0 + 1 // Screen row number
 	lastIoLine := y1 - 1  // Screen row number
-	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), colorTop, colorBottom)
+	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), theme.Top(), theme.Bottom())
 
 	for i, stat := range ioStats {
 		y := firstIoLine + i
@@ -72,9 +65,7 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) 
 
 	if maxPeak != 0.0 {
 		// Draw the load bars
-		colorLoadBarMin := twin.NewColorHex(0x000000)   // FIXME: Get this from the theme
-		colorLoadBarMaxIO := twin.NewColorHex(0xd0d020) // FIXME: Get this from the theme
-		ioRamp := ui.NewColorRamp(0.0, 1.0, colorLoadBarMin, colorLoadBarMaxIO)
+		ioRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxIO())
 
 		for i, stat := range ioStats {
 			y := firstIoLine + i
@@ -91,5 +82,5 @@ func renderIoTopList(screen twin.Screen, ioStats []io.Stat, x0, y0, x1, y1 int) 
 		}
 	}
 
-	renderFrame(screen, x0, y0, x1, y1, "IO")
+	renderFrame(screen, theme, x0, y0, x1, y1, "IO")
 }

@@ -5,29 +5,22 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
 )
 
-func renderLaunchedCommands(screen twin.Screen, launches *processes.LaunchNode, y0, y1 int) {
+func renderLaunchedCommands(screen twin.Screen, theme themes.Theme, launches *processes.LaunchNode, y0, y1 int) {
 	width, _ := screen.Size()
 	rightBorder := width - 1
-	defer renderFrame(screen, 0, y0, rightBorder, y1, "Launched Commands")
+	defer renderFrame(screen, theme, 0, y0, rightBorder, y1, "Launched Commands")
 
 	if launches == nil {
 		return
 	}
 
-	colorBg := twin.NewColorHex(0x000000) // FIXME: Get this fallback from the theme
-	if screen.TerminalBackground() != nil {
-		colorBg = *screen.TerminalBackground()
-	}
-
-	colorTop := twin.NewColorHex(0xdddddd) // FIXME: Get this from the theme
-	colorBottom := colorTop.Mix(colorBg, 0.5)
-
 	firstLaunchLine := y0 + 1 // Screen row number
 	lastLaunchLine := y1 - 1  // Screen row number
-	topBottomRamp := ui.NewColorRamp(float64(firstLaunchLine), float64(lastLaunchLine), colorTop, colorBottom)
+	topBottomRamp := ui.NewColorRamp(float64(firstLaunchLine), float64(lastLaunchLine), theme.Top(), theme.Bottom())
 
 	// "" is the empty prefix for the root node
 	renderLaunchedCommand(screen, "", launches, 1, y0+1, rightBorder-1, y1-1, topBottomRamp)
