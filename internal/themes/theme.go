@@ -44,8 +44,8 @@ func newDarkTheme(bg *twin.Color) Theme {
 		fallbackBackground: twin.NewColorHex(0x000000),
 		foreground:         twin.NewColorHex(0xdddddd),
 
-		loadBarMaxCpu: twin.NewColorHex(0x801020),
-		loadBarMaxRam: twin.NewColorHex(0x2020ff),
+		loadBarMaxCpu: twin.NewColorHex(0x5f1f22),
+		loadBarMaxRam: twin.NewColorHex(0x1e3568),
 		loadBarMaxIO:  twin.NewColorHex(0xd0d020),
 
 		border:      twin.NewColorHex(0x7070a0),
