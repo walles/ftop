@@ -33,7 +33,7 @@ func renderMemoryUsage(screen twin.Screen, theme themes.Theme, width int) {
 			char = runes[column-2]
 		}
 
-		style := twin.StyleDefault
+		style := twin.StyleDefault.WithForeground(theme.Foreground())
 		if !slices.Contains([]rune{' ', '[', '/', ']'}, char) {
 			style = style.WithAttr(twin.AttrBold)
 		}

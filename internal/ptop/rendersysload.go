@@ -17,13 +17,15 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 		panic(err)
 	}
 
+	style := twin.StyleDefault.WithForeground(theme.Foreground())
+
 	x1 := width - 1
 
 	x := 2
 	y := 1
-	x += drawText(screen, x, y, x1, "Sysload: ", twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, x1, "Sysload: ", style.WithAttr(twin.AttrBold))
 
-	loadNumberStyle := twin.StyleDefault.WithAttr(twin.AttrBold)
+	loadNumberStyle := style.WithAttr(twin.AttrBold)
 	if sysload.LoadAverage1M <= float64(sysload.CpuCoresLogical) {
 		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadLow())
 	} else if sysload.LoadAverage1M <= float64(sysload.CpuCoresPhysical) {
@@ -33,15 +35,15 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 	}
 	x += drawText(screen, x, y, x1, fmt.Sprintf("%.1f", sysload.LoadAverage1M), loadNumberStyle)
 
-	x += drawText(screen, x, y, x1, "  [", twin.StyleDefault)
-	x += drawText(screen, x, y, x1, fmt.Sprintf("%d cores", sysload.CpuCoresPhysical), twin.StyleDefault.WithAttr(twin.AttrBold))
-	x += drawText(screen, x, y, x1, fmt.Sprintf(" | %d virtual] [15m history: ", sysload.CpuCoresLogical), twin.StyleDefault)
+	x += drawText(screen, x, y, x1, "  [", style)
+	x += drawText(screen, x, y, x1, fmt.Sprintf("%d cores", sysload.CpuCoresPhysical), style.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, x1, fmt.Sprintf(" | %d virtual] [15m history: ", sysload.CpuCoresLogical), style)
 	brailleStartColumn := x
 	averageGraph := averagesToGraphString(sysload.LoadAverage1M, sysload.LoadAverage5M, sysload.LoadAverage15M)
-	x += drawText(screen, x, y, x1, averageGraph, twin.StyleDefault.WithAttr(twin.AttrBold))
+	x += drawText(screen, x, y, x1, averageGraph, style.WithAttr(twin.AttrBold))
 	brailleEndColumn := x - 1
 
-	x += drawText(screen, x, y, x1, "]", twin.StyleDefault) // nolint:ineffassign
+	x += drawText(screen, x, y, x1, "]", style) // nolint:ineffassign
 
 	// Text in place, now color the braille graph
 
