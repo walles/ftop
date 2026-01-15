@@ -46,8 +46,8 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 	// Text in place, now color the braille graph
 
 	brailleRamp := ui.NewColorRamp(float64(brailleStartColumn), float64(brailleEndColumn),
-		theme.Bottom(),
-		theme.Top(),
+		theme.FadedForeground(),
+		theme.Foreground(),
 	)
 	for column := brailleStartColumn; column <= brailleEndColumn; column++ {
 		cell := screen.GetCell(column, 1)

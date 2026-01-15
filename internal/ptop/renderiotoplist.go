@@ -25,7 +25,7 @@ func renderIoTopList(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, 
 
 	firstIoLine := y0 + 1 // Screen row number
 	lastIoLine := y1 - 1  // Screen row number
-	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), theme.Top(), theme.Bottom())
+	topBottomRamp := ui.NewColorRamp(float64(firstIoLine), float64(lastIoLine), theme.Foreground(), theme.FadedForeground())
 
 	for i, stat := range ioStats {
 		y := firstIoLine + i

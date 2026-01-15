@@ -222,7 +222,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
@@ -318,7 +318,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
 
 	usernameColumn0 := x0 + 1                          // Screen column
 	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
@@ -422,7 +422,7 @@ func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Top(), theme.Bottom())
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
 
 	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
 	// borders
@@ -533,7 +533,7 @@ func renderLegend(screen twin.Screen, theme themes.Theme, y int, rightFrameBorde
 		y,
 		rightFrameBorder,
 		textCpuRam,
-		twin.StyleDefault.WithForeground(theme.Top()),
+		twin.StyleDefault.WithForeground(theme.Foreground()),
 	)
 
 	cpuLoadBar := ui.NewLoadBar(legendX+barsOffset, legendX+3+barsOffset, cpuRamp)

@@ -20,7 +20,7 @@ func renderLaunchedCommands(screen twin.Screen, theme themes.Theme, launches *pr
 
 	firstLaunchLine := y0 + 1 // Screen row number
 	lastLaunchLine := y1 - 1  // Screen row number
-	topBottomRamp := ui.NewColorRamp(float64(firstLaunchLine), float64(lastLaunchLine), theme.Top(), theme.Bottom())
+	topBottomRamp := ui.NewColorRamp(float64(firstLaunchLine), float64(lastLaunchLine), theme.Foreground(), theme.FadedForeground())
 
 	// "" is the empty prefix for the root node
 	renderLaunchedCommand(screen, "", launches, 1, y0+1, rightBorder-1, y1-1, topBottomRamp)

@@ -2,51 +2,61 @@ package themes
 
 import "github.com/walles/moor/v2/twin"
 
-// Hard coded dark theme
 type Theme struct {
-	bg *twin.Color
-	loadBarMin      twin.Color
-	loadBarMaxRam   twin.Color
-	loadBarMaxCpu   twin.Color
-	loadBarMaxIO    twin.Color
-	border          twin.Color
-	borderTitle     twin.Color
-	top             twin.Color
-	bottom          twin.Color
-	backgroundColor twin.Color
-	loadLow         twin.Color
-	loadMedium      twin.Color
-	loadHigh        twin.Color
+	terminalBackground *twin.Color // nil means unknown
+	fallbackBackground twin.Color  // Used if terminalBackground is nil
+
+	// FIXME: Split into terminalForeground and fallbackForeground?
+	foreground twin.Color
+
+	loadBarMin    twin.Color
+	loadBarMaxRam twin.Color
+	loadBarMaxCpu twin.Color
+	loadBarMaxIO  twin.Color
+
+	border      twin.Color
+	borderTitle twin.Color
+
+	loadLow    twin.Color
+	loadMedium twin.Color
+	loadHigh   twin.Color
 }
 
 // NOTE: Use some online OKLCH color picker for experimenting with colors
 
 func NewDarkTheme(bg *twin.Color) Theme {
-	var background twin.Color
-	if bg != nil {
-		background = *bg
-	} else {
-		background = twin.NewColorHex(0x000000)
-	}
-
-	top := twin.NewColorHex(0xdddddd)
-	bottom := top.Mix(background, 0.5)
-
 	return Theme{
-		bg:               bg,
-		loadBarMin:       twin.NewColorHex(0x000000),
-		loadBarMaxRam:    twin.NewColorHex(0x2020ff),
-		loadBarMaxCpu:    twin.NewColorHex(0x801020),
-		loadBarMaxIO:     twin.NewColorHex(0xd0d020),
-		border:           twin.NewColorHex(0x7070a0),
-		borderTitle:      twin.NewColorHex(0xffc0c0),
-		top:              top,
-		bottom:           bottom,
-		backgroundColor:  background,
-		loadLow:          twin.NewColorHex(0x00ff00),
-		loadMedium:       twin.NewColorHex(0xffff00),
-		loadHigh:         twin.NewColorHex(0xff0000),
+		terminalBackground: bg,
+		fallbackBackground: twin.NewColorHex(0x000000),
+		foreground:         twin.NewColorHex(0xdddddd),
+
+		loadBarMin:    twin.NewColorHex(0x000000),
+		loadBarMaxRam: twin.NewColorHex(0x2020ff),
+		loadBarMaxCpu: twin.NewColorHex(0x801020),
+		loadBarMaxIO:  twin.NewColorHex(0xd0d020),
+
+		border:      twin.NewColorHex(0x7070a0),
+		borderTitle: twin.NewColorHex(0xffc0c0),
+
+		loadLow:    twin.NewColorHex(0x00ff00),
+		loadMedium: twin.NewColorHex(0xffff00),
+		loadHigh:   twin.NewColorHex(0xff0000),
 	}
+}
+
+func (t Theme) Background() twin.Color {
+	if t.terminalBackground != nil {
+		return *t.terminalBackground
+	}
+	return t.fallbackBackground
+}
+
+func (t Theme) Foreground() twin.Color {
+	return t.foreground
+}
+
+func (t Theme) FadedForeground() twin.Color {
+	return t.Foreground().Mix(t.Background(), 0.5)
 }
 
 func (t Theme) LoadBarMin() twin.Color {
@@ -71,21 +81,6 @@ func (t Theme) Border() twin.Color {
 
 func (t Theme) BorderTitle() twin.Color {
 	return t.borderTitle
-}
-
-func (t Theme) Top() twin.Color {
-	return t.top
-}
-
-func (t Theme) Bottom() twin.Color {
-	return t.bottom
-}
-
-func (t Theme) Background() twin.Color {
-	if t.bg != nil {
-		return *t.bg
-	}
-	return t.backgroundColor
 }
 
 func (t Theme) LoadLow() twin.Color {
