@@ -42,7 +42,7 @@ func internalMain() int {
 		log.PanicHandler("main", recover(), debug.Stack())
 	}()
 
-	theme := themes.NewDarkTheme(screen.TerminalBackground())
+	theme := themes.NewTheme(screen.TerminalBackground())
 
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()

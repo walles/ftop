@@ -9,9 +9,8 @@ type Theme struct {
 	// FIXME: Split into terminalForeground and fallbackForeground?
 	foreground twin.Color
 
-	loadBarMin    twin.Color
-	loadBarMaxRam twin.Color
 	loadBarMaxCpu twin.Color
+	loadBarMaxRam twin.Color
 	loadBarMaxIO  twin.Color
 
 	border      twin.Color
@@ -24,15 +23,29 @@ type Theme struct {
 
 // NOTE: Use some online OKLCH color picker for experimenting with colors
 
-func NewDarkTheme(bg *twin.Color) Theme {
+func NewTheme(bg *twin.Color) Theme {
+	if bg == nil {
+		return newDarkTheme(nil)
+	}
+
+	distanceToBlack := bg.Distance(twin.NewColorHex(0x000000))
+	distanceToWhite := bg.Distance(twin.NewColorHex(0xffffff))
+
+	if distanceToBlack < distanceToWhite {
+		return newDarkTheme(bg)
+	} else {
+		return newLightTheme(bg)
+	}
+}
+
+func newDarkTheme(bg *twin.Color) Theme {
 	return Theme{
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0x000000),
 		foreground:         twin.NewColorHex(0xdddddd),
 
-		loadBarMin:    twin.NewColorHex(0x000000),
-		loadBarMaxRam: twin.NewColorHex(0x2020ff),
 		loadBarMaxCpu: twin.NewColorHex(0x801020),
+		loadBarMaxRam: twin.NewColorHex(0x2020ff),
 		loadBarMaxIO:  twin.NewColorHex(0xd0d020),
 
 		border:      twin.NewColorHex(0x7070a0),
@@ -41,6 +54,25 @@ func NewDarkTheme(bg *twin.Color) Theme {
 		loadLow:    twin.NewColorHex(0x00ff00),
 		loadMedium: twin.NewColorHex(0xffff00),
 		loadHigh:   twin.NewColorHex(0xff0000),
+	}
+}
+
+func newLightTheme(bg *twin.Color) Theme {
+	return Theme{
+		terminalBackground: bg,
+		fallbackBackground: twin.NewColorHex(0xffffff),
+		foreground:         twin.NewColorHex(0x000000),
+
+		loadBarMaxCpu: twin.NewColorHex(0xffcccc),
+		loadBarMaxRam: twin.NewColorHex(0xccccff),
+		loadBarMaxIO:  twin.NewColorHex(0xaaaa55),
+
+		border:      twin.NewColorHex(0x9090e0),
+		borderTitle: twin.NewColorHex(0xb77d7d),
+
+		loadLow:    twin.NewColorHex(0x009900),
+		loadMedium: twin.NewColorHex(0xaaaa00),
+		loadHigh:   twin.NewColorHex(0x990000),
 	}
 }
 
@@ -60,7 +92,7 @@ func (t Theme) FadedForeground() twin.Color {
 }
 
 func (t Theme) LoadBarMin() twin.Color {
-	return t.loadBarMin
+	return t.Background()
 }
 
 func (t Theme) LoadBarMaxRam() twin.Color {
