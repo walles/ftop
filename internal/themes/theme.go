@@ -6,6 +6,8 @@ type Theme struct {
 	terminalBackground *twin.Color // nil means unknown
 	fallbackBackground twin.Color  // Used if terminalBackground is nil
 
+	highlightedForeground twin.Color
+
 	// FIXME: Split into terminalForeground and fallbackForeground?
 	foreground twin.Color
 
@@ -40,6 +42,8 @@ func newDarkTheme(bg *twin.Color) Theme {
 		fallbackBackground: twin.NewColorHex(0x000000),
 		foreground:         twin.NewColorHex(0xdddddd),
 
+		highlightedForeground: twin.NewColorHex(0xbdebbe),
+
 		loadBarMaxCpu: twin.NewColorHex(0x5f1f22),
 		loadBarMaxRam: twin.NewColorHex(0x1e3568),
 		loadBarMaxIO:  twin.NewColorHex(0xd0d020),
@@ -54,6 +58,8 @@ func newLightTheme(bg *twin.Color) Theme {
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0xffffff),
 		foreground:         twin.NewColorHex(0x000000),
+
+		highlightedForeground: twin.NewColorHex(0x009000),
 
 		loadBarMaxCpu: twin.NewColorHex(0xffcccc),
 		loadBarMaxRam: twin.NewColorHex(0xccccff),
@@ -77,6 +83,10 @@ func (t Theme) Foreground() twin.Color {
 
 func (t Theme) FadedForeground() twin.Color {
 	return t.Foreground().Mix(t.Background(), 0.5)
+}
+
+func (t Theme) HighlightedForeground() twin.Color {
+	return t.highlightedForeground
 }
 
 func (t Theme) LoadBarMin() twin.Color {

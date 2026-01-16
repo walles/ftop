@@ -228,6 +228,12 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
 	currentUsername := getCurrentUsername()
 
+	commandColumn0 := x0 + widths[0] + 1             // Screen column
+	commandColumnN := commandColumn0 + widths[1] - 1 // Screen column
+
+	// +2 = ignore top border and the header line
+	userRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.HighlightedForeground(), theme.FadedForeground())
+
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
 	for _, p := range processes {
@@ -264,6 +270,10 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
+			if rowIndex > 0 && x >= commandColumn0 && x <= commandColumnN {
+				style = style.WithForeground(userRamp.AtInt(y))
+			}
+
 			if x >= userColumn0 && x <= userColumnN {
 				username := row[2]
 				if username == "root" && currentUsername != "root" {
