@@ -25,15 +25,7 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 	y := 1
 	x += drawText(screen, x, y, x1, "Sysload: ", style.WithAttr(twin.AttrBold))
 
-	loadNumberStyle := style.WithAttr(twin.AttrBold)
-	if sysload.LoadAverage1M <= float64(sysload.CpuCoresLogical) {
-		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadLow())
-	} else if sysload.LoadAverage1M <= float64(sysload.CpuCoresPhysical) {
-		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadMedium())
-	} else {
-		loadNumberStyle = loadNumberStyle.WithForeground(theme.LoadHigh())
-	}
-	x += drawText(screen, x, y, x1, fmt.Sprintf("%.1f", sysload.LoadAverage1M), loadNumberStyle)
+	x += drawText(screen, x, y, x1, fmt.Sprintf("%.1f", sysload.LoadAverage1M), style.WithAttr(twin.AttrBold))
 
 	x += drawText(screen, x, y, x1, "  [", style)
 	x += drawText(screen, x, y, x1, fmt.Sprintf("%d cores", sysload.CpuCoresPhysical), style.WithAttr(twin.AttrBold))

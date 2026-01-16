@@ -15,10 +15,6 @@ type Theme struct {
 
 	border      twin.Color
 	borderTitle twin.Color
-
-	loadLow    twin.Color
-	loadMedium twin.Color
-	loadHigh   twin.Color
 }
 
 // NOTE: Use some online OKLCH color picker for experimenting with colors
@@ -50,10 +46,6 @@ func newDarkTheme(bg *twin.Color) Theme {
 
 		border:      twin.NewColorHex(0x7070a0),
 		borderTitle: twin.NewColorHex(0xffc0c0),
-
-		loadLow:    twin.NewColorHex(0x00ff00),
-		loadMedium: twin.NewColorHex(0xffff00),
-		loadHigh:   twin.NewColorHex(0xff0000),
 	}
 }
 
@@ -69,10 +61,6 @@ func newLightTheme(bg *twin.Color) Theme {
 
 		border:      twin.NewColorHex(0x9090e0),
 		borderTitle: twin.NewColorHex(0xb77d7d),
-
-		loadLow:    twin.NewColorHex(0x009900),
-		loadMedium: twin.NewColorHex(0xaaaa00),
-		loadHigh:   twin.NewColorHex(0x990000),
 	}
 }
 
@@ -113,16 +101,4 @@ func (t Theme) Border() twin.Color {
 
 func (t Theme) BorderTitle() twin.Color {
 	return t.borderTitle
-}
-
-func (t Theme) LoadLow() twin.Color {
-	return t.loadLow
-}
-
-func (t Theme) LoadMedium() twin.Color {
-	return t.loadMedium
-}
-
-func (t Theme) LoadHigh() twin.Color {
-	return t.loadHigh
 }
