@@ -30,7 +30,10 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 	width, height := screen.Size()
 	ioStatsWidth := 25                    // Including borders
 	overviewWidth := width - ioStatsWidth // Including borders
-	if overviewWidth < 63 {
+
+	// 64 = the width needed for the overview with a double digit number of
+	// logical cores.
+	if overviewWidth < 64 {
 		overviewWidth = width
 		ioStatsWidth = 0
 	}
