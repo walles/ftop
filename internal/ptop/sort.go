@@ -53,6 +53,19 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 			return -primaryCmp
 		}
 
+		// If primary scores are equal, prefer the process where CPU is the
+		// dominant contributor (cpuScore >= memScore). This puts the top CPU
+		// process at the top of the list, which I believe is what people
+		// expect. I do for example.
+		isCpuPrimaryI := cpuScoreI >= memScoreI
+		isCpuPrimaryJ := cpuScoreJ >= memScoreJ
+		if isCpuPrimaryI != isCpuPrimaryJ {
+			if isCpuPrimaryI {
+				return -1
+			}
+			return 1
+		}
+
 		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
 		if secondaryCmp != 0 {
 			return -secondaryCmp
