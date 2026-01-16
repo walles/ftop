@@ -7,11 +7,18 @@ import (
 
 func FormatDuration(duration time.Duration) string {
 	totalSeconds := int(duration.Seconds())
-	if totalSeconds < 60 {
+	if totalSeconds < 10 {
 		// FIXME: Don't show decimals here unless we know we're getting
 		// sub-second precision from ps. macOS provides decimals, unsure about
 		// Linux.
 		return fmt.Sprintf("%.2fs", duration.Seconds())
+	}
+
+	if totalSeconds < 60 {
+		// FIXME: Don't show decimals here unless we know we're getting
+		// sub-second precision from ps. macOS provides decimals, unsure about
+		// Linux.
+		return fmt.Sprintf("%.1fs", duration.Seconds())
 	}
 
 	if totalSeconds < 3600 {
