@@ -18,7 +18,7 @@ func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expe
 	screen := twin.NewFakeScreen(width, height)
 	screen.Clear()
 
-	theme := themes.NewTheme(nil)
+	theme := themes.NewTheme("auto", nil)
 	renderLaunchedCommands(screen, theme, root, 0, height-1)
 
 	screenRows := []string{}

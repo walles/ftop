@@ -3,6 +3,7 @@ module github.com/walles/ptop
 go 1.25.5
 
 require (
+	github.com/alecthomas/kong v1.13.0
 	github.com/walles/moor/v2 v2.10.2-0.20260103113236-cb08d3487649
 	golang.org/x/sys v0.26.0
 )

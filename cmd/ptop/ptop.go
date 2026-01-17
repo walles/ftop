@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/alecthomas/kong"
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/io"
 	"github.com/walles/ptop/internal/log"
@@ -30,6 +31,8 @@ func main() {
 //	    os.Exit(internalMain())
 //	}
 func internalMain() int {
+	kong.Parse(&CLI)
+
 	screen, err := twin.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
@@ -42,7 +45,7 @@ func internalMain() int {
 		log.PanicHandler("main", recover(), debug.Stack())
 	}()
 
-	theme := themes.NewTheme(screen.TerminalBackground())
+	theme := themes.NewTheme(CLI.Theme.String(), screen.TerminalBackground())
 
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()

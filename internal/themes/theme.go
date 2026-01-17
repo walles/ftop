@@ -1,7 +1,12 @@
 package themes
 
-import "github.com/walles/moor/v2/twin"
+import (
+	"fmt"
 
+	"github.com/walles/moor/v2/twin"
+)
+
+// NOTE: Use some online OKLCH color picker for experimenting with colors
 type Theme struct {
 	terminalBackground *twin.Color // nil means unknown
 	fallbackBackground twin.Color  // Used if terminalBackground is nil
@@ -19,9 +24,19 @@ type Theme struct {
 	borderTitle twin.Color
 }
 
-// NOTE: Use some online OKLCH color picker for experimenting with colors
+func NewTheme(name string, bg *twin.Color) Theme {
+	if name == "dark" {
+		return newDarkTheme(bg)
+	}
 
-func NewTheme(bg *twin.Color) Theme {
+	if name == "light" {
+		return newLightTheme(bg)
+	}
+
+	if name != "auto" {
+		panic(fmt.Errorf("invalid theme name: <%s>", name))
+	}
+
 	if bg == nil {
 		return newDarkTheme(nil)
 	}
