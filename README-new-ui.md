@@ -147,7 +147,10 @@ First, consider redoing in Go using:
 1. OK: Auto pick light / dark theme based on terminal background
 1. OK: Enable picking color theme from the command line
 1. OK: Enable picking color theme from an environment variable
-1. Make sure we have Prettiness ^ covered
+1. OK: Make sure we have Prettiness ^ covered
+   - Actually, passing terminal color depth from command line and environment
+     variable is not done. But I'll take my chances with twin's auto detection
+     for now.
 1. Consider all FIXMEs
 1. Make sure we don't break down on really small terminal sizes.
 1. Implement a crash reporting screen

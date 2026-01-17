@@ -37,6 +37,12 @@ func internalMain() int {
 		panic(err)
 	}
 
+	if env, ok := os.LookupEnv("PTOP"); ok {
+		log.Infof("PTOP=\"%s\"", env)
+	} else {
+		log.Infof("PTOP environment variable not set")
+	}
+
 	envArgs := strings.Fields(os.Getenv("PTOP"))
 	_, err = argsParser.Parse(append(envArgs, os.Args[1:]...))
 	if err != nil {
@@ -54,7 +60,7 @@ func internalMain() int {
 		return 1
 	}
 
-	defer onExit(screen)
+	defer onExit(screen, CLI.Debug)
 
 	defer func() {
 		log.PanicHandler("main", recover(), debug.Stack())
@@ -112,16 +118,23 @@ func internalMain() int {
 	return 0
 }
 
-func onExit(screen twin.Screen) {
+func onExit(screen twin.Screen, forcePrintLogs bool) {
 	screen.Close()
 
-	if !log.HasErrors() {
+	if len(log.String(true)) == 0 {
 		return
 	}
 
-	// FIXME: Print error reporting instructions with the log output
+	mustPrintLogs := log.HasErrors() || forcePrintLogs
+	if !mustPrintLogs {
+		return
+	}
 
 	fmt.Fprint(os.Stderr, log.String(true))
 
-	os.Exit(1)
+	if log.HasErrors() {
+		os.Exit(1)
+	} else {
+		os.Exit(0)
+	}
 }
