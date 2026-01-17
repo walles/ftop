@@ -146,7 +146,7 @@ First, consider redoing in Go using:
 1. OK: Create a light and a dark color theme
 1. OK: Auto pick light / dark theme based on terminal background
 1. OK: Enable picking color theme from the command line
-1. Enable picking color theme from an environment variable
+1. OK: Enable picking color theme from an environment variable
 1. Make sure we have Prettiness ^ covered
 1. Consider all FIXMEs
 1. Make sure we don't break down on really small terminal sizes.

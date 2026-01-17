@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/walles/moor/v2/twin"
@@ -31,7 +32,21 @@ func main() {
 //	    os.Exit(internalMain())
 //	}
 func internalMain() int {
-	kong.Parse(&CLI)
+	argsParser, err := kong.New(&CLI)
+	if err != nil {
+		panic(err)
+	}
+
+	envArgs := strings.Fields(os.Getenv("PTOP"))
+	_, err = argsParser.Parse(append(envArgs, os.Args[1:]...))
+	if err != nil {
+		if len(os.Getenv("PTOP")) > 0 {
+			fmt.Fprintln(os.Stderr, "PTOP environment variable value: \""+os.Getenv("PTOP")+"\"")
+			fmt.Fprintln(os.Stderr)
+		}
+
+		argsParser.FatalIfErrorf(err)
+	}
 
 	screen, err := twin.NewScreen()
 	if err != nil {
