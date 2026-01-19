@@ -270,12 +270,18 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Don't crash on too small terminal window
-- Get the UI structure right with plain text only. Pressing ESC / q should exit.
+- Make sure everything in the `README-new-ui.md` file is covered by this README
+  and other files, and remove that file.
+- Verify all descriptions in this file + screenshots match the actual behaviors
+  of our binaries.
+- Rename
+- Check any mention of px, ptop or pxtree is intentional
+- Update screenshot(s) ^
+- Make a release.
 - Improve small-window handling
   - Drop the two rightmost panes if the terminal is too narrow
   - Drop columns if the terminal is even narrower
-  - Hide the launched-binaries tree if the terminal is too low
+  - Drop the launched-binaries tree if the terminal is too low
 - Implement filtering
 - Implement process picking with arrow keys
 - When hovering a process, replace the two rightmost panes with info about that
@@ -283,14 +289,8 @@ FIXME: Update since the Go rewrite
 - Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
   `px`?
 - Verify we have all Use Cases ^ covered
-- Update screenshot(s) ^
 - Should we remake `px`?
 - Should we remake `pxtree`?
-- Make sure everything in the `README-new-ui.md` file is covered by this README
-  and other files, and remove that file.
-- Verify all descriptions in this file + screenshots match the actual behaviors
-  of our binaries.
-- Make a release.
 - Make sure we are implementing the memory leak use case.
 
 ## TODO `iotop` replacement
@@ -309,3 +309,6 @@ FIXME: Update since the Go rewrite
 - Ignore -E switch on Python command lines
 
 ## DONE
+
+- Don't crash on too small terminal window
+- Get the UI structure right with plain text only. Pressing ESC / q should exit.
