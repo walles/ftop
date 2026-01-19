@@ -217,6 +217,49 @@ listing all processes.
 If you run into problems, try running with the `--debug` switch, it will
 print debug logging output after `px`/`ptop` is done.
 
+# Use Cases
+
+- Why is my fan making noises?
+  - Process top list
+- I have a CPU meter that is peaking, why?
+  - Process top list
+- I have a RAM meter that is peaking, why?
+  - Process top list
+- Why is my computer slow?
+  - Process top list
+  - Process top list by IO usage
+- Which processes are IO heavy?
+  - Process top list by IO usage
+- Is this specific process leaking memory?
+  - When a process is selected, replace the user top lists with a braille
+    history chart for the current process. This means we need to collect
+    historical data for each process.
+- Which new processes are being launched and why?
+  - The ptop launched-binaries tree is excellent for this
+- Is some particular service running?
+  - Process search by name or number
+- Which users are consuming CPU?
+  - User top list by CPU usage
+- Which users are consuming RAM?
+  - User top list by RAM usage
+- Which users are consuming IO?
+  - User top list by IO usage
+- I want to see the overall system load and resource usage
+  - System load graph for CPU.
+  - Memory pressure as measured by "system" CPU time. Or some number, since even
+    if it doesn't help them, this is the number people expect to see.
+  - Some IO load number.
+- I need to check if my system is under heavy I/O load
+  - Process top list by IO usage
+  - Or if that's not possible, device top list by IO usage
+- I want to see if a process is stuck or in an uninterruptible sleep state
+  - Nah, let's just not care about this until somebody explicitly asks for it
+- I need to find and kill a runaway process.
+  - Find: Process top list
+  - Kill: Select process and provide a way for the user to request its termination
+- Why is some process running on my system?
+  - The px-for-one-process view is excellent for this
+
 # Development
 
 FIXME: Update since the Go rewrite
@@ -225,42 +268,28 @@ FIXME: Update since the Go rewrite
 
 FIXME: Update since the Go rewrite
 
-## Performance testing
-
-FIXME: Include example `lsof` output to test with
-
-FIXME: Turn `ipcmap` instructions into a Go bencmark test
-
-FIXME: Turn `proc_get_all` instructions into a Go benchmark test
-
 ## TODO
 
-- Get the UI structure right with plain text only. Verify it works with terminal
-  window resizing. Pressing ESC / q should exit.
+- Don't crash on too small terminal window
+- Get the UI structure right with plain text only. Pressing ESC / q should exit.
+- Improve small-window handling
+  - Drop the two rightmost panes if the terminal is too narrow
+  - Drop columns if the terminal is even narrower
+  - Hide the launched-binaries tree if the terminal is too low
 - Implement filtering
-- Implement section switching with TAB
 - Implement process picking with arrow keys
-- Implement the I-picked-a-process-by-pressing-enter menu screen
+- When hovering a process, replace the two rightmost panes with info about that
+  process
+- Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
+  `px`?
 - Verify we have all Use Cases ^ covered
-- Put the braille section labels in place
-- Color things in 24 bit color
-- Make sure we have two different color themes and the ability to pick. Test
-  them on light and dark terminal backgrounds and verify they look OK.
-- Downsample colors to 256 colors and verify it still looks OK
-- Auto pick terminal color depth
-- Make sure we have Prettiness ^ covered
-- Update screenshot(s) in the README
-- Decide on what to do with `px`. It should probably use the same color depth +
-  themes logic as `ptop`.
-- Decide on what to do with `pxtree`. It should probably use the same color
-  depth + themes logic as `ptop`.
-- Ensure `ptop`, `px` and `pxtree` all support the same command line options as
-  their legacy Python counterparts.
+- Update screenshot(s) ^
+- Should we remake `px`?
+- Should we remake `pxtree`?
 - Make sure everything in the `README-new-ui.md` file is covered by this README
   and other files, and remove that file.
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
-- Replace the `python` branch as the main branch
 - Make a release.
 - Make sure we are implementing the memory leak use case.
 
