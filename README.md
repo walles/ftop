@@ -270,15 +270,20 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Make sure everything in the `README-new-ui.md` file is covered by this README
-  and other files, and remove that file.
-- Verify all descriptions in this file + screenshots match the actual behaviors
-  of our binaries.
+- Move macOS specific parsers into cross-platform parser files and add tests for
+  them, just like we have for the Linux specific parsers.
+- Decide on the new name
 - Rename
 - Check any mention of px, ptop or pxtree is intentional
+- Implement some crash reporting system
+- Be happy enough with --help output
+- Be happy enough with --version output
+- Document in this README how to make releases
 - Update screenshot(s) ^
+- Verify all descriptions in this file + screenshots match the actual behaviors
+  of our binaries.
 - Make a release.
-- Improve small-window handling
+- Accept smaller window sizes
   - Drop the two rightmost panes if the terminal is too narrow
   - Drop columns if the terminal is even narrower
   - Drop the launched-binaries tree if the terminal is too low

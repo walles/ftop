@@ -74,8 +74,6 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 		commands,
 	)
 
-	// FIXME: Skip this section if launches is nil. Adjust height based on the
-	// height of the rendered graph.
 	renderLaunchedCommands(screen, theme, launches, overviewHeight+processesHeight, height-1)
 
 	screen.Show()

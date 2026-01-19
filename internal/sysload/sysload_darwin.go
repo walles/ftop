@@ -2,7 +2,8 @@
 
 package sysload
 
-// FIXME: Maybe this file should be for different BSD flavors as well?
+// FIXME: Would this file work for other BSDs as well? If so, update the build
+// directives.
 
 /*
 #include <stdlib.h>
