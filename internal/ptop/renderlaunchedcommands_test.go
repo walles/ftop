@@ -262,16 +262,17 @@ func TestRenderLaunchedCommand_dontClipTooLate(t *testing.T) {
 
 }
 
-/*
-Here's real world output.
+func TestRenderLaunchedCommands_sortByLaunchCount(t *testing.T) {
+	nPlugin := processes.LaunchNode{Command: "Firefox/plugin-container", LaunchCount: 1}
+	nFirefox := processes.LaunchNode{Command: "Firefox/firefox", Children: []*processes.LaunchNode{&nPlugin}}
 
-Note how it looks like crap, has an empty line in it and ends one line too early.
+	nMdworker := processes.LaunchNode{Command: "CoreServices/mdworker_shared", LaunchCount: 9}
 
-```
-launchd┬─iTerm2──iTermServer-3.6.6──login──-fish┬─go run(1)┬─(cgo)(1)
-       │       │                  │      │      │
-       │       │                  │      │                 └─ptop(1)
-       │       │                  │      │      │─ptop──ps(64)
+	nLaunchd := processes.LaunchNode{Command: "launchd", Children: []*processes.LaunchNode{&nMdworker, &nFirefox}}
+	root := &nLaunchd
 
-```
-*/
+	assertRenderLaunchedCommands(t, root, []string{
+		"launchd┬─CoreServ",
+		"       └─Firefox/",
+	})
+}

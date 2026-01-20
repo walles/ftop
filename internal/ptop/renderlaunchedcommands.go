@@ -1,6 +1,7 @@
 package ptop
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/walles/moor/v2/twin"
@@ -57,9 +58,34 @@ func renderLaunchedCommand(screen twin.Screen, prefix string, node *processes.La
 
 	// Draw the children
 	const arrowHead = "─"
-	singleChild := len(node.Children) == 1
-	for childIndex, child := range node.Children {
-		isLastChild := childIndex == len(node.Children)-1
+
+	// Copy children and sort by the maximum LaunchCount in the whole
+	// subtree (descending) so branches with larger peak counts appear
+	// first. Use a stable sort so original order is preserved for equal keys.
+	children := make([]*processes.LaunchNode, len(node.Children))
+	copy(children, node.Children)
+	if len(children) > 1 {
+		// Helper to compute max LaunchCount in subtree.
+		var maxInSubtree func(n *processes.LaunchNode) int
+		maxInSubtree = func(n *processes.LaunchNode) int {
+			max := n.LaunchCount
+			for _, c := range n.Children {
+				v := maxInSubtree(c)
+				if v > max {
+					max = v
+				}
+			}
+			return max
+		}
+
+		sort.SliceStable(children, func(i, j int) bool {
+			return maxInSubtree(children[i]) > maxInSubtree(children[j])
+		})
+	}
+
+	singleChild := len(children) == 1
+	for childIndex, child := range children {
+		isLastChild := childIndex == len(children)-1
 
 		var shaft string
 		if singleChild {
