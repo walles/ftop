@@ -23,6 +23,13 @@ func TestBackwardsRamp(t *testing.T) {
 	assert.Equal(t, test_me.AtValue(0.0), twin.NewColorHex(0x808080))
 }
 
+func TestSingleValueRamp(t *testing.T) {
+	test_me := NewColorRamp(3.0, 3.0, twin.NewColorHex(0x000000), twin.NewColorHex(0xffffff))
+
+	// Should go for the first color to make top-to-bottom ramps look good
+	assert.Equal(t, test_me.AtValue(3.0), twin.NewColorHex(0x000000))
+}
+
 func TestThreeColorRamp(t *testing.T) {
 	test_me := NewColorRamp(0.0, 2.0, twin.NewColorHex(0xff0000), twin.NewColorHex(0x00ff00), twin.NewColorHex(0x0000ff))
 

@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -14,10 +12,6 @@ type ColorRamp struct {
 }
 
 func NewColorRamp(from float64, to float64, c0 twin.Color, c1 twin.Color, extraColors ...twin.Color) ColorRamp {
-	if to == from {
-		panic(fmt.Sprintf("cannot ramp when from=to: %f", from))
-	}
-
 	return ColorRamp{
 		colors: append([]twin.Color{c0, c1}, extraColors...),
 		from:   from,
@@ -30,7 +24,13 @@ func (cr ColorRamp) AtInt(value int) twin.Color {
 }
 
 func (cr ColorRamp) AtValue(value float64) twin.Color {
-	fraction := (value - cr.from) / (cr.to - cr.from)
+	var fraction float64
+	if cr.to == cr.from {
+		// Single-value ramp, always return the first color
+		fraction = 0
+	} else {
+		fraction = (value - cr.from) / (cr.to - cr.from)
+	}
 	if fraction < 0 {
 		fraction = 0
 	}
