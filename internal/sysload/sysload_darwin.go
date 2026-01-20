@@ -11,43 +11,64 @@ package sysload
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <unistd.h>
+#include <stdbool.h>
+
+// Provide a small helper that calls sysctl for VM_SWAPUSAGE and returns the
+// xsu_used field in bytes. Returns UINT64_MAX on failure.
+uint64_t ptop_get_swap_used() {
+	int mib[2];
+	mib[0] = CTL_VM;
+	mib[1] = VM_SWAPUSAGE;
+
+	struct xsw_usage xsu;
+	size_t size = sizeof(xsu);
+	if (sysctl(mib, 2, &xsu, &size, NULL, 0) != 0) {
+		return (uint64_t)UINT64_MAX;
+	}
+
+	// xsu.xsu_used is provided in bytes already (uint64_t)
+	return (uint64_t)xsu.xsu_used;
+}
 
 typedef struct {
-    uint64_t free_count;
-    uint64_t active_count;
-    uint64_t inactive_count;
-    uint64_t wire_count;
-    uint64_t compressor_page_count;
-    uint64_t anonymous_count;
-    uint64_t purgeable_count;
+	uint64_t free_count;
+	uint64_t active_count;
+	uint64_t inactive_count;
+	uint64_t wire_count;
+	uint64_t compressor_page_count;
+	uint64_t anonymous_count;
+	uint64_t purgeable_count;
 } ptop_vm_counts_t;
 
 int ptop_get_vm_counts(ptop_vm_counts_t *out) {
-    vm_statistics64_data_t stats;
-    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-    kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&stats, &count);
-    if (kr != KERN_SUCCESS) return (int)kr;
+	vm_statistics64_data_t stats;
+	mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+	kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&stats, &count);
+	if (kr != KERN_SUCCESS) return (int)kr;
 
-    out->free_count = stats.free_count;
-    out->active_count = stats.active_count;
-    out->inactive_count = stats.inactive_count;
-    out->wire_count = stats.wire_count;
-    out->compressor_page_count = stats.compressor_page_count;
+	out->free_count = stats.free_count;
+	out->active_count = stats.active_count;
+	out->inactive_count = stats.inactive_count;
+	out->wire_count = stats.wire_count;
+	out->compressor_page_count = stats.compressor_page_count;
 
-    // internal_page_count is documented in the header as "# of pages that are anonymous"
-    out->anonymous_count = stats.internal_page_count;
+	// internal_page_count is documented in the header as "# of pages that are anonymous"
+	out->anonymous_count = stats.internal_page_count;
 
-    out->purgeable_count = stats.purgeable_count;
+	out->purgeable_count = stats.purgeable_count;
 
-    return (int)KERN_SUCCESS;
+	return (int)KERN_SUCCESS;
 }
 
 int ptop_get_page_size(uint32_t *out_page_size) {
-    vm_size_t page_size;
-    kern_return_t kr = host_page_size(mach_host_self(), &page_size);
-    if (kr != KERN_SUCCESS) return (int)kr;
-    *out_page_size = (uint32_t)page_size;
-    return (int)KERN_SUCCESS;
+	vm_size_t page_size;
+	kern_return_t kr = host_page_size(mach_host_self(), &page_size);
+	if (kr != KERN_SUCCESS) return (int)kr;
+	*out_page_size = (uint32_t)page_size;
+	return (int)KERN_SUCCESS;
 }
 
 */
@@ -91,13 +112,27 @@ func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 	// This matches what the Activity Monitor shows in macOS 10.15.6
 	//
 	// For anonymous - purgeable: https://stackoverflow.com/a/36721309/473672
-	//
-	// FIXME: We want to add swapped out pages to this as well, since those also
-	// represent a want for pages.
 	wanted_ram_pages := (pages_anonymous - pages_purgeable + pages_wired + pages_compressed)
 	usedBytes = wanted_ram_pages * page_size_bytes
 
+	// Swapped out memory is also in use. If it was not in use, the OS would
+	// just throw it away, not swap it to disk.
+	swapUsedBytes, err := getSwapUsedBytes()
+	if err != nil {
+		return
+	}
+	usedBytes += swapUsedBytes
+
 	return
+}
+
+func getSwapUsedBytes() (uint64, error) {
+	used := uint64(C.ptop_get_swap_used())
+	if used == ^uint64(0) {
+		return 0, fmt.Errorf("ptop_get_swap_used returned 0 and textual fallback failed")
+	}
+
+	return used, nil
 }
 
 func getCpuCoreCounts() (coresLogical int, coresPhysical int, err error) {
