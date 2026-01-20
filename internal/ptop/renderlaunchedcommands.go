@@ -10,6 +10,29 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
+// Excluding borders
+func getLaunchedCommandsHeight(launches *processes.LaunchNode) int {
+	if launches == nil {
+		return 0
+	}
+
+	var computeHeight func(node *processes.LaunchNode) int
+	computeHeight = func(node *processes.LaunchNode) int {
+		if len(node.Children) == 0 {
+			return 1
+		}
+
+		total := 0
+		for _, child := range node.Children {
+			total += computeHeight(child)
+		}
+
+		return total
+	}
+
+	return computeHeight(launches)
+}
+
 func renderLaunchedCommands(screen twin.Screen, theme themes.Theme, launches *processes.LaunchNode, y0, y1 int) {
 	width, _ := screen.Size()
 	rightBorder := width - 1

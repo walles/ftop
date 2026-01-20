@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/walles/moor/v2/twin"
+	"github.com/walles/ptop/internal/assert"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/themes"
 	"github.com/walles/ptop/internal/ui"
@@ -37,7 +38,8 @@ func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expe
 	}
 
 	if reflect.DeepEqual(screenRows, expected) {
-		// We got what we wanted
+		// We got what we wanted, now check the height calculation too
+		assert.Equal(t, getLaunchedCommandsHeight(root), len(expected))
 		return
 	}
 
