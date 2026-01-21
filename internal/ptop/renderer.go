@@ -9,7 +9,10 @@ import (
 	"github.com/walles/ptop/internal/themes"
 )
 
-const minWidth = 80
+// Found through experimentation, all narrow columns fit at this width when I
+// tried it.
+const minWidth = 57
+
 const minHeight = 11
 
 type stats struct {
@@ -77,19 +80,9 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 		renderIoTopList(screen, theme, ioStats, overviewWidth, 0, width-1, 4)
 	}
 
-	// -2 to skip the borders
-	processesTable, usersHeight, processes, users, commands := createProcessesTable(processesRaw, processesHeight-2)
-	renderProcessesBlock(
-		screen,
-		theme,
-		processesTable,
-		processes,
-		overviewHeight,
-		processesBottomRow,
-		users,
-		usersHeight,
-		commands,
-	)
+	if !tryRenderThreeProcessPanes(screen, theme, processesRaw, overviewHeight, processesBottomRow) {
+		renderSingleProcessesPane(screen, theme, processesRaw, overviewHeight, processesBottomRow)
+	}
 
 	if launchedCommandsHeight > 0 {
 		renderLaunchedCommands(screen, theme, launches, processesBottomRow+1, height-1)
