@@ -10,6 +10,66 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
+// Render the three sections: per-process (on the left), per-user (top right),
+// and per-command (bottom right).
+//
+// y0 and y1 are screen rows and are both inclusive. Borders will be drawn on
+// those rows.
+//
+// Returns true if the screen was wide enough, otherwise false.
+func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) bool {
+	// Including borders. If they are the same, the height is still 1.
+	renderHeight := y1 - y0 + 1
+
+	// -2 for borders, they won't be part of the table
+	table, usersHeight, processes, users, commands := createProcessesTable(processesRaw, renderHeight-2)
+
+	width, _ := screen.Size()
+
+	// -2 for borders, -5 for column dividers, -2 for the two borders between
+	// sections and -2 for column dividers in the right section
+	availableToColumns := width - 2 - 5 - 2 - 2
+
+	// Don't grow the PID column, that looks weird
+	widths := ui.ColumnWidths(table, availableToColumns, false)
+
+	// Check that all CPU values fit. The header is not required to fit.
+	cpuColumnIndex := 3
+	cpuColumnWidth := widths[cpuColumnIndex]
+	for rowIndex, row := range table {
+		if rowIndex == 0 {
+			// Header row
+			continue
+		}
+
+		cpuValue := row[cpuColumnIndex]
+		if len(cpuValue) > cpuColumnWidth {
+			return false
+		}
+	}
+
+	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
+	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
+	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1 // Screen column
+
+	usersBottomBorder := y0 + 1 + usersHeight
+	commandsTopRow := usersBottomBorder + 1
+
+	renderProcesses(screen, theme, 0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
+	renderPerUser(screen, theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users)
+
+	// Skip the per-user rows. If usersHeight is 0:
+	// 0: post-users separator line
+	// 1: post-users separator line number two
+	// 2: commands start here
+	//
+	// So for usersHeight = 0, we should start at index 2
+	table = table[usersHeight+2:]
+	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
+
+	return true
+}
+
 // Render three tables and combine them: per-process (on the left), per-user
 // (top right), and per-command (bottom right).
 //
@@ -145,57 +205,6 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	return combinedTable, len(usersTable), processesByScore, users, commands
 }
 
-// Render the three sections: per-process (on the left), per-user (top right),
-// and per-command (bottom right).
-//
-// The processes table contains cells for all three sections: per-process (on
-// the left), per-user (top right), and per-command (bottom right).
-//
-// topRow and bottomRow are screen rows. Screen borders go on those rows.
-//
-// usersHeight is the number of table lines in the per-user section, including
-// borders. Borders is not included in this number. The commands table will use
-// the remaining space below the users table.
-func renderProcessesBlock(
-	screen twin.Screen,
-	theme themes.Theme,
-	table [][]string,
-	processes []processes.Process,
-	firstScreenRow int,
-	bottomRow int,
-	users []userStats,
-	usersHeight int,
-	commands []commandStats,
-) {
-	width, _ := screen.Size()
-
-	// -2 for borders, -5 for column dividers, -2 for the two borders between
-	// sections and -2 for column dividers in the right section
-	availableToColumns := width - 2 - 5 - 2 - 2
-
-	// Don't grow the PID column, that looks weird
-	widths := ui.ColumnWidths(table, availableToColumns, false)
-
-	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
-	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
-	leftPerUserBorderColumn := rightPerProcessBorderColumn + 1 // Screen column
-
-	usersBottomBorder := firstScreenRow + 1 + usersHeight
-	commandsTopRow := usersBottomBorder + 1
-
-	renderProcesses(screen, theme, 0, firstScreenRow, rightPerProcessBorderColumn, bottomRow, table, widths, processes)
-	renderPerUser(screen, theme, leftPerUserBorderColumn, firstScreenRow, width-1, usersBottomBorder, table, widths, users)
-
-	// Skip the per-user rows. If usersHeight is 0:
-	// 0: post-users separator line
-	// 1: post-users separator line number two
-	// 2: commands start here
-	//
-	// So for usersHeight = 0, we should start at index 2
-	table = table[usersHeight+2:]
-	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, bottomRow, table, widths, commands)
-}
-
 func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
@@ -301,173 +310,6 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	renderFrame(screen, theme, x0, y0, x1, y1, "By Process")
 	renderLegend(screen, theme, y1, x1)
-}
-
-func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
-	widths = widths[6:] // Skip the per-process columns
-
-	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
-	// 5", and the "-" means left-align.
-	formatString := fmt.Sprintf("%%-%d.%ds %%%d.%ds %%%d.%ds",
-		widths[0], widths[0],
-		widths[1], widths[1],
-		widths[2], widths[2],
-	)
-
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
-
-	// +1 = ignore top border
-	topBottomRamp := ui.NewColorRamp(float64(y0+1), float64(y1-1), theme.Foreground(), theme.FadedForeground())
-
-	usernameColumn0 := x0 + 1                          // Screen column
-	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
-	currentUsername := getCurrentUsername()
-
-	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
-	// borders
-	rowsWithoutBorders := y1 - y0 - 1
-
-	maxCpuSecondsPerUser := 0.0
-	maxRssKbPerUser := 0
-	for _, u := range users {
-		if u.cpuTime.Seconds() > maxCpuSecondsPerUser {
-			maxCpuSecondsPerUser = u.cpuTime.Seconds()
-		}
-		if u.rssKb > maxRssKbPerUser {
-			maxRssKbPerUser = u.rssKb
-		}
-	}
-
-	cpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
-
-	//
-	// Render table contents
-	//
-
-	for rowIndex, row := range table {
-		if rowIndex >= rowsWithoutBorders {
-			// No more room
-			break
-		}
-
-		row = row[6:] // Skip the per-process columns
-		line := fmt.Sprintf(formatString,
-			row[0], row[1], row[2],
-		)
-
-		y := y0 + 1 + rowIndex // screen row
-
-		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
-
-		x := x0 + 1 // screen column
-		for _, char := range line {
-			style := rowStyle
-			if x >= usernameColumn0 && x <= usernameColumnN {
-				username := row[0]
-				if username == currentUsername {
-					style = style.WithAttr(twin.AttrBold)
-				}
-			}
-
-			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
-
-			if rowIndex < len(users) {
-				user := users[rowIndex]
-				cpuFraction := 0.0
-				if maxCpuSecondsPerUser > 0.0 {
-					cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
-				}
-				memFraction := 0.0
-				if maxRssKbPerUser > 0 {
-					memFraction = float64(user.rssKb) / float64(maxRssKbPerUser)
-				}
-				cpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
-			}
-
-			x++
-		}
-	}
-
-	renderFrame(screen, theme, x0, y0, x1, y1, "By User")
-}
-
-func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
-	widths = widths[6:] // Skip the per-process columns
-
-	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
-	// 5", and the "-" means left-align.
-	formatString := fmt.Sprintf("%%-%d.%ds %%%d.%ds %%%d.%ds",
-		widths[0], widths[0],
-		widths[1], widths[1],
-		widths[2], widths[2],
-	)
-
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
-
-	// +1 = ignore top border
-	topBottomRamp := ui.NewColorRamp(float64(y0+1), float64(y1-1), theme.Foreground(), theme.FadedForeground())
-
-	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
-	// borders
-	rowsWithoutBorders := y1 - y0 - 1
-
-	maxCpuSecondsPerCommand := 0.0
-	maxRssKbPerCommand := 0
-	for _, c := range commands {
-		if c.cpuTime.Seconds() > maxCpuSecondsPerCommand {
-			maxCpuSecondsPerCommand = c.cpuTime.Seconds()
-		}
-		if c.rssKb > maxRssKbPerCommand {
-			maxRssKbPerCommand = c.rssKb
-		}
-	}
-
-	cpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
-
-	//
-	// Render table contents
-	//
-
-	for rowIndex, row := range table {
-		if rowIndex >= rowsWithoutBorders {
-			// No more room
-			break
-		}
-
-		row = row[6:] // Skip the per-process columns
-		line := fmt.Sprintf(formatString,
-			row[0], row[1], row[2],
-		)
-
-		y := y0 + 1 + rowIndex // screen row
-
-		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
-
-		x := x0 + 1 // screen column
-		for _, char := range line {
-			style := rowStyle
-			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
-
-			if rowIndex < len(commands) {
-				command := commands[rowIndex]
-				cpuFraction := 0.0
-				if maxCpuSecondsPerCommand > 0.0 {
-					cpuFraction = command.cpuTime.Seconds() / maxCpuSecondsPerCommand
-				}
-				memFraction := 0.0
-				if maxRssKbPerCommand > 0 {
-					memFraction = float64(command.rssKb) / float64(maxRssKbPerCommand)
-				}
-				cpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
-			}
-
-			x++
-		}
-	}
-
-	renderFrame(screen, theme, x0, y0, x1, y1, "By Command")
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
