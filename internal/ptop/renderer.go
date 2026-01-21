@@ -80,7 +80,9 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 		renderIoTopList(screen, theme, ioStats, overviewWidth, 0, width-1, 4)
 	}
 
-	if !tryRenderThreeProcessPanes(screen, theme, processesRaw, overviewHeight, processesBottomRow) {
+	if canRenderThreeProcessPanes(screen, processesRaw, overviewHeight, processesBottomRow) {
+		renderThreeProcessPanes(screen, theme, processesRaw, overviewHeight, processesBottomRow)
+	} else {
 		renderSingleProcessesPane(screen, theme, processesRaw, overviewHeight, processesBottomRow)
 	}
 

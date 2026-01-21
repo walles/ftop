@@ -284,9 +284,7 @@ FIXME: Update since the Go rewrite
   of our binaries.
 - Make a release.
 - Accept smaller window sizes
-  - OK: Drop the two rightmost panes if the terminal is too narrow
   - Drop columns if the terminal is even narrower
-  - OK: Drop the launched-binaries tree if the terminal is too low
 - Implement filtering
 - Implement process picking with arrow keys
 - When hovering a process, replace the two rightmost panes with info about that
@@ -317,3 +315,5 @@ FIXME: Update since the Go rewrite
 
 - Don't crash on too small terminal window
 - Get the UI structure right with plain text only. Pressing ESC / q should exit.
+- Drop the two rightmost panes if the terminal is too narrow
+- Drop the launched-binaries tree if the terminal is too low

@@ -24,9 +24,8 @@ var NETSTAT_BNI_LINE_RE = regexp.MustCompile(`^([^ ]+).*[0-9]+ +([0-9]+) +[0-9]+
 func GetNetworkStats() (map[string]uint64, error) {
 	result := make(map[string]uint64)
 
-	command := []string{"netstat", "-bni"}
 	shouldSkipHeader := true
-	err := util.Exec(command, func(line string) error {
+	err := util.Exec([]string{"netstat", "-bni"}, func(line string) error {
 		if shouldSkipHeader {
 			shouldSkipHeader = false
 			return nil
@@ -66,10 +65,8 @@ func GetNetworkStats() (map[string]uint64, error) {
 func GetDiskStats() (map[string]uint64, error) {
 	result := make(map[string]uint64)
 
-	command := []string{"iostat", "-dKI", "-n 99"}
-
 	lines := []string{}
-	err := util.Exec(command, func(line string) error {
+	err := util.Exec([]string{"iostat", "-dKI", "-n 99"}, func(line string) error {
 		if len(lines) >= 3 {
 			return fmt.Errorf("expected exactly three lines but just got line four")
 		}

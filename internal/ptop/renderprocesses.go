@@ -10,14 +10,31 @@ import (
 	"github.com/walles/ptop/internal/ui"
 )
 
+func canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Process, y0 int, y1 int) bool {
+	// Including borders. If they are the same, the height is still 1.
+	renderHeight := y1 - y0 + 1
+
+	// -2 for borders, they won't be part of the table
+	table, _, _, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+
+	width, _ := screen.Size()
+
+	// -2 for borders, -5 for column dividers, -2 for the two borders between
+	// sections and -2 for column dividers in the right section
+	availableToColumns := width - 2 - 5 - 2 - 2
+
+	// Don't grow the PID column, that looks weird
+	widths := ui.ColumnWidths(table, availableToColumns, false)
+
+	return isWideEnough(table, widths)
+}
+
 // Render the three sections: per-process (on the left), per-user (top right),
 // and per-command (bottom right).
 //
 // y0 and y1 are screen rows and are both inclusive. Borders will be drawn on
 // those rows.
-//
-// Returns true if the screen was wide enough, otherwise false.
-func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) bool {
+func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
@@ -32,10 +49,6 @@ func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processe
 
 	// Don't grow the PID column, that looks weird
 	widths := ui.ColumnWidths(table, availableToColumns, false)
-
-	if !isWideEnough(table, widths) {
-		return false
-	}
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
 	rightPerProcessBorderColumn := perProcessTableWidth + 1    // Screen column. +1 for the left frame line.
@@ -55,8 +68,6 @@ func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processe
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
 	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
-
-	return true
 }
 
 func isWideEnough(table [][]string, widths []int) bool {
