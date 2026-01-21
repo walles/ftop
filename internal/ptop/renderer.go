@@ -9,7 +9,10 @@ import (
 	"github.com/walles/ptop/internal/themes"
 )
 
-const minWidth = 8
+// Found through experimentation, all narrow columns fit at this width when I
+// tried it.
+const minWidth = 57
+
 const minHeight = 11
 
 type stats struct {

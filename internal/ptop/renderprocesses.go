@@ -33,19 +33,8 @@ func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processe
 	// Don't grow the PID column, that looks weird
 	widths := ui.ColumnWidths(table, availableToColumns, false)
 
-	// Check that all CPU values fit. The header is not required to fit.
-	cpuColumnIndex := 3
-	cpuColumnWidth := widths[cpuColumnIndex]
-	for rowIndex, row := range table {
-		if rowIndex == 0 {
-			// Header row
-			continue
-		}
-
-		cpuValue := row[cpuColumnIndex]
-		if len(cpuValue) > cpuColumnWidth {
-			return false
-		}
+	if !isWideEnough(table, widths) {
+		return false
 	}
 
 	perProcessTableWidth := widths[0] + 1 + widths[1] + 1 + widths[2] + 1 + widths[3] + 1 + widths[4] + 1 + widths[5]
@@ -66,6 +55,32 @@ func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processe
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
 	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
+
+	return true
+}
+
+func isWideEnough(table [][]string, widths []int) bool {
+	columnsThatMustFit := []int{
+		3, // CPU
+		4, // Time
+		5, // RAM
+		7, // User / Command Time
+		8, // User / Command RAM
+	}
+
+	for rowIndex, row := range table {
+		for _, colIndex := range columnsThatMustFit {
+			if rowIndex == 0 && colIndex < 6 {
+				// Header row, doesn't need to fit
+				continue
+			}
+
+			cellValue := row[colIndex]
+			if len(cellValue) > widths[colIndex] {
+				return false
+			}
+		}
+	}
 
 	return true
 }
