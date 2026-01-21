@@ -10,7 +10,7 @@ import (
 )
 
 const minWidth = 80
-const minHeight = 16
+const minHeight = 11
 
 type stats struct {
 	name    string
@@ -57,6 +57,14 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 
 	// Processes use the remaining height. This number includes borders.
 	processesHeight := height - overviewHeight - launchedCommandsHeight
+	if processesHeight < 6 {
+		// 6 = Heights of per-user and per-command blocks with one line each and
+		// borders. From top to bottom: border, user, border, border, command,
+		// border.
+		launchedCommandsHeight = 0
+		processesHeight = height - overviewHeight
+	}
+
 	processesBottomRow := overviewHeight + processesHeight - 1
 
 	screen.Clear()
