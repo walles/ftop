@@ -30,12 +30,6 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	procsHeaders := []string{
 		"PID", "Command", "Username", "CPU", "Time", "RAM",
 	}
-	usersHeaders := []string{
-		"Username", "CPU", "RAM",
-	}
-	commandsHeaders := []string{
-		"Command", "CPU", "RAM",
-	}
 
 	procsTable := [][]string{
 		procsHeaders,
@@ -77,9 +71,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		return u.stats
 	})
 
-	usersTable := [][]string{
-		usersHeaders,
-	}
+	usersTable := [][]string{}
 	for _, u := range users {
 		if len(usersTable) >= usersHeight {
 			break
@@ -94,7 +86,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		usersTable = append(usersTable, row)
 	}
 	for len(usersTable) < usersHeight {
-		usersTable = append(usersTable, make([]string, len(usersHeaders)))
+		usersTable = append(usersTable, make([]string, 3))
 	}
 
 	commands := aggregate(processesRaw, func(p processes.Process) string { return p.Command }, func(stat stats) commandStats {
@@ -104,9 +96,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		return b.stats
 	})
 
-	commandsTable := [][]string{
-		commandsHeaders,
-	}
+	commandsTable := [][]string{}
 	for _, b := range commands {
 		if len(commandsTable) >= commandsHeight {
 			break
@@ -121,7 +111,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 		commandsTable = append(commandsTable, row)
 	}
 	for len(commandsTable) < commandsHeight {
-		commandsTable = append(commandsTable, make([]string, len(commandsHeaders)))
+		commandsTable = append(commandsTable, make([]string, 3))
 	}
 
 	combinedTable := [][]string{}
@@ -144,7 +134,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 			row = append(row, commandsTable[commandsIndex]...)
 		} else {
 			// Neither user nor command row, pad with empty cells
-			for range commandsHeaders {
+			for range 3 {
 				row = append(row, "")
 			}
 		}
@@ -327,8 +317,8 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
-	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
+	// +1 = ignore top border
+	topBottomRamp := ui.NewColorRamp(float64(y0+1), float64(y1-1), theme.Foreground(), theme.FadedForeground())
 
 	usernameColumn0 := x0 + 1                          // Screen column
 	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
@@ -336,7 +326,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
 	// borders
-	rowsWithHeaderWithoutBorders := y1 - y0 - 1
+	rowsWithoutBorders := y1 - y0 - 1
 
 	maxCpuSecondsPerUser := 0.0
 	maxRssKbPerUser := 0
@@ -356,7 +346,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 	//
 
 	for rowIndex, row := range table {
-		if rowIndex >= rowsWithHeaderWithoutBorders {
+		if rowIndex >= rowsWithoutBorders {
 			// No more room
 			break
 		}
@@ -368,14 +358,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 		y := y0 + 1 + rowIndex // screen row
 
-		var rowStyle twin.Style
-		if rowIndex == 0 {
-			// Header row, header style
-			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
-		} else {
-			rowStyle = twin.StyleDefault
-			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
-		}
+		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
 
 		x := x0 + 1 // screen column
 		for _, char := range line {
@@ -389,15 +372,8 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
 
-			if rowIndex == 0 {
-				// Header row, no load bars here
-				x++
-				continue
-			}
-
-			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(users) {
-				user := users[index]
+			if rowIndex < len(users) {
+				user := users[rowIndex]
 				cpuFraction := 0.0
 				if maxCpuSecondsPerUser > 0.0 {
 					cpuFraction = user.cpuTime.Seconds() / maxCpuSecondsPerUser
@@ -416,7 +392,6 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 	renderFrame(screen, theme, x0, y0, x1, y1, "By User")
 }
 
-// Assumes the first row of the table contains the commands header line
 func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
 	widths = widths[6:] // Skip the per-process columns
 
@@ -431,12 +406,12 @@ func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
 
-	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
+	// +1 = ignore top border
+	topBottomRamp := ui.NewColorRamp(float64(y0+1), float64(y1-1), theme.Foreground(), theme.FadedForeground())
 
 	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
 	// borders
-	rowsWithHeaderWithoutBorders := y1 - y0 - 1
+	rowsWithoutBorders := y1 - y0 - 1
 
 	maxCpuSecondsPerCommand := 0.0
 	maxRssKbPerCommand := 0
@@ -456,7 +431,7 @@ func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int
 	//
 
 	for rowIndex, row := range table {
-		if rowIndex >= rowsWithHeaderWithoutBorders {
+		if rowIndex >= rowsWithoutBorders {
 			// No more room
 			break
 		}
@@ -468,29 +443,15 @@ func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int
 
 		y := y0 + 1 + rowIndex // screen row
 
-		var rowStyle twin.Style
-		if rowIndex == 0 {
-			// Header row, header style
-			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
-		} else {
-			rowStyle = twin.StyleDefault
-			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
-		}
+		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
 
 		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
 			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
 
-			if rowIndex == 0 {
-				// Header row, no load bars here
-				x++
-				continue
-			}
-
-			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(commands) {
-				command := commands[index]
+			if rowIndex < len(commands) {
+				command := commands[rowIndex]
 				cpuFraction := 0.0
 				if maxCpuSecondsPerCommand > 0.0 {
 					cpuFraction = command.cpuTime.Seconds() / maxCpuSecondsPerCommand
