@@ -70,6 +70,30 @@ func tryRenderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processe
 	return true
 }
 
+func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
+	// Including borders. If they are the same, the height is still 1.
+	renderHeight := y1 - y0 + 1
+
+	// -2 for borders, they won't be part of the table
+	table, _, processes, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+
+	// Drop the three rightmost columns (per-user and per-command) from the
+	// table
+	for rowIndex, row := range table {
+		table[rowIndex] = row[:6]
+	}
+
+	width, _ := screen.Size()
+
+	// -2 for borders, -5 for column dividers
+	availableToColumns := width - 2 - 5
+
+	// Don't grow the PID column, that looks weird
+	widths := ui.ColumnWidths(table, availableToColumns, false)
+
+	renderProcesses(screen, theme, 0, y0, width-1, y1, table, widths, processes)
+}
+
 // Render three tables and combine them: per-process (on the left), per-user
 // (top right), and per-command (bottom right).
 //

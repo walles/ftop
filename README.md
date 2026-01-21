@@ -284,7 +284,7 @@ FIXME: Update since the Go rewrite
   of our binaries.
 - Make a release.
 - Accept smaller window sizes
-  - Drop the two rightmost panes if the terminal is too narrow
+  - OK: Drop the two rightmost panes if the terminal is too narrow
   - Drop columns if the terminal is even narrower
   - OK: Drop the launched-binaries tree if the terminal is too low
 - Implement filtering

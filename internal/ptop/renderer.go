@@ -9,7 +9,7 @@ import (
 	"github.com/walles/ptop/internal/themes"
 )
 
-const minWidth = 80
+const minWidth = 8
 const minHeight = 11
 
 type stats struct {
