@@ -295,7 +295,7 @@ func cmdlineToCommand(cmdline string) string {
 }
 
 // Convert "GenerativeExperiencesRuntime/generativeexperiencesd" to
-// "GenerativeExperiencesRuntime/Daemon" based on that both the first and the
+// "GenerativeExperiencesRuntime (Daemon)" based on that both the first and the
 // second part have the same prefix, plus "d" is a common suffix for daemons.
 func coalesceAppCommand(command string) string {
 	if strings.Count(command, "/") != 1 {
@@ -322,7 +322,7 @@ func coalesceAppCommand(command string) string {
 
 	// Replace dashes with spaces in the output
 	firstOutput := strings.ReplaceAll(first, "-", " ")
-	return firstOutput + "/Daemon"
+	return firstOutput + " (Daemon)"
 }
 
 // If successful, just return the result. If unsuccessful log the problem and

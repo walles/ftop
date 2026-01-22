@@ -482,20 +482,20 @@ func TestMacosApp(t *testing.T) {
 		"/A",
 		"/intelligenceplatformd",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(intelligencePlatform), "IntelligencePlatformCore/Daemon")
+	assert.Equal(t, cmdlineToCommand(intelligencePlatform), "IntelligencePlatformCore (Daemon)")
 }
 
 func TestCoalesceAppCommand(t *testing.T) {
 	// Main example from the function comment
 	assert.Equal(t,
 		coalesceAppCommand("GenerativeExperiencesRuntime/generativeexperiencesd"),
-		"GenerativeExperiencesRuntime/Daemon",
+		"GenerativeExperiencesRuntime (Daemon)",
 	)
 
 	// Real-world example from macOS
 	assert.Equal(t,
 		coalesceAppCommand("IntelligencePlatformCore/intelligenceplatformd"),
-		"IntelligencePlatformCore/Daemon",
+		"IntelligencePlatformCore (Daemon)",
 	)
 
 	// No slash - return as-is
@@ -519,17 +519,17 @@ func TestCoalesceAppCommand(t *testing.T) {
 	// Short second part that's a prefix
 	assert.Equal(t,
 		coalesceAppCommand("Application/appd"),
-		"Application/Daemon",
+		"Application (Daemon)",
 	)
 
 	assert.Equal(t,
 		coalesceAppCommand("Software Update/softwareupdated"),
-		"Software Update/Daemon",
+		"Software Update (Daemon)",
 	)
 
 	assert.Equal(t,
 		coalesceAppCommand("Software-Update/softwareupdated"),
-		"Software Update/Daemon",
+		"Software Update (Daemon)",
 	)
 }
 
