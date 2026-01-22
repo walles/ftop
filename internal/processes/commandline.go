@@ -306,20 +306,23 @@ func coalesceAppCommand(command string) string {
 	first := parts[0]
 	second := parts[1]
 
-	firstLower := strings.ToLower(first)
-	secondLower := strings.ToLower(second)
+	// Normalize for comparison by removing spaces and dashes
+	firstNormalized := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(first), " ", ""), "-", "")
+	secondNormalized := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(second), " ", ""), "-", "")
 
-	if !strings.HasSuffix(secondLower, "d") {
+	if !strings.HasSuffix(secondNormalized, "d") {
 		return command
 	}
 
-	secondWithoutD := secondLower[:len(secondLower)-1]
+	secondWithoutD := secondNormalized[:len(secondNormalized)-1]
 
-	if !strings.HasPrefix(firstLower, secondWithoutD) {
+	if !strings.HasPrefix(firstNormalized, secondWithoutD) {
 		return command
 	}
 
-	return first + "/Daemon"
+	// Replace dashes with spaces in the output
+	firstOutput := strings.ReplaceAll(first, "-", " ")
+	return firstOutput + "/Daemon"
 }
 
 // If successful, just return the result. If unsuccessful log the problem and

@@ -521,6 +521,16 @@ func TestCoalesceAppCommand(t *testing.T) {
 		coalesceAppCommand("Application/appd"),
 		"Application/Daemon",
 	)
+
+	assert.Equal(t,
+		coalesceAppCommand("Software Update/softwareupdated"),
+		"Software Update/Daemon",
+	)
+
+	assert.Equal(t,
+		coalesceAppCommand("Software-Update/softwareupdated"),
+		"Software Update/Daemon",
+	)
 }
 
 func TestGetCommandElectronMacos(t *testing.T) {
