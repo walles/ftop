@@ -91,8 +91,8 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		// Current width didn't work, maybe one column more would do the trick?
 		newMinThreePanesWidth := width + 1
 		if newMinThreePanesWidth > u.minThreePanesScreenWidth {
+			log.Debugf("Bumping minThreePanesScreenWidth from %d to %d...", u.minThreePanesScreenWidth, newMinThreePanesWidth)
 			u.minThreePanesScreenWidth = newMinThreePanesWidth
-			log.Debugf("Bumped minThreePanesScreenWidth from %d to %d", u.minThreePanesScreenWidth, newMinThreePanesWidth)
 		}
 	}
 
