@@ -472,6 +472,55 @@ func TestMacosApp(t *testing.T) {
 		"identityservicesd",
 	}, "/")
 	assert.Equal(t, cmdlineToCommand(ids), "IDS/identityservicesd")
+
+	intelligencePlatform := strings.Join([]string{
+		"/System",
+		"/Library",
+		"/PrivateFrameworks",
+		"/IntelligencePlatformCore.framework",
+		"/Versions",
+		"/A",
+		"/intelligenceplatformd",
+	}, "/")
+	assert.Equal(t, cmdlineToCommand(intelligencePlatform), "IntelligencePlatformCore/Daemon")
+}
+
+func TestCoalesceAppCommand(t *testing.T) {
+	// Main example from the function comment
+	assert.Equal(t,
+		coalesceAppCommand("GenerativeExperiencesRuntime/generativeexperiencesd"),
+		"GenerativeExperiencesRuntime/Daemon",
+	)
+
+	// Real-world example from macOS
+	assert.Equal(t,
+		coalesceAppCommand("IntelligencePlatformCore/intelligenceplatformd"),
+		"IntelligencePlatformCore/Daemon",
+	)
+
+	// No slash - return as-is
+	assert.Equal(t,
+		coalesceAppCommand("intelligenceplatformd"),
+		"intelligenceplatformd",
+	)
+
+	// Multiple slashes - return as-is
+	assert.Equal(t,
+		coalesceAppCommand("IntelligencePlatformCore/Versions/intelligenceplatformd"),
+		"IntelligencePlatformCore/Versions/intelligenceplatformd",
+	)
+
+	// Second part without 'd' is not a prefix of first - return as-is
+	assert.Equal(t,
+		coalesceAppCommand("MyApp/otherthingd"),
+		"MyApp/otherthingd",
+	)
+
+	// Short second part that's a prefix
+	assert.Equal(t,
+		coalesceAppCommand("Application/appd"),
+		"Application/Daemon",
+	)
 }
 
 func TestGetCommandElectronMacos(t *testing.T) {

@@ -274,7 +274,7 @@ func cmdlineToCommand(cmdline string) string {
 	}
 
 	if len(command) < 25 {
-		return appNamePrefix + command
+		return coalesceAppCommand(appNamePrefix + command)
 	}
 
 	commandSplit := strings.Split(command, ".")
@@ -291,7 +291,35 @@ func cmdlineToCommand(cmdline string) string {
 		}
 	}
 
-	return appNamePrefix + command
+	return coalesceAppCommand(appNamePrefix + command)
+}
+
+// Convert "GenerativeExperiencesRuntime/generativeexperiencesd" to
+// "GenerativeExperiencesRuntime/Daemon" based on that both the first and the
+// second part have the same prefix, plus "d" is a common suffix for daemons.
+func coalesceAppCommand(command string) string {
+	if strings.Count(command, "/") != 1 {
+		return command
+	}
+
+	parts := strings.SplitN(command, "/", 2)
+	first := parts[0]
+	second := parts[1]
+
+	firstLower := strings.ToLower(first)
+	secondLower := strings.ToLower(second)
+
+	if !strings.HasSuffix(secondLower, "d") {
+		return command
+	}
+
+	secondWithoutD := secondLower[:len(secondLower)-1]
+
+	if !strings.HasPrefix(firstLower, secondWithoutD) {
+		return command
+	}
+
+	return first + "/Daemon"
 }
 
 // If successful, just return the result. If unsuccessful log the problem and
