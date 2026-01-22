@@ -270,21 +270,22 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Move macOS specific parsers into cross-platform parser files and add tests for
-  them, just like we have for the Linux specific parsers.
+- Be happy enough with --version output
 - Decide on the new name
 - Rename
 - Check any mention of px, ptop or pxtree is intentional
 - Implement some crash reporting system
 - Be happy enough with --help output
-- Be happy enough with --version output
+- Set up CI building + testing on Linux and at least cross compiling to macOS
 - Document in this README how to make releases
 - Update screenshot(s) ^
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
 - Make a release.
 - Accept smaller window sizes
-  - Drop columns if the terminal is even narrower
+  - Drop columns if the terminal is really narrow
+- Move macOS specific parsers into cross-platform parser files and add tests for
+  them, just like we have for the Linux specific parsers.
 - Implement filtering
 - Implement process picking with arrow keys
 - When hovering a process, replace the two rightmost panes with info about that

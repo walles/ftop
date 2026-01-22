@@ -5,6 +5,7 @@ import (
 
 	"github.com/walles/moor/v2/twin"
 	"github.com/walles/ptop/internal/io"
+	"github.com/walles/ptop/internal/log"
 	"github.com/walles/ptop/internal/processes"
 	"github.com/walles/ptop/internal/themes"
 )
@@ -29,12 +30,12 @@ type commandStats struct {
 	stats
 }
 
-func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
+func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
 	const overviewHeight = 5 // Including borders
 
-	width, height := screen.Size()
+	width, height := u.screen.Size()
 	if width < minWidth || height < minHeight {
-		renderTooSmallScreen(screen, theme)
+		renderTooSmallScreen(u.screen, u.theme)
 		return
 	}
 
@@ -70,27 +71,36 @@ func Render(screen twin.Screen, theme themes.Theme, processesRaw []processes.Pro
 
 	processesBottomRow := overviewHeight + processesHeight - 1
 
-	screen.Clear()
+	u.screen.Clear()
 
-	renderOverview(screen, theme, ioStats, overviewWidth)
+	renderOverview(u.screen, u.theme, ioStats, overviewWidth)
 
 	// Draw IO stats to the right of the overview...
 	if ioStatsWidth > 0 {
 		// ... but only when there is room for it.
-		renderIoTopList(screen, theme, ioStats, overviewWidth, 0, width-1, 4)
+		renderIoTopList(u.screen, u.theme, ioStats, overviewWidth, 0, width-1, 4)
 	}
 
-	if canRenderThreeProcessPanes(screen, processesRaw, overviewHeight, processesBottomRow) {
-		renderThreeProcessPanes(screen, theme, processesRaw, overviewHeight, processesBottomRow)
+	if width < u.minThreePanesScreenWidth {
+		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+	} else if canRenderThreeProcessPanes(u.screen, processesRaw, overviewHeight, processesBottomRow) {
+		renderThreeProcessPanes(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
 	} else {
-		renderSingleProcessesPane(screen, theme, processesRaw, overviewHeight, processesBottomRow)
+		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+
+		// Current width didn't work, maybe one column more would do the trick?
+		newMinThreePanesWidth := width + 1
+		if newMinThreePanesWidth > u.minThreePanesScreenWidth {
+			u.minThreePanesScreenWidth = newMinThreePanesWidth
+			log.Debugf("Bumped minThreePanesScreenWidth from %d to %d", u.minThreePanesScreenWidth, newMinThreePanesWidth)
+		}
 	}
 
 	if launchedCommandsHeight > 0 {
-		renderLaunchedCommands(screen, theme, launches, processesBottomRow+1, height-1)
+		renderLaunchedCommands(u.screen, u.theme, launches, processesBottomRow+1, height-1)
 	}
 
-	screen.Show()
+	u.screen.Show()
 }
 
 func renderOverview(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, overviewWidth int) {

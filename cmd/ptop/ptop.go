@@ -89,17 +89,19 @@ func internalMain() int {
 		}
 	}()
 
+	ui := ptop.NewUi(screen, theme)
+
 	for {
 		event := <-events
 
 		if _, ok := event.(twin.EventResize); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(screen, theme, allProcesses, ioTracker.Stats(), procsTracker.Launches())
+			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if _, ok := event.(processListUpdated); ok {
 			allProcesses := procsTracker.Processes()
-			ptop.Render(screen, theme, allProcesses, ioTracker.Stats(), procsTracker.Launches())
+			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
 		}
 
 		if event, ok := event.(twin.EventRune); ok {

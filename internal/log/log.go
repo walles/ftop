@@ -10,8 +10,11 @@ import (
 type LogLevel int
 
 const (
+	// These messages will only be printed when running with --debug
+	LogLevelDebug LogLevel = iota
+
 	// If we crash, this should go into the crash report
-	LogLevelInfo LogLevel = iota
+	LogLevelInfo
 
 	// This has to be shown to the user after exit, and preferably reported. May
 	// contain panic backtraces.
@@ -26,6 +29,18 @@ type entry struct {
 
 var entries []entry
 var lock = sync.Mutex{}
+
+// These messages will only be printed when running with --debug
+func Debugf(format string, args ...any) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	entries = append(entries, entry{
+		level:     LogLevelDebug,
+		timestamp: time.Now(),
+		message:   fmt.Sprintf(format, args...),
+	})
+}
 
 // If we crash, these messages will go into the crash report
 func Infof(format string, args ...any) {
@@ -72,7 +87,7 @@ func String(highlighted bool) string {
 	s := "Log entries:\n"
 	for _, e := range entries {
 		s += fmt.Sprintf(
-			"[%s] %s: %s\n",
+			"[%s] %-5s: %s\n",
 			e.timestamp.Format(time.RFC3339),
 			levelToString(e.level, highlighted),
 			formatMessage(e.level, e.message, highlighted),
@@ -84,6 +99,8 @@ func String(highlighted bool) string {
 
 func levelToString(level LogLevel, highlighted bool) string {
 	switch level {
+	case LogLevelDebug:
+		return "DEBUG"
 	case LogLevelInfo:
 		return "INFO"
 	case LogLevelError:
