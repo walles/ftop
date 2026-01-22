@@ -132,7 +132,7 @@ func onExit(screen twin.Screen, forcePrintLogs bool) {
 		return
 	}
 
-	fmt.Fprint(os.Stderr, log.String(true))
+	fmt.Fprintln(os.Stderr, log.String(true))
 
 	if log.HasErrors() {
 		os.Exit(1)
