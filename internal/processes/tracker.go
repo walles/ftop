@@ -14,6 +14,8 @@ type Tracker struct {
 	current  map[int]*Process
 	launches *LaunchNode
 
+	longestCommandLength int
+
 	OnUpdate chan struct{} // Call GetProcesses() to get the updated list
 }
 
@@ -42,12 +44,26 @@ func (tracker *Tracker) update() {
 		return
 	}
 
+	longestCommandLength := 0
+	longestCommand := ""
+	for _, p := range procs {
+		if len(p.Command) > longestCommandLength {
+			longestCommandLength = len(p.Command)
+			longestCommand = p.Command
+		}
+	}
+
 	procsMap := make(map[int]*Process)
 	for _, p := range procs {
 		procsMap[p.Pid] = p
 	}
 
 	tracker.mutex.Lock()
+
+	if longestCommandLength > tracker.longestCommandLength {
+		tracker.longestCommandLength = longestCommandLength
+		log.Debugf("New longest command is %d chars: %q", longestCommandLength, longestCommand)
+	}
 
 	if tracker.current != nil {
 		// Update launch counts tree
