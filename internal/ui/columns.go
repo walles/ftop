@@ -13,6 +13,7 @@ import (
 func ColumnWidths(rows [][]string, targetWidth int, growFirstColumn bool) []int {
 	widths := []int{}
 
+	// Collect maximum column widths
 	for _, row := range rows {
 		for cellIndex, cell := range row {
 			if cellIndex >= len(widths) {
@@ -35,14 +36,14 @@ func ColumnWidths(rows [][]string, targetWidth int, growFirstColumn bool) []int 
 
 	// Shrink columns
 	for sumWidths(widths) > targetWidth {
-		// Now, let's say we shorten one width. How many character containing
-		// cells would we lose?
-		narrowingCosts := make([]int, len(widths))
+		// Now, let's say we shorten one width. How much information would we
+		// lose?
+		narrowingCosts := make([]float64, len(widths))
 		for _, row := range rows {
 			for column, cell := range row {
 				if widths[column] == 0 {
 					// Already at 0 width, can't shrink this column
-					narrowingCosts[column] = math.MaxInt
+					narrowingCosts[column] = math.MaxFloat64
 					continue
 				}
 
@@ -59,12 +60,16 @@ func ColumnWidths(rows [][]string, targetWidth int, growFirstColumn bool) []int 
 					continue
 				}
 
-				narrowingCosts[column]++
+				// Dropping 100% of the column (dropping column 1 of 1) is a
+				// total loss, and we give that a cost of 1.0. Dropping 1 out of
+				// 2 is half as bad, etc.
+				cost := 1.0 / float64(dropColumn+1)
+				narrowingCosts[column] += cost
 			}
 		}
 
 		// Find the column with the least cost to narrow
-		minCost := math.MaxInt
+		minCost := math.MaxFloat64
 		minCostColumn := -1
 		for column, cost := range narrowingCosts {
 			if cost > minCost {

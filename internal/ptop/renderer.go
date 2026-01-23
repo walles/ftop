@@ -12,7 +12,7 @@ import (
 
 // Found through experimentation, all narrow columns fit at this width when I
 // tried it.
-const minWidth = 57
+const minWidth = 50
 
 const minHeight = 11
 
