@@ -134,7 +134,7 @@ func exists(path string) bool {
 		return false
 	}
 
-	log.Infof("Failed to check file existance for <%s>: %v", path, err)
+	log.Infof("Failed to check file existence: %v", err)
 
 	// Who knows what to return here? False is the safe option that prevents
 	// coalescing.
