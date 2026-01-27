@@ -41,12 +41,12 @@ func TestCreateProcessTable(t *testing.T) {
 	})
 
 	assert.Equal(t, reflect.DeepEqual(table, [][]string{
-		{"PID", "Command", "Username", "CPU", "Time", "RAM", "Username", "CPU", "RAM"},
-		{"6", "six", "six", "--", "1m00s", "60k", "six", "1m00s", "60k"},
+		{"PID", "Command", "Username", "CPU", "Time", "RAM", "six", "1m00s", "60k"},
+		{"6", "six", "six", "--", "1m00s", "60k", "five", "50.0s", "50k"},
 		{"5", "five", "five", "--", "50.0s", "50k", "", "", ""},
 		{"4", "four", "four", "--", "40.0s", "40k", "", "", ""},
-		{"3", "three", "three", "--", "30.0s", "30k", "Command", "CPU", "RAM"},
-		{"2", "two", "two", "--", "20.0s", "20k", "six", "1m00s", "60k"},
+		{"3", "three", "three", "--", "30.0s", "30k", "six", "1m00s", "60k"},
+		{"2", "two", "two", "--", "20.0s", "20k", "five", "50.0s", "50k"},
 	}), true)
 }
 
