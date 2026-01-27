@@ -323,7 +323,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				style = style.WithForeground(userRamp.AtInt(y))
 			}
 
-			if x >= userColumn0 && x <= userColumnN {
+			if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
 				username := row[2]
 				if username == "root" && currentUsername != "root" {
 					style = style.WithAttr(twin.AttrDim)
