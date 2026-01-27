@@ -282,6 +282,7 @@ FIXME: Update since the Go rewrite
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
 - Make a release.
+- Profile and see if there's any low-hanging fruit to fix performance-wise
 - Accept smaller window sizes
   - Drop columns if the terminal is really narrow
 - Move macOS specific parsers into cross-platform parser files and add tests for

@@ -20,6 +20,9 @@ var OSX_PARENTHESIZED_PROC = regexp.MustCompile(`^\\([^()]+\\)$`)
 // Name of the Perl interpreter
 var PERL_BIN = regexp.MustCompile(`^perl[.0-9]*$`)
 
+// From command line to command name
+var commandCache = make(map[string]string)
+
 // Extract a potential file path from the end of a string.
 //
 // The coalescing logic will then base decisions on whether this file path
@@ -160,6 +163,17 @@ func cmdlineToSlice(cmdline string, exists func(string) bool) []string {
 	return merged
 }
 
+func cmdlineToCommand(cmdline string) string {
+	cached, found := commandCache[cmdline]
+	if found {
+		return cached
+	}
+
+	result := cmdlineToCommandInternal(cmdline)
+	commandCache[cmdline] = result
+	return result
+}
+
 // Extracts the command from the command line.
 //
 // This function most often returns the first component of the command line with
@@ -167,7 +181,7 @@ func cmdlineToSlice(cmdline string, exists func(string) bool) []string {
 //
 // For some language runtimes, this function may return the name of the program
 // that the runtime is executing.
-func cmdlineToCommand(cmdline string) string {
+func cmdlineToCommandInternal(cmdline string) string {
 	if LINUX_KERNEL_PROC.MatchString(cmdline) {
 		return cmdline
 	}
