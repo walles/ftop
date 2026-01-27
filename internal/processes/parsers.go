@@ -79,7 +79,7 @@ func parsePythonCommand(cmdline string) *string {
 	// Ignore some switches, list inspired by 'python2.7 --help'
 	ignore := map[string]bool{}
 	for _, s := range []string{
-		"-b", "-bb", "-B", "-d", "-E", "-i", "-O", "-OO", "-R", "-s", "-S", "-t", "-tt", "-u", "-v", "-Werror", "-x", "-3",
+		"-b", "-bb", "-B", "-d", "-E", "-i", "-I", "-O", "-OO", "-R", "-s", "-S", "-t", "-tt", "-u", "-v", "-Werror", "-x", "-3",
 	} {
 		ignore[s] = true
 	}
