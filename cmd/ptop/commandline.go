@@ -3,8 +3,9 @@ package main
 import "fmt"
 
 var CLI struct {
-	Theme ThemeName `help:"auto, dark or light" default:"auto"`
-	Debug bool      `help:"print debug logs after exit"`
+	Theme   ThemeName `help:"auto, dark or light" default:"auto"`
+	Debug   bool      `help:"print debug logs after exit"`
+	Version bool      `help:"show version information"`
 }
 
 type ThemeName string

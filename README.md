@@ -276,7 +276,6 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Be happy enough with --version output
 - Decide on the new name
 - Rename
 - Check any mention of px, ptop or pxtree is intentional
@@ -325,3 +324,4 @@ FIXME: Update since the Go rewrite
 - Get the UI structure right with plain text only. Pressing ESC / q should exit.
 - Drop the two rightmost panes if the terminal is too narrow
 - Drop the launched-binaries tree if the terminal is too low
+- Be happy enough with --version output

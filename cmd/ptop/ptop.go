@@ -17,6 +17,10 @@ import (
 	"github.com/walles/ptop/internal/themes"
 )
 
+// Build a binary using build.sh to get a proper version string here. This
+// pre-filled string will be used otherwise.
+var versionString = "<version is set by ./build.sh>"
+
 // Generate files "profile-cpu.out" and "profile-heap.out" when set to true.
 //
 // Set to true then start like this:
@@ -120,6 +124,11 @@ func internalMain() int {
 		}
 
 		argsParser.FatalIfErrorf(err)
+	}
+
+	if CLI.Version {
+		fmt.Println(versionString)
+		return 0
 	}
 
 	screen, err := twin.NewScreen()
