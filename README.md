@@ -262,7 +262,13 @@ print debug logging output after `px`/`ptop` is done.
 
 # Development
 
-FIXME: Update since the Go rewrite
+## Profiling
+
+1. In [ptop.go](cmd/ptop/ptop.go), set `generateProfiles = true`
+1. `go run ./cmd/ptop`
+1. Either one of these:
+   - `go tool pprof -relative_percentages -web profile-cpu.out`
+   - `go tool pprof -relative_percentages -web profile-heap.out`
 
 ## Releasing a new Version
 

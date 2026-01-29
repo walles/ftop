@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -15,10 +17,76 @@ import (
 	"github.com/walles/ptop/internal/themes"
 )
 
+// Generate files "profile-cpu.out" and "profile-heap.out" when set to true.
+//
+// Set to true then start like this:
+//
+//	go run ./cmd/ptop/ptop.go  # This will generate the profile files
+//
+// Then analyze the files like this:
+//
+//	go tool pprof -relative_percentages -web profile-cpu.out
+//	go tool pprof -relative_percentages -web profile-heap.out
+const generateProfiles = false
+
 type processListUpdated struct{}
 
 func main() {
-	os.Exit(internalMain())
+	var result int
+	if generateProfiles {
+		result = profilingMain()
+	} else {
+		result = internalMain()
+	}
+
+	os.Exit(result)
+}
+
+// See `generateProfiles` for usage
+func profilingMain() int {
+	//
+	// Start CPU profiling
+	//
+	cpuFile, err := os.Create("profile-cpu.out")
+	if err != nil {
+		panic(err)
+	}
+	if err := pprof.StartCPUProfile(cpuFile); err != nil {
+		panic(err)
+	}
+
+	//
+	// Do the actual work
+	//
+	result := internalMain()
+
+	// Write out CPU profile
+	pprof.StopCPUProfile()
+	err = cpuFile.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	//
+	// Write out heap profile
+	//
+	heapFile, err := os.Create("profile-heap.out")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := heapFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	runtime.GC() // get up-to-date statistics
+	if err := pprof.WriteHeapProfile(heapFile); err != nil {
+		panic(err)
+	}
+
+	return result
 }
 
 // Never call os.Exit() from inside of this function because that will cause us
