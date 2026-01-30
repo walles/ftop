@@ -124,8 +124,8 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Implement some crash reporting system
-- Be happy enough with --help output
+- Implement some crash reporting system, compare with `moor`
+- Be happy enough with --help output, compare with `ptop --help`
 - Retain output after exiting
 - Set up CI building + testing on Linux and at least cross compiling to macOS
 - Add CI status badges to the top of this README
