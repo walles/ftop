@@ -3,7 +3,10 @@
 See below for [how to install](#installation).
 
 `ftop` is what I use when [LoadViz](https://github.com/walles/loadviz/) shows
-something unexpected is going on.
+something unexpected going on.
+
+`ftop` is an evolution of [`ptop`](https://github.com/walles/ptop). `ftop`
+provides the same helpful information but looks nicer.
 
 # Output
 
@@ -16,14 +19,14 @@ If you're coming from some other `top` variant, here's what to expect from
 - The Commands column is smart, showing `python.py` rather than just `python`
   for `python python.py`. [Smartness available for many different
   runtimes](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go).
-- Note the two sections on the right showing CPU and memory usage per users and
+- Note the two sections on the right showing CPU and memory usage per user and
   per command.
 - Note the `IO` section, showing which IO device had the highest average
   throughput since `ftop` launched.
-- Note how the default sort order of CPUTIME-since-`ftop`-started makes
-  the display mostly stable and enables you to sort by CPU usage.
-- Note that binaries launched while `ftop` is running are listed at the
-  bottom of the display.
+- The default sort order is CPUTIME-since-`ftop`-started. This makes the display
+  mostly stable and enables you to sort by CPU usage.
+- Binaries launched while `ftop` is running are listed at the bottom of the
+  display.
 - Note the core counts right next to the system load number, for easy
   comparison.
 - Note the load history graph next to the load numbers. On this system
@@ -32,7 +35,13 @@ If you're coming from some other `top` variant, here's what to expect from
 
 ## Installation
 
-FIXME: Update since the Go rewrite
+This will [install `ftop` into
+`$GOPATH/bin`](https://manpages.debian.org/testing/golang-go/go-install.1.en.html),
+make sure `$GOPATH/bin` is in your `$PATH`:
+
+```sh
+go install github.com/walles/ftop/cmd/ftop@latest
+```
 
 ## Usage
 
@@ -42,8 +51,8 @@ To exit `ftop`, press `q`.
 
 Also try `ftop --help` to see what else is available.
 
-If you run into problems, try running with the `--debug` switch, it will print
-debug logging output after `ftop` is done.
+If you run into problems, try running with the `--debug` switch, that will get
+you debug logs after `ftop` is done.
 
 # Use Cases
 
@@ -116,9 +125,9 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Link back to the px repo for historical context
 - Implement some crash reporting system
 - Be happy enough with --help output
+- Retain output after exiting
 - Set up CI building + testing on Linux and at least cross compiling to macOS
 - Add CI status badges to the top of this README
 - Document in this README how to make releases
@@ -172,3 +181,4 @@ FIXME: Update since the Go rewrite
 - Ignore -E switch on Python command lines
 - Check any mention of px, ptop or pxtree is intentional
 - Update screenshot(s) ^
+- Link back to the px repo for historical context
