@@ -7,40 +7,28 @@ something unexpected is going on.
 
 # Output
 
-## `ftop`
+If you're coming from some other `top` variant, here's what to expect from
+`ftop`, with explanations below the screenshot:
 
-If you're coming from `htop` or some other `top` variant, here's what
-to expect from `ftop`, with explanations below the screenshot:
+![ftop screenshot](screenshot.png)
 
-![ftop screenshot](doc/ftop-screenshot.png)
-
-- Note the core count right next to the system load number, for easy
-  comparison.
-- Note the load history graph next to the load numbers. On this system
-  the load has been high for the last 15 minutes. This is a
-  visualization of the numbers you get from `uptime`.
-- Note the bars showing which programs / users are using your memory
-  below the memory numbers
-- Note the `IO Load` number, showing which IO device had the highest
-  average throughput since `ftop` launched.
+- CPU usage is shown as red bars, memory usage as blue bars.
+- The Commands column is smart, showing `python.py` rather than just `python`
+  for `python python.py`. [Smartness available for many different
+  runtimes](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go).
+- Note the two sections on the right showing CPU and memory usage per users and
+  per command.
+- Note the `IO` section, showing which IO device had the highest average
+  throughput since `ftop` launched.
 - Note how the default sort order of CPUTIME-since-`ftop`-started makes
   the display mostly stable and enables you to sort by CPU usage.
 - Note that binaries launched while `ftop` is running are listed at the
   bottom of the display.
-- Note how the Python program on the second to last line is shown as
-  `run_adapter.py` (the program) rather than `python3` (the runtime).
-  [This support is available for many
-  VMs](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go)
-  like Java, Node, \...
-- Selecting a process with Enter will offer you to see detailed
-  information about that process, in `$PAGER`,
-  [moor](https://github.com/walles/moor) or `less`. Or to kill it.
-- After you press `q` to quit, the display is retained and some lines at
-  the bottom are removed to prevent the information you want from
-  scrolling out of view.
-- A help text on the bottom hints you how to search / filter
-  (interactively), change sort order or how to pick processes for
-  further inspection or killing.
+- Note the core counts right next to the system load number, for easy
+  comparison.
+- Note the load history graph next to the load numbers. On this system
+  the load has been high for the last 15 minutes. This is a
+  visualization of the numbers you get from `uptime`.
 
 ## Installation
 
@@ -118,13 +106,16 @@ go run ./cmd/ftop
    - `go tool pprof -relative_percentages -web profile-cpu.out`
    - `go tool pprof -relative_percentages -web profile-heap.out`
 
+## Screenshot
+
+Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
+
 ## Releasing a new Version
 
 FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Update screenshot(s) ^
 - Link back to the px repo for historical context
 - Implement some crash reporting system
 - Be happy enough with --help output
@@ -139,13 +130,14 @@ FIXME: Update since the Go rewrite
   - Drop columns if the terminal is really narrow
 - Move macOS specific parsers into cross-platform parser files and add tests for
   them, just like we have for the Linux specific parsers.
-- Implement filtering
-- Implement process picking with arrow keys
+- Implement filtering, note that in the Output section above
+- Implement process picking with arrow keys, note that in the Output section
+  above
 - When hovering a process, replace the two rightmost panes with info about that
-  process
+  process, note that in the Output section above
 - Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
   `px`?
-- Implement different timings:
+- Implement different timings, note that in the Output section above:
   - Used CPU time (what we have now)
   - Used wall clock time including subprocesses. This would be for getting
     `brew` to the top of the list when it's spawning a lot of `curl`s which
@@ -179,3 +171,4 @@ FIXME: Update since the Go rewrite
 - Rename
 - Ignore -E switch on Python command lines
 - Check any mention of px, ptop or pxtree is intentional
+- Update screenshot(s) ^
