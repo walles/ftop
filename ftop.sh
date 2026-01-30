@@ -5,7 +5,7 @@
 set -e -o pipefail
 
 MYDIR="$(
-    cd "$(dirname "$0")"
+    cd "$(dirname "$(readlink -f "$0")")"
     pwd
 )"
 cd "$MYDIR"
