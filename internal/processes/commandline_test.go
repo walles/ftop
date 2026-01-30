@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/walles/ptop/internal/assert"
+	"github.com/walles/ftop/internal/assert"
 )
 
 func TestGetTrailingAbsolutePath(t *testing.T) {

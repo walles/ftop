@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/walles/ptop/internal/log"
-	"github.com/walles/ptop/internal/ui"
-	"github.com/walles/ptop/internal/util"
+	"github.com/walles/ftop/internal/log"
+	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 )
 
 type Process struct {
@@ -21,7 +21,7 @@ type Process struct {
 	children []*Process
 	parent   *Process
 
-	cmdline          string // "git clone git@github.com:walles/px.git"
+	cmdline          string // "git clone git@github.com:walles/ftop.git"
 	Command          string // "git"
 	lowercaseCommand string // "git"
 

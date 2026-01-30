@@ -1,12 +1,12 @@
-package ptop
+package ftop
 
 import (
 	"strings"
 
+	"github.com/walles/ftop/internal/io"
+	"github.com/walles/ftop/internal/themes"
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/io"
-	"github.com/walles/ptop/internal/themes"
-	"github.com/walles/ptop/internal/ui"
 )
 
 // Renders max current device BPS vs highest measured BPS

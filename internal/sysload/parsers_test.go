@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/walles/ptop/internal/assert"
+	"github.com/walles/ftop/internal/assert"
 )
 
 func TestParseProcCpuInfo(t *testing.T) {

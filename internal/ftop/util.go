@@ -1,9 +1,9 @@
-package ptop
+package ftop
 
 import (
 	"os/user"
 
-	"github.com/walles/ptop/internal/log"
+	"github.com/walles/ftop/internal/log"
 )
 
 // Or the empty string if lookup fails

@@ -1,4 +1,4 @@
-package ptop
+package ftop
 
 import "github.com/walles/moor/v2/twin"
 

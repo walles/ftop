@@ -1,15 +1,15 @@
-package ptop
+package ftop
 
 import (
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/walles/ftop/internal/assert"
+	"github.com/walles/ftop/internal/processes"
+	"github.com/walles/ftop/internal/themes"
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/assert"
-	"github.com/walles/ptop/internal/processes"
-	"github.com/walles/ptop/internal/themes"
-	"github.com/walles/ptop/internal/ui"
 )
 
 func assertRenderLaunchedCommands(t *testing.T, root *processes.LaunchNode, expected []string) {

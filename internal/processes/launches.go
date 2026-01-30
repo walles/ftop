@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// Tracks processes launched while ptop is running. Will be rendered as a tree,
+// Tracks processes launched while ftop is running. Will be rendered as a tree,
 // with counts per node. Each node in the tree has a command name, a launch
 // count and a list of child nodes.
 type LaunchNode struct {

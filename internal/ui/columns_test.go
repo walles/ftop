@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/walles/ptop/internal/assert"
+	"github.com/walles/ftop/internal/assert"
 )
 
 func TestColumnWidthsSingleNarrowing(t *testing.T) {

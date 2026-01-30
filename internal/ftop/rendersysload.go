@@ -1,13 +1,13 @@
-package ptop
+package ftop
 
 import (
 	"fmt"
 	"math"
 
+	"github.com/walles/ftop/internal/sysload"
+	"github.com/walles/ftop/internal/themes"
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/sysload"
-	"github.com/walles/ptop/internal/themes"
-	"github.com/walles/ptop/internal/ui"
 )
 
 func renderSysload(screen twin.Screen, theme themes.Theme, width int) {

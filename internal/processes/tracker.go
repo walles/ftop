@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/walles/ptop/internal/log"
+	"github.com/walles/ftop/internal/log"
 )
 
 type Tracker struct {

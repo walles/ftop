@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"github.com/walles/ftop/internal/ftop"
+	"github.com/walles/ftop/internal/io"
+	"github.com/walles/ftop/internal/log"
+	"github.com/walles/ftop/internal/processes"
+	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/io"
-	"github.com/walles/ptop/internal/log"
-	"github.com/walles/ptop/internal/processes"
-	"github.com/walles/ptop/internal/ptop"
-	"github.com/walles/ptop/internal/themes"
 )
 
 // Build a binary using build.sh to get a proper version string here. This
@@ -25,7 +25,7 @@ var versionString = "<version is set by ./build.sh>"
 //
 // Set to true then start like this:
 //
-//	go run ./cmd/ptop/ptop.go  # This will generate the profile files
+//	go run ./cmd/ftop/ftop.go  # This will generate the profile files
 //
 // Then analyze the files like this:
 //
@@ -109,17 +109,17 @@ func internalMain() int {
 		panic(err)
 	}
 
-	if env, ok := os.LookupEnv("PTOP"); ok {
-		log.Infof("PTOP=\"%s\"", env)
+	if env, ok := os.LookupEnv("FTOP"); ok {
+		log.Infof("FTOP=\"%s\"", env)
 	} else {
-		log.Infof("PTOP environment variable not set")
+		log.Infof("FTOP environment variable not set")
 	}
 
-	envArgs := strings.Fields(os.Getenv("PTOP"))
+	envArgs := strings.Fields(os.Getenv("FTOP"))
 	_, err = argsParser.Parse(append(envArgs, os.Args[1:]...))
 	if err != nil {
-		if len(os.Getenv("PTOP")) > 0 {
-			fmt.Fprintln(os.Stderr, "PTOP environment variable value: \""+os.Getenv("PTOP")+"\"")
+		if len(os.Getenv("FTOP")) > 0 {
+			fmt.Fprintln(os.Stderr, "FTOP environment variable value: \""+os.Getenv("FTOP")+"\"")
 			fmt.Fprintln(os.Stderr)
 		}
 
@@ -166,7 +166,7 @@ func internalMain() int {
 		}
 	}()
 
-	ui := ptop.NewUi(screen, theme)
+	ui := ftop.NewUi(screen, theme)
 
 	for {
 		event := <-events

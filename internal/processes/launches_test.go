@@ -3,7 +3,7 @@ package processes
 import (
 	"testing"
 
-	"github.com/walles/ptop/internal/assert"
+	"github.com/walles/ftop/internal/assert"
 )
 
 func TestIncrementLaunchCount_fromScratch(t *testing.T) {

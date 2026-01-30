@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/walles/ptop/internal/log"
+	"github.com/walles/ftop/internal/log"
 )
 
 // Match "[kworker/0:0H]", no grouping

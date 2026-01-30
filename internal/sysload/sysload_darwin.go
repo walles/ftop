@@ -18,7 +18,7 @@ package sysload
 
 // Provide a small helper that calls sysctl for VM_SWAPUSAGE and returns the
 // xsu_used field in bytes. Returns UINT64_MAX on failure.
-uint64_t ptop_get_swap_used() {
+uint64_t ftop_get_swap_used() {
 	int mib[2];
 	mib[0] = CTL_VM;
 	mib[1] = VM_SWAPUSAGE;
@@ -41,9 +41,9 @@ typedef struct {
 	uint64_t compressor_page_count;
 	uint64_t anonymous_count;
 	uint64_t purgeable_count;
-} ptop_vm_counts_t;
+} ftop_vm_counts_t;
 
-int ptop_get_vm_counts(ptop_vm_counts_t *out) {
+int ftop_get_vm_counts(ftop_vm_counts_t *out) {
 	vm_statistics64_data_t stats;
 	mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
 	kern_return_t kr = host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info_t)&stats, &count);
@@ -63,7 +63,7 @@ int ptop_get_vm_counts(ptop_vm_counts_t *out) {
 	return (int)KERN_SUCCESS;
 }
 
-int ptop_get_page_size(uint32_t *out_page_size) {
+int ftop_get_page_size(uint32_t *out_page_size) {
 	vm_size_t page_size;
 	kern_return_t kr = host_page_size(mach_host_self(), &page_size);
 	if (kr != KERN_SUCCESS) return (int)kr;
@@ -82,14 +82,14 @@ import (
 
 func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 	var c_page_size C.uint32_t
-	if kr := C.ptop_get_page_size(&c_page_size); kr != C.KERN_SUCCESS {
-		err = fmt.Errorf("ptop_get_page_size failed: %d", kr)
+	if kr := C.ftop_get_page_size(&c_page_size); kr != C.KERN_SUCCESS {
+		err = fmt.Errorf("ftop_get_page_size failed: %d", kr)
 		return
 	}
 
-	var counts C.ptop_vm_counts_t
-	if kr := C.ptop_get_vm_counts(&counts); kr != C.KERN_SUCCESS {
-		err = fmt.Errorf("ptop_get_vm_counts failed: %d", kr)
+	var counts C.ftop_vm_counts_t
+	if kr := C.ftop_get_vm_counts(&counts); kr != C.KERN_SUCCESS {
+		err = fmt.Errorf("ftop_get_vm_counts failed: %d", kr)
 		return
 	}
 
@@ -127,9 +127,9 @@ func getMemoryUsage() (usedBytes uint64, totalBytes uint64, err error) {
 }
 
 func getSwapUsedBytes() (uint64, error) {
-	used := uint64(C.ptop_get_swap_used())
+	used := uint64(C.ftop_get_swap_used())
 	if used == ^uint64(0) {
-		return 0, fmt.Errorf("ptop_get_swap_used returned 0 and textual fallback failed")
+		return 0, fmt.Errorf("ftop_get_swap_used returned 0 and textual fallback failed")
 	}
 
 	return used, nil

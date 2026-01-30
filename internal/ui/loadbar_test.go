@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
+	"github.com/walles/ftop/internal/assert"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/assert"
 )
 
 func TestLoadbar(t *testing.T) {

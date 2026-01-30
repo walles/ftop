@@ -1,8 +1,8 @@
-package ptop
+package ftop
 
 import (
+	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/themes"
 )
 
 type Ui struct {
@@ -21,6 +21,6 @@ func NewUi(screen twin.Screen, theme themes.Theme) *Ui {
 	return &Ui{
 		theme:                    theme,
 		screen:                   screen,
-		minThreePanesScreenWidth: 0, // Will be kept up to date by ptop.Ui.Render()
+		minThreePanesScreenWidth: 0, // Will be kept up to date by ftop.Ui.Render()
 	}
 }

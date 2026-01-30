@@ -1,11 +1,11 @@
-package ptop
+package ftop
 
 import (
 	"fmt"
 
+	"github.com/walles/ftop/internal/themes"
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/themes"
-	"github.com/walles/ptop/internal/ui"
 )
 
 func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {

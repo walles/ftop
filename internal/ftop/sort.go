@@ -1,11 +1,11 @@
-package ptop
+package ftop
 
 import (
 	"cmp"
 	"slices"
 	"time"
 
-	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ftop/internal/processes"
 )
 
 func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {

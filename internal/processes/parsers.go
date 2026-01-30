@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/walles/ptop/internal/log"
+	"github.com/walles/ftop/internal/log"
 )
 
 // Returns nil if we failed to figure out the actual command being run

@@ -1,12 +1,12 @@
-package ptop
+package ftop
 
 import (
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/walles/ptop/internal/assert"
-	"github.com/walles/ptop/internal/processes"
+	"github.com/walles/ftop/internal/assert"
+	"github.com/walles/ftop/internal/processes"
 )
 
 func TestCreateProcessTable(t *testing.T) {

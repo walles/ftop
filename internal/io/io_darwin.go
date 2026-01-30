@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/walles/ptop/internal/util"
+	"github.com/walles/ftop/internal/util"
 )
 
 // Matches output lines in "netstat -ib" on macOS.

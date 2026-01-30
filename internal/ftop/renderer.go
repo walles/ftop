@@ -1,13 +1,13 @@
-package ptop
+package ftop
 
 import (
 	"time"
 
+	"github.com/walles/ftop/internal/io"
+	"github.com/walles/ftop/internal/log"
+	"github.com/walles/ftop/internal/processes"
+	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
-	"github.com/walles/ptop/internal/io"
-	"github.com/walles/ptop/internal/log"
-	"github.com/walles/ptop/internal/processes"
-	"github.com/walles/ptop/internal/themes"
 )
 
 // Found through experimentation, all narrow columns fit at this width when I
