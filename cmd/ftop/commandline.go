@@ -6,6 +6,7 @@ var CLI struct {
 	Theme   ThemeName `help:"auto, dark or light" default:"auto"`
 	Debug   bool      `help:"print debug logs after exit"`
 	Version bool      `help:"show version information"`
+	Profile bool      `help:"generate profile-*.out files before exiting" hidden:"true"`
 }
 
 type ThemeName string

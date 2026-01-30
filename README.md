@@ -109,9 +109,8 @@ go run ./cmd/ftop
 
 ## Profiling
 
-1. In [ftop.go](cmd/ftop/ftop.go), set `generateProfiles = true`
-1. `go run ./cmd/ftop`
-1. Either one of these:
+1. `go run ./cmd/ftop --profile`
+1. After `ftop` is done, analyze the files like this:
    - `go tool pprof -relative_percentages -web profile-cpu.out`
    - `go tool pprof -relative_percentages -web profile-heap.out`
 

@@ -21,76 +21,10 @@ import (
 // pre-filled string will be used otherwise.
 var versionString = "<version is set by ./build.sh>"
 
-// Generate files "profile-cpu.out" and "profile-heap.out" when set to true.
-//
-// Set to true then start like this:
-//
-//	go run ./cmd/ftop/ftop.go  # This will generate the profile files
-//
-// Then analyze the files like this:
-//
-//	go tool pprof -relative_percentages -web profile-cpu.out
-//	go tool pprof -relative_percentages -web profile-heap.out
-const generateProfiles = false
-
 type processListUpdated struct{}
 
 func main() {
-	var result int
-	if generateProfiles {
-		result = profilingMain()
-	} else {
-		result = internalMain()
-	}
-
-	os.Exit(result)
-}
-
-// See `generateProfiles` for usage
-func profilingMain() int {
-	//
-	// Start CPU profiling
-	//
-	cpuFile, err := os.Create("profile-cpu.out")
-	if err != nil {
-		panic(err)
-	}
-	if err := pprof.StartCPUProfile(cpuFile); err != nil {
-		panic(err)
-	}
-
-	//
-	// Do the actual work
-	//
-	result := internalMain()
-
-	// Write out CPU profile
-	pprof.StopCPUProfile()
-	err = cpuFile.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	//
-	// Write out heap profile
-	//
-	heapFile, err := os.Create("profile-heap.out")
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		err := heapFile.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	runtime.GC() // get up-to-date statistics
-	if err := pprof.WriteHeapProfile(heapFile); err != nil {
-		panic(err)
-	}
-
-	return result
+	os.Exit(internalMain())
 }
 
 // Never call os.Exit() from inside of this function because that will cause us
@@ -131,6 +65,68 @@ func internalMain() int {
 		return 0
 	}
 
+	if CLI.Profile {
+		return profilingMainLoop()
+	} else {
+		return mainLoop()
+	}
+}
+
+// Generate files "profile-cpu.out" and "profile-heap.out" before exit.
+//
+//	go run ./cmd/ftop/ftop.go --profile
+//
+// Analyze the files like this:
+//
+//	go tool pprof -relative_percentages -web profile-cpu.out
+//	go tool pprof -relative_percentages -web profile-heap.out
+func profilingMainLoop() int {
+	//
+	// Start CPU profiling
+	//
+	cpuFile, err := os.Create("profile-cpu.out")
+	if err != nil {
+		panic(err)
+	}
+	if err := pprof.StartCPUProfile(cpuFile); err != nil {
+		panic(err)
+	}
+
+	//
+	// Do the actual work
+	//
+	result := mainLoop()
+
+	// Write out CPU profile
+	pprof.StopCPUProfile()
+	err = cpuFile.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	//
+	// Write out heap profile
+	//
+	heapFile, err := os.Create("profile-heap.out")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := heapFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	runtime.GC() // get up-to-date statistics
+	if err := pprof.WriteHeapProfile(heapFile); err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
+func mainLoop() int {
 	screen, err := twin.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
