@@ -1,3 +1,5 @@
+[![Linux CI](https://github.com/walles/ftop/actions/workflows/linux-ci.yml/badge.svg?branch=main)](https://github.com/walles/ftop/actions/workflows/linux-ci.yml?query=branch%3Amain)
+
 # `top` for Human Beings
 
 See below for [how to install](#installation).
@@ -16,8 +18,8 @@ If you're coming from some other `top` variant, here's what to expect from
 ![ftop screenshot](screenshot.png)
 
 - CPU usage is shown as red bars, memory usage as blue bars.
-- The Commands column is smart, showing `python.py` rather than just `python`
-  for `python python.py`. [Smartness available for many different
+- The Commands column is smart, showing `hello.py` rather than just `python`
+  for `python hello.py`. [Smartness available for many different
   runtimes](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go).
 - Note the two sections on the right showing CPU and memory usage per user and
   per command.
@@ -124,7 +126,6 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Add CI status badges to the top of this README
 - Document in this README how to make releases
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
@@ -181,3 +182,4 @@ FIXME: Update since the Go rewrite
 - Implement some crash reporting system, compare with `moor`
 - Be happy enough with --help output, compare with `ptop --help`
 - Set up CI building + testing on Linux
+- Add CI status badge to the top of this README
