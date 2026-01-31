@@ -67,6 +67,8 @@ you debug logs after `ftop` is done.
 - Why is my computer slow?
   - Process top list
   - Process top list by IO usage
+- `brew` is forking a lot of `curl` subprocesses, but not using much CPU. How
+  can I find `brew` in this case?
 - Which processes are IO heavy?
   - Process top list by IO usage
 - Is this specific process leaking memory?
@@ -98,8 +100,6 @@ you debug logs after `ftop` is done.
   - Kill: Select process and provide a way for the user to request its termination
 - Why is some process running on my system?
   - The px-for-one-process view is excellent for this
-- `brew` is forking a lot of `curl` subprocesses, but not using much CPU. How
-  can I find `brew` in this case?
 
 # Development
 
@@ -122,14 +122,17 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## Releasing a new Version
 
-FIXME: Update since the Go rewrite
+````
+./release.sh
+````
 
 ## TODO
 
-- Document in this README how to make releases
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
 - Make a release.
+- Consider having our own Homebrew tap
+- Consider new sort orders for showing homebrew runs higher up the list
 - Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise
 - Accept smaller window sizes
@@ -183,3 +186,4 @@ FIXME: Update since the Go rewrite
 - Be happy enough with --help output, compare with `ptop --help`
 - Set up CI building + testing on Linux
 - Add CI status badge to the top of this README
+- Document in this README how to make releases
