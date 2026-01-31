@@ -3,9 +3,9 @@ package main
 import "fmt"
 
 var CLI struct {
+	Version bool      `help:"show version information"`
 	Theme   ThemeName `help:"auto, dark or light" default:"auto"`
 	Debug   bool      `help:"print debug logs after exit"`
-	Version bool      `help:"show version information"`
 
 	// Hidden options for development use
 	Profile bool `help:"generate profile-*.out files before exiting" hidden:"true"`

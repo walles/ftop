@@ -24,7 +24,10 @@ var versionString = "<build with ./build.sh to get a version number here>"
 type processListUpdated struct{}
 
 func main() {
-	argsParser, err := kong.New(&CLI)
+	argsParser, err := kong.New(
+		&CLI,
+		kong.Description("Shows a top list of running processes.\n\nhttps://github.com/walles/ftop"),
+	)
 	if err != nil {
 		panic(err)
 	}

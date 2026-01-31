@@ -124,7 +124,6 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Be happy enough with --help output, compare with `ptop --help`
 - Retain output after exiting
 - Set up CI building + testing on Linux and at least cross compiling to macOS
 - Add CI status badges to the top of this README
@@ -181,3 +180,4 @@ FIXME: Update since the Go rewrite
 - Update screenshot(s) ^
 - Link back to the px repo for historical context
 - Implement some crash reporting system, compare with `moor`
+- Be happy enough with --help output, compare with `ptop --help`
