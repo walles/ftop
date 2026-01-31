@@ -124,12 +124,12 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Set up CI building + testing on Linux and at least cross compiling to macOS
 - Add CI status badges to the top of this README
 - Document in this README how to make releases
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
 - Make a release.
+- Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise
 - Accept smaller window sizes
   - Drop columns if the terminal is really narrow
@@ -180,3 +180,4 @@ FIXME: Update since the Go rewrite
 - Link back to the px repo for historical context
 - Implement some crash reporting system, compare with `moor`
 - Be happy enough with --help output, compare with `ptop --help`
+- Set up CI building + testing on Linux
