@@ -57,6 +57,22 @@ echo
 # Make an annotated tag for this release
 git tag --annotate "${VERSION}"
 
+FIRST_LINE=$(echo "$TAG_MESSAGE" | sed -n '1p')
+SECOND_LINE=$(echo "$TAG_MESSAGE" | sed -n '2p')
+DESCRIPTION=$(echo "$TAG_MESSAGE" | tail -n +3)
+
+if [ -z "$FIRST_LINE" ]; then
+    echo "ERROR: First line of tag message must be the release title"
+    git tag --delete "${VERSION}"
+    exit 1
+fi
+
+if [ -n "$SECOND_LINE" ]; then
+    echo "ERROR: Second line of tag message must be empty"
+    git tag --delete "${VERSION}"
+    exit 1
+fi
+
 # NOTE: To get the version number right, these builds must be done after the
 # above tagging.
 GOOS=linux GOARCH=386 ./build.sh
@@ -70,11 +86,19 @@ git push --tags
 # Create GitHub release with the binaries, using the tag annotation as the message
 echo
 echo "Creating GitHub release..."
-gh release create "${VERSION}" \
-  --title "Release ${VERSION}" \
-  --notes-file <(git tag -l --format='%(contents)' "${VERSION}") \
-  releases/ftop-"${VERSION}"-*
+
+TITLE="${VERSION}: ${FIRST_LINE}"
+if [ -n "$DESCRIPTION" ]; then
+  gh release create "${VERSION}" \
+    --title "$TITLE" \
+    --notes "$DESCRIPTION" \
+    releases/ftop-"${VERSION}"-*
+else
+  gh release create "${VERSION}" \
+    --title "$TITLE" \
+    releases/ftop-"${VERSION}"-*
+fi
 
 echo
 echo "Release ${VERSION} created successfully!"
-echo "View it at: https://github.com/$(git remote get-url origin | sed 's/.*github.com[:\/]\(.*\)\.git/\1/')/releases/tag/${VERSION}"
+echo "View it at: https://github.com/walles/ftop/releases/tag/${VERSION}"
