@@ -19,7 +19,7 @@ import (
 
 // Build a binary using build.sh to get a proper version string here. This
 // pre-filled string will be used otherwise.
-var versionString = "<version is set by ./build.sh>"
+var versionString = "<build with ./build.sh to get a version number here>"
 
 type processListUpdated struct{}
 
@@ -195,6 +195,14 @@ func onExit(screen twin.Screen, forcePrintLogs bool) {
 		return
 	}
 
+	fmt.Fprintln(os.Stderr, "Version  :", versionString)
+	fmt.Fprintln(os.Stderr, "GOOS     :", runtime.GOOS)
+	fmt.Fprintln(os.Stderr, "GOARCH   :", runtime.GOARCH)
+	fmt.Fprintln(os.Stderr, "GOVERSION:", runtime.Version())
+	fmt.Fprintln(os.Stderr, "Compiler :", runtime.Compiler)
+	fmt.Fprintln(os.Stderr, "NumCPU   :", runtime.NumCPU())
+
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, log.String(true))
 
 	if log.HasErrors() {
