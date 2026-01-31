@@ -57,6 +57,7 @@ echo
 # Make an annotated tag for this release
 git tag --annotate "${VERSION}"
 
+TAG_MESSAGE=$(git tag -l --format='%(contents)' "${VERSION}")
 FIRST_LINE=$(echo "$TAG_MESSAGE" | sed -n '1p')
 SECOND_LINE=$(echo "$TAG_MESSAGE" | sed -n '2p')
 DESCRIPTION=$(echo "$TAG_MESSAGE" | tail -n +3)
