@@ -55,6 +55,11 @@ git log --first-parent --pretty="format:* %s" "${LAST_VERSION}"..HEAD | sed 's/ 
 echo
 
 # Make an annotated tag for this release
+echo
+echo "Please provide a tag message for version ${VERSION}."
+echo "The first line will be the release title."
+echo "The second line must be empty."
+echo "Subsequent lines will be the release description."
 git tag --annotate "${VERSION}"
 
 TAG_MESSAGE=$(git tag -l --format='%(contents)' "${VERSION}")
@@ -74,12 +79,14 @@ if [ -n "$SECOND_LINE" ]; then
     exit 1
 fi
 
-# NOTE: To get the version number right, these builds must be done after the
-# above tagging.
+# NOTE: To get the version number right, production builds must be done after
+# the above tagging.
 GOOS=linux GOARCH=386 ./build.sh
 GOOS=linux GOARCH=arm ./build.sh
-GOOS=darwin GOARCH=amd64 ./build.sh
-GOOS=darwin GOARCH=arm64 ./build.sh
+
+# Certain macOS specific code is made using CGO
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 ./build.sh
+CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 ./build.sh
 
 # Push the newly built release tag
 git push --tags
