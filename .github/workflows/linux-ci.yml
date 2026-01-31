@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -22,10 +22,11 @@ jobs:
       # commandline below:
       # https://github.com/golangci/golangci-lint/releases/latest
       - name: Install golangci-lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)"/bin v2.1.2
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)"/bin v2.8.0
 
       - run: go build -race ./...
       - run: ./test.sh
 
-      - run: GOARCH=386 go build -race ./...
+      # -race is not supported on i386
+      - run: GOARCH=386 go build ./...
       - run: GOARCH=386 ./test.sh
