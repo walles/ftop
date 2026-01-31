@@ -10,12 +10,9 @@ something unexpected going on.
 `ftop` is an evolution of [`ptop`](https://github.com/walles/ptop). `ftop`
 provides the same helpful information but looks nicer.
 
-# Output
-
-If you're coming from some other `top` variant, here's what to expect from
-`ftop`, with explanations below the screenshot:
-
 ![ftop screenshot](screenshot.png)
+
+Notes:
 
 - CPU usage is shown as red bars, memory usage as blue bars.
 - The Commands column is smart, showing `hello.py` rather than just `python`
@@ -23,10 +20,9 @@ If you're coming from some other `top` variant, here's what to expect from
   runtimes](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go).
 - Note the two sections on the right showing CPU and memory usage per user and
   per command.
-- Note the `IO` section, showing which IO device had the highest average
-  throughput since `ftop` launched.
-- The default sort order is CPUTIME-since-`ftop`-started. This makes the display
-  mostly stable and enables you to sort by CPU usage.
+- Note the `IO` section, showing IO usage per device with high watermarks.
+- The default sort order is CPU-time-since-`ftop`-started. This makes the
+  display mostly stable.
 - Binaries launched while `ftop` is running are listed at the bottom of the
   display.
 - Note the core counts right next to the system load number, for easy
@@ -111,8 +107,8 @@ go run ./cmd/ftop
 
 ## Profiling
 
-1. `go run ./cmd/ftop --profile`
-1. After `ftop` is done, analyze the files like this:
+1. `go run ./cmd/ftop --profile`, this will generate profiling files
+1. After `ftop` is done, analyze the generated profile files like this:
    - `go tool pprof -relative_percentages -web profile-cpu.out`
    - `go tool pprof -relative_percentages -web profile-heap.out`
 
@@ -128,8 +124,6 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Verify all descriptions in this file + screenshots match the actual behaviors
-  of our binaries.
 - Make a release.
 - Consider having our own Homebrew tap
 - Consider new sort orders for showing homebrew runs higher up the list
@@ -187,3 +181,5 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 - Set up CI building + testing on Linux
 - Add CI status badge to the top of this README
 - Document in this README how to make releases
+- Verify all descriptions in this file + screenshots match the actual behaviors
+  of our binaries.
