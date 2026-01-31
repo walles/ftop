@@ -124,7 +124,6 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Retain output after exiting
 - Set up CI building + testing on Linux and at least cross compiling to macOS
 - Add CI status badges to the top of this README
 - Document in this README how to make releases
