@@ -33,7 +33,10 @@ Notes:
 
 ## Installation
 
-This will [install `ftop` into
+Download binaries from <https://github.com/walles/ftop/releases> and put them in
+somewhere in your `$PATH`, `/usr/local/bin/` comes to mind.
+
+Or do this to [install `ftop` into
 `$GOPATH/bin`](https://manpages.debian.org/testing/golang-go/go-install.1.en.html),
 make sure `$GOPATH/bin` is in your `$PATH`:
 
@@ -124,7 +127,9 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Consider new sort orders for showing homebrew runs higher up the list
+- Consider new sort orders for showing homebrew runs higher up the list. Time
+  modes `CPU` (what we already have) vs `Crawl` (wall clock time of each process
+  including children, alive and no-longer alive)?
 - Consider having our own Homebrew tap
 - Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise
