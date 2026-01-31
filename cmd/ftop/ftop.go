@@ -24,20 +24,6 @@ var versionString = "<version is set by ./build.sh>"
 type processListUpdated struct{}
 
 func main() {
-	os.Exit(internalMain())
-}
-
-// Never call os.Exit() from inside of this function because that will cause us
-// not to shut down the screen properly.
-//
-// Returns the program's exit code.
-//
-// Example:
-//
-//	func main() {
-//	    os.Exit(internalMain())
-//	}
-func internalMain() int {
 	argsParser, err := kong.New(&CLI)
 	if err != nil {
 		panic(err)
@@ -62,13 +48,13 @@ func internalMain() int {
 
 	if CLI.Version {
 		fmt.Println(versionString)
-		return 0
+		os.Exit(0)
 	}
 
 	if CLI.Profile {
-		return profilingMainLoop()
+		os.Exit(profilingMainLoop(CLI.Panic))
 	} else {
-		return mainLoop()
+		os.Exit(mainLoop(CLI.Panic))
 	}
 }
 
@@ -80,7 +66,7 @@ func internalMain() int {
 //
 //	go tool pprof -relative_percentages -web profile-cpu.out
 //	go tool pprof -relative_percentages -web profile-heap.out
-func profilingMainLoop() int {
+func profilingMainLoop(pleasePanic bool) int {
 	//
 	// Start CPU profiling
 	//
@@ -95,7 +81,7 @@ func profilingMainLoop() int {
 	//
 	// Do the actual work
 	//
-	result := mainLoop()
+	result := mainLoop(pleasePanic)
 
 	// Write out CPU profile
 	pprof.StopCPUProfile()
@@ -126,7 +112,7 @@ func profilingMainLoop() int {
 	return result
 }
 
-func mainLoop() int {
+func mainLoop(pleasePanic bool) int {
 	screen, err := twin.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
@@ -138,6 +124,10 @@ func mainLoop() int {
 	defer func() {
 		log.PanicHandler("main", recover(), debug.Stack())
 	}()
+
+	if pleasePanic {
+		panic("panic requested by --panic command line option")
+	}
 
 	theme := themes.NewTheme(CLI.Theme.String(), screen.TerminalBackground())
 
