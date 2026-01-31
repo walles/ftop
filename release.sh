@@ -88,15 +88,23 @@ echo
 echo "Creating GitHub release..."
 
 TITLE="${VERSION}: ${FIRST_LINE}"
+
+# shellcheck disable=SC2010  # Globbing can't replace "grep -v"
+BINARIES=$(ls releases/ftop-"${VERSION}"-* | grep -v dirty | grep -v -- -g)
+
 if [ -n "$DESCRIPTION" ]; then
+  # shellcheck disable=SC2086  # We want word splitting here
   gh release create "${VERSION}" \
     --title "$TITLE" \
     --notes "$DESCRIPTION" \
-    releases/ftop-"${VERSION}"-*
+    --fail-on-no-commits \
+    $BINARIES
 else
+  # shellcheck disable=SC2086  # We want word splitting here
   gh release create "${VERSION}" \
     --title "$TITLE" \
-    releases/ftop-"${VERSION}"-*
+    --fail-on-no-commits \
+    $BINARIES
 fi
 
 echo
