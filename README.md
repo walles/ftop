@@ -124,9 +124,8 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Make a release.
-- Consider having our own Homebrew tap
 - Consider new sort orders for showing homebrew runs higher up the list
+- Consider having our own Homebrew tap
 - Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise
 - Accept smaller window sizes
@@ -183,3 +182,4 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 - Document in this README how to make releases
 - Verify all descriptions in this file + screenshots match the actual behaviors
   of our binaries.
+- Make a release.

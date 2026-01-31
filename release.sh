@@ -89,7 +89,7 @@ CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 ./build.sh
 CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 ./build.sh
 
 # Push the newly built release tag
-git push --tags
+git push --no-verify --tags
 
 # Create GitHub release with the binaries, using the tag annotation as the message
 echo
@@ -100,20 +100,12 @@ TITLE="${VERSION}: ${FIRST_LINE}"
 # shellcheck disable=SC2010  # Globbing can't replace "grep -v"
 BINARIES=$(ls releases/ftop-"${VERSION}"-* | grep -v dirty | grep -v -- -g)
 
-if [ -n "$DESCRIPTION" ]; then
-  # shellcheck disable=SC2086  # We want word splitting here
-  gh release create "${VERSION}" \
+# shellcheck disable=SC2086  # We *want* BINARIES to be split here
+gh release create "${VERSION}" \
     --title "$TITLE" \
     --notes "$DESCRIPTION" \
     --fail-on-no-commits \
     $BINARIES
-else
-  # shellcheck disable=SC2086  # We want word splitting here
-  gh release create "${VERSION}" \
-    --title "$TITLE" \
-    --fail-on-no-commits \
-    $BINARIES
-fi
 
 echo
 echo "Release ${VERSION} created successfully!"
