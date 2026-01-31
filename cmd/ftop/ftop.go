@@ -195,6 +195,13 @@ func onExit(screen twin.Screen, forcePrintLogs bool) {
 		return
 	}
 
+	if log.HasErrors() {
+		fmt.Fprintln(os.Stderr, "vvv \033[1mftop crashed\033[0m vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Please post this text at \033[1mhttps://github.com/walles/ftop/issues\033[0m.")
+		fmt.Fprintln(os.Stderr)
+	}
+
 	fmt.Fprintln(os.Stderr, "Version  :", versionString)
 	fmt.Fprintln(os.Stderr, "GOOS     :", runtime.GOOS)
 	fmt.Fprintln(os.Stderr, "GOARCH   :", runtime.GOARCH)
@@ -204,6 +211,13 @@ func onExit(screen twin.Screen, forcePrintLogs bool) {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, log.String(true))
+
+	if log.HasErrors() {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Please post this text at \033[1mhttps://github.com/walles/ftop/issues\033[0m.")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "^^^ \033[1mftop crashed\033[0m ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	}
 
 	if log.HasErrors() {
 		os.Exit(1)

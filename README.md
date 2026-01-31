@@ -124,7 +124,6 @@ FIXME: Update since the Go rewrite
 
 ## TODO
 
-- Implement some crash reporting system, compare with `moor`
 - Be happy enough with --help output, compare with `ptop --help`
 - Retain output after exiting
 - Set up CI building + testing on Linux and at least cross compiling to macOS
@@ -181,3 +180,4 @@ FIXME: Update since the Go rewrite
 - Check any mention of px, ptop or pxtree is intentional
 - Update screenshot(s) ^
 - Link back to the px repo for historical context
+- Implement some crash reporting system, compare with `moor`
