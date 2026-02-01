@@ -14,6 +14,7 @@ type LaunchNode struct {
 	Children    []*LaunchNode
 }
 
+// Keep launch counts tree up to date
 func updateLaunches(root *LaunchNode, previous, current map[int]*Process) *LaunchNode {
 	for _, proc := range current {
 		if samePidBefore, existed := previous[proc.Pid]; existed {
