@@ -8,6 +8,8 @@ import (
 	"runtime/pprof"
 	"strings"
 
+	detectrace "github.com/jbenet/go-detect-race"
+
 	"github.com/alecthomas/kong"
 	"github.com/walles/ftop/internal/ftop"
 	"github.com/walles/ftop/internal/io"
@@ -55,6 +57,11 @@ func main() {
 	}
 
 	if CLI.Profile {
+		if detectrace.WithRace() {
+			fmt.Fprintln(os.Stderr, "ERROR: Profiling is not supported when built with --race")
+			os.Exit(1)
+		}
+
 		os.Exit(profilingMainLoop(CLI.Panic))
 	} else {
 		os.Exit(mainLoop(CLI.Panic))
