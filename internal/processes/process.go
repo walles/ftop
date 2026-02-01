@@ -34,6 +34,13 @@ type Process struct {
 
 	cpuPercent *float64
 	CpuTime    *time.Duration
+
+	// Sum of (1/child age) for add children, dead or alive
+	nativity float64
+
+	// Birth timestamps for all now-dead children, used for nativity calculation
+	// FIXME: Make sure we populate this field!
+	deadChildrenBirthTimes []time.Time
 }
 
 // Match + group: " 7708 1 Mon Mar  7 09:33:11 2016  netbios 0.1 0:00.08  0.0 /usr/sbin/netbiosd hj"
@@ -276,6 +283,8 @@ func GetAll() ([]*Process, error) {
 	// commands view.
 	removeSelfChildren(processes, os.Getpid())
 
+	fillInNativities(processes)
+
 	processList := make([]*Process, 0, len(processes))
 	for _, proc := range processes {
 		processList = append(processList, proc)
@@ -331,6 +340,38 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 	}
 
 	selfProcess.children = []*Process{}
+}
+
+func fillInNativities(processes map[int]*Process) {
+	now := time.Now()
+
+	for _, proc := range processes {
+		nativity := 0.0
+
+		// Living children
+		for _, child := range proc.children {
+			age := now.Sub(child.startTime)
+			if age < 0 {
+				// This should never happen
+				continue
+			}
+
+			nativity += 1.0 / age.Seconds()
+		}
+
+		// Dead children
+		for _, birthTime := range proc.deadChildrenBirthTimes {
+			age := now.Sub(birthTime)
+			if age < 0 {
+				// This should never happen
+				continue
+			}
+
+			nativity += 1.0 / age.Seconds()
+		}
+
+		proc.nativity = nativity
+	}
 }
 
 func (p *Process) CpuPercentString() string {
