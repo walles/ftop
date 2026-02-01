@@ -127,9 +127,12 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Consider new sort orders for showing homebrew runs higher up the list. Time
-  modes `CPU` (what we already have) vs `Crawl` (wall clock time of each process
-  including children, alive and no-longer alive)?
+- Consider new sort orders for showing homebrew runs higher up the list. In
+  addition to the current `CPU` Time mode, maybe a `Nativity` sort? Where
+  nativity would mean "recently spawned a lot of processes"? Actual metric could
+  be "the sum of 1 / age-of-each-child-process". When processes die, the parent
+  should keep track of when they were born so that short lived processes still
+  count.
 - Consider having our own Homebrew tap
 - Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise

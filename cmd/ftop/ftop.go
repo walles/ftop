@@ -112,6 +112,11 @@ func profilingMainLoop(pleasePanic bool) int {
 		panic(err)
 	}
 
+	fmt.Println("Profiles written, analyze them like this:")
+	fmt.Println()
+	fmt.Println("go tool pprof -relative_percentages -web profile-cpu.out")
+	fmt.Println("go tool pprof -relative_percentages -web profile-heap.out")
+
 	return result
 }
 
