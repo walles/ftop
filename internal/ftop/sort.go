@@ -9,6 +9,9 @@ import (
 )
 
 func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
+
+	FIXME: I'm unconvinced nativity sorting works. Or maybe it's the collection? Add a test!
+
 	sorted := make([]T, len(unordered))
 	copy(sorted, unordered)
 
