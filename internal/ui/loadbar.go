@@ -176,23 +176,21 @@ func setTopAndBottomColors(screen twin.Screen, x int, y int, topColor, bottomCol
 		panic("Either top or bottom color or both must be set")
 	}
 
-	currentCell := screen.GetCell(x, y)
-
 	if topColor != nil && bottomColor == nil {
 		// Color only the top half of the cell
-		style := currentCell.Style.WithForeground(*topColor)
+		style := twin.StyleDefault.WithForeground(*topColor)
 		screen.SetCell(x, y, twin.StyledRune{Rune: '▀', Style: style})
 		return
 	}
 
 	if bottomColor != nil && topColor == nil {
 		// Color only the bottom half of the cell
-		style := currentCell.Style.WithForeground(*bottomColor)
+		style := twin.StyleDefault.WithForeground(*bottomColor)
 		screen.SetCell(x, y, twin.StyledRune{Rune: '▄', Style: style})
 		return
 	}
 
 	// Color both top and bottom halves
-	style := currentCell.Style.WithForeground(*topColor).WithBackground(*bottomColor)
+	style := twin.StyleDefault.WithForeground(*topColor).WithBackground(*bottomColor)
 	screen.SetCell(x, y, twin.StyledRune{Rune: '▀', Style: style})
 }

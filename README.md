@@ -27,9 +27,8 @@ Notes:
   display.
 - Note the core counts right next to the system load number, for easy
   comparison.
-- Note the load history graph next to the load numbers. On this system
-  the load has been high for the last 15 minutes. This is a
-  visualization of the numbers you get from `uptime`.
+- Note the load history graph next to the load numbers. This is a visualization
+  of the numbers you get from `uptime`.
 
 ## Installation
 
