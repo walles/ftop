@@ -36,7 +36,7 @@ type Process struct {
 	CpuTime    *time.Duration
 
 	// Sum of (1/child age) for add children, dead or alive
-	nativity float64
+	Nativity float64
 
 	// Birth timestamps for all now-dead children, used for nativity calculation
 	// FIXME: Make sure we populate this field!
@@ -370,7 +370,7 @@ func fillInNativities(processes map[int]*Process) {
 			nativity += 1.0 / age.Seconds()
 		}
 
-		proc.nativity = nativity
+		proc.Nativity = nativity
 	}
 }
 

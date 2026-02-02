@@ -14,6 +14,7 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
+	maxNativity := 0.0
 	for _, u := range unordered {
 		stat := asStats(u)
 		if stat.cpuTime > maxCpuTime {
@@ -21,6 +22,9 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 		}
 		if stat.rssKb > maxRssKb {
 			maxRssKb = stat.rssKb
+		}
+		if stat.nativity > maxNativity {
+			maxNativity = stat.nativity
 		}
 	}
 
@@ -31,48 +35,54 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 	if maxRssKb == 0 {
 		maxRssKb = 1
 	}
+	if maxNativity == 0 {
+		maxNativity = 1
+	}
 
+	scoresI := make([]float64, 3)
+	scoresJ := make([]float64, 3)
 	slices.SortFunc(sorted, func(ui T, uj T) int {
-		si := asStats(ui)
-		sj := asStats(uj)
+		statsI := asStats(ui)
+		statsJ := asStats(uj)
 
-		cpuScoreI := si.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreI := float64(si.rssKb) / float64(maxRssKb)
+		scoresI[0] = float64(statsI.cpuTime) / float64(maxCpuTime)
+		scoresI[1] = float64(statsI.rssKb) / float64(maxRssKb)
+		scoresI[2] = statsI.nativity / maxNativity
 
-		cpuScoreJ := sj.cpuTime.Seconds() / maxCpuTime.Seconds()
-		memScoreJ := float64(sj.rssKb) / float64(maxRssKb)
+		scoresJ[0] = float64(statsJ.cpuTime) / float64(maxCpuTime)
+		scoresJ[1] = float64(statsJ.rssKb) / float64(maxRssKb)
+		scoresJ[2] = statsJ.nativity / maxNativity
 
-		primaryI := max(memScoreI, cpuScoreI)
-		secondaryI := min(memScoreI, cpuScoreI)
+		slices.SortFunc(scoresI, func(si, sj float64) int {
+			// Negate to put highest scores first
+			return -cmp.Compare(si, sj)
+		})
+		slices.SortFunc(scoresJ, func(si, sj float64) int {
+			// Negate to put highest scores first
+			return -cmp.Compare(si, sj)
+		})
 
-		primaryJ := max(memScoreJ, cpuScoreJ)
-		secondaryJ := min(memScoreJ, cpuScoreJ)
-
-		primaryCmp := cmp.Compare(primaryI, primaryJ)
-		if primaryCmp != 0 {
-			return -primaryCmp
-		}
-
-		// If primary scores are equal, prefer the process where CPU is the
-		// dominant contributor (cpuScore >= memScore). This puts the top CPU
-		// process at the top of the list, which I believe is what people
-		// expect. I do for example.
-		isCpuPrimaryI := cpuScoreI >= memScoreI
-		isCpuPrimaryJ := cpuScoreJ >= memScoreJ
-		if isCpuPrimaryI != isCpuPrimaryJ {
-			if isCpuPrimaryI {
-				return -1
+		for k := range 3 {
+			if scoresI[k] != scoresJ[k] {
+				// Negate to put highest scores first
+				return -cmp.Compare(scoresI[k], scoresJ[k])
 			}
-			return 1
-		}
-
-		secondaryCmp := cmp.Compare(secondaryI, secondaryJ)
-		if secondaryCmp != 0 {
-			return -secondaryCmp
 		}
 
 		// Fall back to name comparison for stability when the other scores are equal
-		return cmp.Compare(si.name, sj.name)
+		return cmp.Compare(statsI.name, statsJ.name)
+	})
+
+	// Put the top CPU process at the top of the list. I believe this is what
+	// people expect. I do for example.
+	topThree := sorted
+	if len(sorted) > 3 {
+		topThree = sorted[:3]
+	}
+	slices.SortFunc(topThree, func(ui T, uj T) int {
+		si := asStats(ui)
+		sj := asStats(uj)
+		return -cmp.Compare(si.cpuTime, sj.cpuTime)
 	})
 
 	return sorted
@@ -90,6 +100,7 @@ func aggregate[T any](processes []processes.Process, getGroup func(p processes.P
 			stat.cpuTime += *p.CpuTime
 		}
 		stat.rssKb += p.RssKb
+		stat.nativity += p.Nativity
 
 		statsMap[getGroup(p)] = stat
 	}

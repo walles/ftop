@@ -17,9 +17,10 @@ const minWidth = 50
 const minHeight = 11
 
 type stats struct {
-	name    string
-	cpuTime time.Duration
-	rssKb   int
+	name     string
+	cpuTime  time.Duration
+	nativity float64
+	rssKb    int
 }
 
 type userStats struct {
