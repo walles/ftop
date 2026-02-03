@@ -19,7 +19,7 @@ const minHeight = 11
 type stats struct {
 	name     string
 	cpuTime  time.Duration
-	nativity float64
+	nativity uint
 	rssKb    int
 }
 

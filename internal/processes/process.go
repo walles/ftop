@@ -15,6 +15,9 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
+// How old children count towards a process' nativity?
+const NATIVITY_MAX_AGE = 60 * time.Second
+
 type Process struct {
 	Pid      int
 	ppid     int // The init process can have 0 here, meaning it has no parent
@@ -35,8 +38,8 @@ type Process struct {
 	cpuPercent *float64
 	CpuTime    *time.Duration
 
-	// Sum of (1/child age) for add children, dead or alive
-	Nativity float64
+	// Count of children younger than NATIVITY_MAX_AGE
+	Nativity uint
 
 	// Birth timestamps for all now-dead children, used for nativity calculation
 	// FIXME: Make sure we populate this field!
@@ -350,28 +353,26 @@ func fillInNativities(processes map[int]*Process) {
 	now := time.Now()
 
 	for _, proc := range processes {
-		nativity := 0.0
+		var nativity uint = 0
 
 		// Living children
 		for _, child := range proc.children {
 			age := now.Sub(child.startTime)
-			if age < 0 {
-				// This should never happen
+			if age > NATIVITY_MAX_AGE {
 				continue
 			}
 
-			nativity += 1.0 / age.Seconds()
+			nativity += 1
 		}
 
 		// Dead children
 		for _, birthTime := range proc.deadChildrenBirthTimes {
 			age := now.Sub(birthTime)
-			if age < 0 {
-				// This should never happen
+			if age > NATIVITY_MAX_AGE {
 				continue
 			}
 
-			nativity += 1.0 / age.Seconds()
+			nativity += 1
 		}
 
 		proc.Nativity = nativity

@@ -14,7 +14,7 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
-	maxNativity := 0.0
+	var maxNativity uint = 0
 	for _, u := range unordered {
 		stat := asStats(u)
 		if stat.cpuTime > maxCpuTime {
@@ -47,11 +47,11 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 
 		scoresI[0] = float64(statsI.cpuTime) / float64(maxCpuTime)
 		scoresI[1] = float64(statsI.rssKb) / float64(maxRssKb)
-		scoresI[2] = statsI.nativity / maxNativity
+		scoresI[2] = float64(statsI.nativity) / float64(maxNativity)
 
 		scoresJ[0] = float64(statsJ.cpuTime) / float64(maxCpuTime)
 		scoresJ[1] = float64(statsJ.rssKb) / float64(maxRssKb)
-		scoresJ[2] = statsJ.nativity / maxNativity
+		scoresJ[2] = float64(statsJ.nativity) / float64(maxNativity)
 
 		slices.SortFunc(scoresI, func(si, sj float64) int {
 			// Negate to put highest scores first
@@ -75,6 +75,8 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 
 	// Put the top CPU process at the top of the list. I believe this is what
 	// people expect. I do for example.
+
+	// FIXME: Just move the top CPU process up, don't touch the other ones.
 	topThree := sorted
 	if len(sorted) > 3 {
 		topThree = sorted[:3]
