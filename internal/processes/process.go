@@ -290,8 +290,6 @@ func GetAll() ([]*Process, error) {
 	// commands view.
 	removeSelfChildren(processes, os.Getpid())
 
-	fillInNativities(processes)
-
 	processList := make([]*Process, 0, len(processes))
 	for _, proc := range processes {
 		processList = append(processList, proc)

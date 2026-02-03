@@ -66,11 +66,16 @@ func (tracker *Tracker) update() {
 	}
 
 	if tracker.current != nil {
+		// Preserve dead children from previous frame
+		preserveDeadChildren(tracker.current, procsMap)
+
 		// Update launch counts tree
 		tracker.launches = updateLaunches(tracker.launches, tracker.current, procsMap)
 
 		trackDeaths(tracker.current, procsMap)
 	}
+
+	fillInNativities(procsMap)
 
 	if tracker.baseline == nil {
 		// First iteration
