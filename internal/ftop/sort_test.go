@@ -8,7 +8,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 )
 
-func TestProcessesByScore(t *testing.T) {
+func TestProcessesByScore_memory(t *testing.T) {
 	procs := []processes.Process{
 		{RssKb: 300},
 		{RssKb: 100},
@@ -24,6 +24,38 @@ func TestProcessesByScore(t *testing.T) {
 	assert.Equal(t, sorted[0].RssKb, 300)
 	assert.Equal(t, sorted[1].RssKb, 200)
 	assert.Equal(t, sorted[2].RssKb, 100)
+}
+
+func TestProcessesByScore_mixed(t *testing.T) {
+	procs := []processes.Process{
+		{Nativity: 3.0},
+		{Nativity: 1.0},
+
+		{RssKb: 300},
+		{RssKb: 100},
+
+		{CpuTime: toDurationPointer(300 * time.Second)},
+		{CpuTime: toDurationPointer(100 * time.Second)},
+	}
+
+	sorted := SortByScore(procs, func(p processes.Process) stats {
+		cpuTime := time.Duration(0)
+		if p.CpuTime != nil {
+			cpuTime = *p.CpuTime
+		}
+		return stats{
+			nativity: p.Nativity,
+			rssKb:    p.RssKb,
+			cpuTime:  cpuTime,
+		}
+	})
+
+	// Expect the top CPU process to be on top. Because I believe this is what
+	// top should do.
+	assert.Equal(t, *sorted[0].CpuTime, 300*time.Second)
+
+	// The process with highest nativity should be number two or three
+	assert.Equal(t, sorted[1].Nativity == 3.0 || sorted[2].Nativity == 3.0, true)
 }
 
 // If one process has max mem and the other max CPU, always put the CPU one on
