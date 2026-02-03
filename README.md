@@ -22,7 +22,8 @@ Notes:
   per command.
 - Note the `IO` section, showing IO usage per device with high watermarks.
 - The default sort order is CPU-time-since-`ftop`-started. This makes the
-  display mostly stable.
+  display mostly stable. Other sort keys are memory usage, and number of child
+  processes forked off recently.
 - Binaries launched while `ftop` is running are listed at the bottom of the
   display.
 - Note the core counts right next to the system load number, for easy
