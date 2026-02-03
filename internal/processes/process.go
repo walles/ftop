@@ -15,6 +15,9 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
+// How old children count towards a process' nativity?
+const NATIVITY_MAX_AGE = 60 * time.Second
+
 type Process struct {
 	Pid      int
 	ppid     int // The init process can have 0 here, meaning it has no parent
@@ -34,6 +37,13 @@ type Process struct {
 
 	cpuPercent *float64
 	CpuTime    *time.Duration
+
+	// Count of children younger than NATIVITY_MAX_AGE
+	Nativity uint
+
+	// Birth timestamps for all now-dead children, used for nativity calculation
+	// FIXME: Make sure we populate this field!
+	deadChildrenBirthTimes []time.Time
 }
 
 // Match + group: " 7708 1 Mon Mar  7 09:33:11 2016  netbios 0.1 0:00.08  0.0 /usr/sbin/netbiosd hj"
@@ -52,6 +62,10 @@ var CPU_DURATION_LINUX_DAYS = regexp.MustCompile(`^([0-9]+)-([0-9][0-9]):([0-9][
 
 var uidToUsernameCache = map[int]string{}
 
+// Command name and PID.
+// Example return value:
+//
+//	bash(1234)
 func (p *Process) String() string {
 	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
 }
@@ -331,6 +345,36 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 	}
 
 	selfProcess.children = []*Process{}
+}
+
+func fillInNativities(processes map[int]*Process) {
+	now := time.Now()
+
+	for _, proc := range processes {
+		var nativity uint = 0
+
+		// Living children
+		for _, child := range proc.children {
+			age := now.Sub(child.startTime)
+			if age > NATIVITY_MAX_AGE {
+				continue
+			}
+
+			nativity += 1
+		}
+
+		// Dead children
+		for _, birthTime := range proc.deadChildrenBirthTimes {
+			age := now.Sub(birthTime)
+			if age > NATIVITY_MAX_AGE {
+				continue
+			}
+
+			nativity += 1
+		}
+
+		proc.Nativity = nativity
+	}
 }
 
 func (p *Process) CpuPercentString() string {

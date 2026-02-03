@@ -10,7 +10,7 @@ import (
 
 type Tracker struct {
 	mutex    sync.Mutex
-	baseline map[int]*Process
+	baseline map[int]*Process // Previous iteration, for tracking births and deaths
 	current  map[int]*Process
 	launches *LaunchNode
 
@@ -66,9 +66,16 @@ func (tracker *Tracker) update() {
 	}
 
 	if tracker.current != nil {
+		// Preserve dead children from previous frame
+		preserveDeadChildren(tracker.current, procsMap)
+
 		// Update launch counts tree
 		tracker.launches = updateLaunches(tracker.launches, tracker.current, procsMap)
+
+		trackDeaths(tracker.current, procsMap)
 	}
+
+	fillInNativities(procsMap)
 
 	if tracker.baseline == nil {
 		// First iteration
