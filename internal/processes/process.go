@@ -59,6 +59,10 @@ var CPU_DURATION_LINUX_DAYS = regexp.MustCompile(`^([0-9]+)-([0-9][0-9]):([0-9][
 
 var uidToUsernameCache = map[int]string{}
 
+// Command name and PID.
+// Example return value:
+//
+//	bash(1234)
 func (p *Process) String() string {
 	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
 }

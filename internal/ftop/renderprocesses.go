@@ -2,7 +2,6 @@ package ftop
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
@@ -146,12 +145,12 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	}
 	processesByScore := SortByScore(processesRaw, func(p processes.Process) stats {
 		return stats{
-			// The name in this case is really the third sort key. Since PIDs
-			// are unique, we want to use those for sorting if RAM and CPU time
-			// are equal.
-			name:    strconv.Itoa(p.Pid),
-			cpuTime: p.CpuTimeOrZero(),
-			rssKb:   p.RssKb,
+			// The name in this case is really a fallback sort key for when the
+			// other sort keys are all equal.
+			name:     p.String(),
+			cpuTime:  p.CpuTimeOrZero(),
+			rssKb:    p.RssKb,
+			nativity: p.Nativity,
 		}
 	})
 	for _, p := range processesByScore {
