@@ -44,7 +44,9 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 		}
 	}
 
-	cpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
+	// Pretend the load bar starts at x0, even though it really starts at x0+1.
+	// See the NewOverlappingLoadBars call in renderprocesses.go for details.
+	cpuAndMemBar := ui.NewOverlappingLoadBars(x0, x1-1, cpuRamp, memoryRamp)
 
 	//
 	// Render table contents

@@ -293,7 +293,11 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		}
 	}
 
-	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0+1, x1-1, cpuRamp, memoryRamp)
+	// Pretend the load bar starts at x0, even though it really starts at x0+1.
+	// This way, even the leftmost cell (at x0+1) will get a non-background
+	// color. The effect is especially visible for processes with low PIDs and
+	// short load bars, like the init (PID 1) process.
+	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0, x1-1, cpuRamp, memoryRamp)
 
 	//
 	// Render table contents
