@@ -392,7 +392,9 @@ func parseGuileCommand(cmdline string) *string {
 // Generic script VM helper: handles VMs like node, ruby, bash, etc.
 // Returns nil if we failed to figure out the script name
 func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string {
-	array := cmdlineToSlice(cmdline, exists)
+	// Login shells are also commands, the leading - doesn't help anybody.
+	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
+	array := cmdlineToSlice(strings.TrimPrefix(cmdline, "-"), exists)
 
 	// Filter empties
 	filtered := make([]string, 0, len(array))

@@ -233,7 +233,9 @@ func cmdlineToCommandInternal(cmdline string) string {
 		}))
 	}
 
-	if command == "bash" || command == "sh" || command == "zsh" {
+	// Login shells are also commands, the leading - doesn't help anybody.
+	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
+	if slices.Contains([]string{"fish", "bash", "sh", "zsh"}, strings.TrimPrefix(command, "-")) {
 		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{"-p"}))
 	}
 

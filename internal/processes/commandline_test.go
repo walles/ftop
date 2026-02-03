@@ -308,6 +308,10 @@ func TestGetCommandAws(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand(cmd), "aws s3 sync")
 }
 
+func TestGetCommandLoginShell(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("-fish"), "fish")
+}
+
 func TestGetCommandSudo(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("sudo"), "sudo")
 	assert.Equal(t, cmdlineToCommand("sudo python /usr/bin/hej gris --flaska"), "sudo hej")

@@ -66,7 +66,7 @@ func (tracker *Tracker) update() {
 	}
 
 	if tracker.current != nil {
-		// Preserve dead children from previous frame
+		// Keep track of dead children from previous frame
 		preserveDeadChildren(tracker.current, procsMap)
 
 		// Update launch counts tree
