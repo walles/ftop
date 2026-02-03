@@ -21,7 +21,7 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 
 	x1 := width - 1
 
-	x := 2
+	x := 1
 	y := 1
 	x += drawText(screen, x, y, x1, "Sysload: ", style.WithAttr(twin.AttrBold))
 
@@ -52,9 +52,9 @@ func renderSysload(screen twin.Screen, theme themes.Theme, width int) {
 	// Finally, draw the load bar behind our text
 
 	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
-	loadBar := ui.NewLoadBar(2, width-2, cpuRamp)
+	loadBar := ui.NewLoadBar(1, width-2, cpuRamp)
 
-	for column := 2; column < width-2; column++ {
+	for column := 1; column < width-2; column++ {
 		loadBar.SetCellBackground(screen, column, 1, sysload.LoadAverage1M/float64(sysload.CpuCoresLogical))
 	}
 }

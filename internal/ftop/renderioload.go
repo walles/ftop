@@ -32,7 +32,7 @@ func renderIOLoad(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, wid
 
 	x1 := width - 1
 
-	x := 2
+	x := 1
 	y := 3
 	x += drawText(screen, x, y, x1, "IO Load:      ", style.WithAttr(twin.AttrBold))
 	x += drawText(screen, x, y, x1, "[", style)

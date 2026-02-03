@@ -27,10 +27,10 @@ func renderMemoryUsage(screen twin.Screen, theme themes.Theme, width int) {
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
 
 	runes := []rune(description)
-	for column := 2; column < width-2; column++ {
+	for column := 1; column < width-2; column++ {
 		char := ' '
-		if column-2 < len(runes) {
-			char = runes[column-2]
+		if column-1 < len(runes) {
+			char = runes[column-1]
 		}
 
 		style := twin.StyleDefault.WithForeground(theme.Foreground())
@@ -41,8 +41,8 @@ func renderMemoryUsage(screen twin.Screen, theme themes.Theme, width int) {
 		screen.SetCell(column, 2, twin.StyledRune{Rune: char, Style: style})
 	}
 
-	loadBar := ui.NewLoadBar(2, width-2, memoryRamp)
-	for column := 2; column < width-2; column++ {
+	loadBar := ui.NewLoadBar(1, width-2, memoryRamp)
+	for column := 1; column < width-2; column++ {
 		loadBar.SetCellBackground(screen, column, 2, ramUsePercent/100.0)
 	}
 }
