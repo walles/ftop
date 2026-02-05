@@ -79,6 +79,9 @@ if [ -n "$SECOND_LINE" ]; then
     exit 1
 fi
 
+echo
+echo "Building ${VERSION} release binaries..."
+
 # NOTE: To get the version number right, production builds must be done after
 # the above tagging.
 GOOS=linux GOARCH=386 ./build.sh
@@ -89,6 +92,8 @@ CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 ./build.sh
 CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 ./build.sh
 
 # Push the newly built release tag
+echo
+echo "Pushing ${VERSION} release tag..."
 git push --no-verify --tags
 
 # Create GitHub release with the binaries, using the tag annotation as the message
