@@ -158,12 +158,8 @@ func (olb OverlappingLoadBars) SetCellBackground(screen twin.Screen, x int, y in
 		// Have B but not A
 		style = currentCell.Style.WithBackground(*colorB)
 	} else {
-		// Have both A and B, pick the one with less coverage so it's visible
-		if cellsToColorA < cellsToColorB {
-			style = currentCell.Style.WithBackground(*colorA)
-		} else {
-			style = currentCell.Style.WithBackground(*colorB)
-		}
+		// Have both A and B
+		style = currentCell.Style.WithBackground(colorA.Mix(*colorB, 0.5))
 	}
 
 	screen.SetCell(x, y, twin.StyledRune{Rune: currentCell.Rune, Style: style})
