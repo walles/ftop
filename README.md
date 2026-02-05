@@ -21,11 +21,11 @@ Notes:
 - Note the two sections on the right showing CPU and memory usage per user and
   per command.
 - Note the `IO` section, showing IO usage per device with high watermarks.
-- The default sort order is CPU-time-since-`ftop`-started. This makes the
-  display mostly stable. Other sort keys are memory usage, and number of child
-  processes forked off recently.
-- Binaries launched while `ftop` is running are listed at the bottom of the
-  display.
+- Sort keys are CPU usage, memory usage and the number of recently spawned child
+  processes. CPU usage is defined as CPU-time-since-`ftop`-started, making the
+  display mostly stable.
+- Binaries launched during the current `ftop` run are listed at the bottom of
+  the display.
 - Note the core counts right next to the system load number, for easy
   comparison.
 - Note the load history graph next to the load numbers. This is a visualization
