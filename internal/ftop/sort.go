@@ -9,6 +9,10 @@ import (
 )
 
 func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
+	if len(unordered) < 2 {
+		return unordered
+	}
+
 	sorted := make([]T, len(unordered))
 	copy(sorted, unordered)
 
@@ -73,19 +77,22 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 		return cmp.Compare(statsI.name, statsJ.name)
 	})
 
-	// Put the top CPU process at the top of the list. I believe this is what
-	// people expect. I do for example.
-
-	// FIXME: Just move the top CPU process up, don't touch the other ones.
-	topThree := sorted
-	if len(sorted) > 3 {
-		topThree = sorted[:3]
+	// Find the top CPU user...
+	maxCpuIndex := 0
+	for i, s := range sorted {
+		stat := asStats(s)
+		if stat.cpuTime == maxCpuTime {
+			// Pick the first one we find
+			maxCpuIndex = i
+			break
+		}
 	}
-	slices.SortFunc(topThree, func(ui T, uj T) int {
-		si := asStats(ui)
-		sj := asStats(uj)
-		return -cmp.Compare(si.cpuTime, sj.cpuTime)
-	})
+
+	// ... so we can put it first.  I believe this is what people expect. I do
+	// for example.
+	maxCpuUser := sorted[maxCpuIndex]                    // Find the new first entry
+	copy(sorted[1:maxCpuIndex+1], sorted[0:maxCpuIndex]) // Shift others down
+	sorted[0] = maxCpuUser                               // Put max CPU user first
 
 	return sorted
 }
