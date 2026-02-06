@@ -259,13 +259,16 @@ func cmdlineToCommandInternal(cmdline string) string {
 		return faillog(cmdline, parseGuileCommand(cmdline))
 	}
 
+	if command == "git" {
+		return faillog(cmdline, parseGitCommand(cmdline))
+	}
+
 	if slices.Contains([]string{
 		"apt-get",
 		"apt",
 		"cargo",
 		"docker",
 		"docker-compose",
-		"git",
 		"go",
 		"npm",
 		"pip",

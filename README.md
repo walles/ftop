@@ -129,8 +129,13 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
+- If we have 10 different "claude" processes, dedup them as "claude[5]" in the
+  Command column. The dedup suffixes should be stable within one `ftop` run.
 - Implement process picking with arrow keys, note that in the Output section
   above
+- When a process is picked, show its hierarchy in the launched-binaries pane
+- When a process is picked, show its start timestamp and its age in the
+  launched-binaries pane
 - When process naming fails, it must be possible to access the full command
   line. Consider it might be really long.
 - Implement filtering, note that in the Output section above

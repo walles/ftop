@@ -234,6 +234,9 @@ func TestGetGitCommandline(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("git clone git@github.com:walles/riff"), "git clone")
 	assert.Equal(t, cmdlineToCommand("git --version"), "git")
 	assert.Equal(t, cmdlineToCommand("/usr/local/bin/git"), "git")
+	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false reflog --max-count 50"), "git reflog")
+	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false"), "git")
+	assert.Equal(t, cmdlineToCommand("git -c"), "git")
 }
 
 func TestGetTerraformCommandline(t *testing.T) {

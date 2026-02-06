@@ -453,6 +453,45 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string 
 	return &pretty
 }
 
+func parseGitCommand(cmdline string) *string {
+	// Example: "git", "show", "-p"
+	array := cmdlineToSlice(cmdline, exists)
+
+	if len(array) == 0 {
+		return nil
+	}
+
+	command := filepath.Base(array[0])
+
+	if len(array) == 1 {
+		return &command
+	}
+
+	subCommandIndex := 1
+	for subCommandIndex < len(array) {
+		if array[subCommandIndex] == "-c" {
+			// Skip "-c core.quotepath=false"
+			subCommandIndex += 2
+			continue
+		}
+
+		if strings.HasPrefix(array[subCommandIndex], "-") {
+			// Unknown option, give up
+			return nil
+		}
+
+		// Not a switch this is it!
+		break
+	}
+
+	if subCommandIndex >= len(array) {
+		return &command
+	}
+
+	gitCommand := command + " " + array[subCommandIndex]
+	return &gitCommand
+}
+
 // Returns nil if we failed to figure out the subcommand
 func parseWithSubcommand(cmdline string, ignoreSwitches []string) *string {
 	array := cmdlineToSlice(cmdline, exists)
