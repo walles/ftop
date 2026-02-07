@@ -18,6 +18,9 @@ Notes:
 - The Commands column is smart, showing `hello.py` rather than just `python`
   for `python hello.py`. [Smartness available for many different
   runtimes](https://github.com/walles/ftop/blob/main/internal/processes/commandline_test.go).
+- Multiple processes sharing the same name are disambiguated with `[5]`
+  suffixes. The `[1]` process is the oldest one. Suffixes are stable within one
+  `ftop` run.
 - Note the two sections on the right showing CPU and memory usage per user and
   per command.
 - Note the `IO` section, showing IO usage per device with high watermarks.
@@ -129,8 +132,6 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- If we have 10 different "claude" processes, dedup them as "claude[5]" in the
-  Command column. The dedup suffixes should be stable within one `ftop` run.
 - Implement process picking with arrow keys, note that in the Output section
   above
 - When a process is picked, show its hierarchy in the launched-binaries pane
@@ -138,6 +139,9 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
   launched-binaries pane
 - When process naming fails, it must be possible to access the full command
   line. Consider it might be really long.
+- Test process rendering with process names with:
+  - Wide chars, as in "multiple bytes per char"
+  - Wide chars, as in "takes up multiple screen columns"
 - Implement filtering, note that in the Output section above
 - When hovering a process, replace the two rightmost panes with info about that
   process, note that in the Output section above
@@ -197,3 +201,5 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 - Consider new sort orders for showing homebrew runs higher up the list. A third
   sort parameter is now "number of child processes launched during the last
   minute".
+- If we have 10 different "claude" processes, dedup them as "claude[5]" in the
+  Command column. The dedup suffixes should be stable within one `ftop` run.
