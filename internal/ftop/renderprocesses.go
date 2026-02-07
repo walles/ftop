@@ -254,7 +254,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	return combinedTable, len(usersTable), processesByScore, users, commands
 }
 
-func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
+func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
@@ -284,7 +284,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
-	for _, p := range processes {
+	for _, p := range procs {
 		if p.CpuTime != nil && p.CpuTime.Seconds() > maxCpuSecondsPerProcess {
 			maxCpuSecondsPerProcess = p.CpuTime.Seconds()
 		}
@@ -307,6 +307,11 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		line := fmt.Sprintf(formatString,
 			row[0], row[1], row[2], row[3], row[4], row[5],
 		)
+
+		var process *processes.Process
+		if rowIndex > 0 && rowIndex-1 < len(procs) {
+			process = &procs[rowIndex-1]
+		}
 
 		y := y0 + 1 + rowIndex // screen row
 
@@ -343,9 +348,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				continue
 			}
 
-			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(processes) {
-				process := processes[index]
+			if process != nil {
 				cpuFraction := 0.0
 				if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
 					cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
