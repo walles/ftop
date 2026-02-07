@@ -2,6 +2,7 @@ package processes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 )
@@ -35,6 +36,13 @@ func (d *deduplicator) register(proc *Process) {
 
 	// Check if already registered
 	if _, exists := d.seen[key]; exists {
+		// Known process
+		if !slices.Contains(d.byName[proc.Command], proc) {
+			// But it seems to have changed its name! Processes do that
+			// sometimes, through exec() and other means.
+			d.byName[proc.Command] = append(d.byName[proc.Command], proc)
+		}
+
 		return
 	}
 
