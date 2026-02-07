@@ -276,7 +276,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
 	currentUsername := getCurrentUsername()
 
-	commandColumn0 := x0 + widths[0] + 1             // Screen column
+	commandColumn0 := x0 + 1 + widths[0] + 1         // Screen column. x0 + 1 for left border, then PID column, then a space separator
 	commandColumnN := commandColumn0 + widths[1] - 1 // Screen column
 
 	// +2 = ignore top border and the header line
