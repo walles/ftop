@@ -26,10 +26,20 @@ func TestGetTrailingAbsolutePath(t *testing.T) {
 		"/A/IntelliJ")
 }
 
-func TestCoalesceCount(t *testing.T) {
-	exists := func(path string) bool {
-		return slices.Contains([]string{"/", "/a b c", "/a b c/"}, path)
+func existsFromSlice(list ...string) func(string) *bool {
+	return func(path string) *bool {
+		if slices.Contains(list, path) {
+			res := true
+			return &res
+		}
+
+		// Go on, add more parts and try again
+		return nil
 	}
+}
+
+func TestCoalesceCount(t *testing.T) {
+	exists := existsFromSlice("/", "/a b c", "/a b c/")
 
 	assert.Equal(t, coalesceCount([]string{"/a", "b", "c"}, exists), 3)
 	assert.Equal(t, coalesceCount([]string{"/a", "b", "c/"}, exists), 3)
@@ -54,14 +64,31 @@ func TestCoalesceCount(t *testing.T) {
 	)
 }
 
+func TestIsFileNameTooLong(t *testing.T) {
+	tooLong := strings.Repeat("a", 1234)
+	_, err := os.Stat(tooLong)
+	assert.Equal(t, true, isFileNameTooLong(err))
+}
+
+func TestExists(t *testing.T) {
+	dir := t.TempDir()
+	existingFile := filepath.Join(dir, "existing")
+	err := os.WriteFile(existingFile, []byte(""), 0o644)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, *exists(existingFile), true)
+	assert.Equal(t, exists(filepath.Join(dir, "existi")), nil)
+
+	tooLong := strings.Repeat("a", 1234)
+	assert.Equal(t, *exists(filepath.Join(dir, tooLong)), false)
+}
+
 func TestToSliceSpaced1(t *testing.T) {
-	exists := func(path string) bool {
-		return slices.Contains([]string{
-			"/Applications",
-			"/Applications/IntelliJ IDEA.app",
-			"/Applications/IntelliJ IDEA.app/Contents",
-		}, path)
-	}
+	exists := existsFromSlice(
+		"/Applications",
+		"/Applications/IntelliJ IDEA.app",
+		"/Applications/IntelliJ IDEA.app/Contents",
+	)
 
 	result := cmdlineToSlice(
 		"java -Dhello=/Applications/IntelliJ IDEA.app/Contents",
@@ -75,15 +102,13 @@ func TestToSliceSpaced1(t *testing.T) {
 }
 
 func TestToSliceSpaced2(t *testing.T) {
-	exists := func(path string) bool {
-		return slices.Contains([]string{
-			"/Applications",
-			"/Applications/IntelliJ IDEA.app/Contents/Info.plist",
-			"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-model/lib/maven-model.jar",
-			"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-server/lib/maven-server.jar",
-			"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3-server-common.jar",
-		}, path)
-	}
+	exists := existsFromSlice(
+		"/Applications",
+		"/Applications/IntelliJ IDEA.app/Contents/Info.plist",
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-model/lib/maven-model.jar",
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-server/lib/maven-server.jar",
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3-server-common.jar",
+	)
 
 	result := cmdlineToSlice(strings.Join([]string{
 		"java",
@@ -106,15 +131,13 @@ func TestToSliceSpaced2(t *testing.T) {
 }
 
 func TestToSliceSpaced3(t *testing.T) {
-	exists := func(path string) bool {
-		return slices.Contains([]string{
-			"/Applications",
-			"/Applications/IntelliJ IDEA CE.app/Contents/Info.plist",
-			"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-model/lib/maven-model.jar",
-			"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-server/lib/maven-server.jar",
-			"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven/lib/maven3-server-common.jar",
-		}, path)
-	}
+	exists := existsFromSlice(
+		"/Applications",
+		"/Applications/IntelliJ IDEA CE.app/Contents/Info.plist",
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-model/lib/maven-model.jar",
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-server/lib/maven-server.jar",
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven/lib/maven3-server-common.jar",
+	)
 
 	result := cmdlineToSlice(strings.Join([]string{
 		"java",
@@ -165,9 +188,7 @@ func TestToSliceMsEdge(t *testing.T) {
 		}
 	}
 
-	exists := func(path string) bool {
-		return slices.Contains(existsList, path)
-	}
+	exists := existsFromSlice(existsList...)
 
 	result := cmdlineToSlice(complete+" --type=gpu-process", exists)
 
