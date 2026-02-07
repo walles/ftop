@@ -256,12 +256,23 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 
 // Will provide cells covering at least width screen columns
 func renderCommand(command string, deduplicationSuffix string, width int, textColor twin.Color) []twin.StyledRune {
-	commandWithSuffix := command + deduplicationSuffix
 	result := make([]twin.StyledRune, 0, width)
 	resultWidth := 0 // In screen columns
 
-	for _, char := range commandWithSuffix {
+	// Draw the command
+	for _, char := range command {
 		styledRune := twin.StyledRune{Rune: char, Style: twin.StyleDefault.WithForeground(textColor)}
+		result = append(result, styledRune)
+		resultWidth += styledRune.Width()
+	}
+
+	// Draw the deduplication suffix (faint)
+	for _, char := range deduplicationSuffix {
+		styledRune := twin.StyledRune{
+			Rune:  char,
+			Style: twin.StyleDefault.WithForeground(textColor).WithAttr(twin.AttrDim),
+		}
+
 		result = append(result, styledRune)
 		resultWidth += styledRune.Width()
 	}
