@@ -61,9 +61,9 @@ func (tracker *Tracker) update() {
 	longestCommandLength := 0
 	longestCommand := ""
 	for _, p := range procs {
-		if len(p.Command) > longestCommandLength {
-			longestCommandLength = len(p.Command)
-			longestCommand = p.Command
+		if len(p.DeduplicatedCommand) > longestCommandLength {
+			longestCommandLength = len(p.DeduplicatedCommand)
+			longestCommand = p.DeduplicatedCommand
 		}
 	}
 
