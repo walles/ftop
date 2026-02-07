@@ -160,7 +160,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 
 		row := []string{
 			fmt.Sprintf("%d", p.Pid),
-			p.DeduplicatedCommand,
+			p.Command + p.DeduplicationSuffix,
 			p.Username,
 			p.CpuPercentString(),
 			p.CpuTimeString(),

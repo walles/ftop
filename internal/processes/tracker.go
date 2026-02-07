@@ -52,18 +52,18 @@ func (tracker *Tracker) update() {
 	}
 	for _, proc := range procs {
 		disambiguator := tracker.deduplicator.disambiguator(proc)
-		proc.DeduplicatedCommand = proc.Command
+		proc.DeduplicationSuffix = ""
 		if disambiguator != "" {
-			proc.DeduplicatedCommand += "[" + disambiguator + "]"
+			proc.DeduplicationSuffix = "[" + disambiguator + "]"
 		}
 	}
 
 	longestCommandLength := 0
 	longestCommand := ""
 	for _, p := range procs {
-		if len(p.DeduplicatedCommand) > longestCommandLength {
-			longestCommandLength = len(p.DeduplicatedCommand)
-			longestCommand = p.DeduplicatedCommand
+		if len(p.Command)+len(p.DeduplicationSuffix) > longestCommandLength {
+			longestCommandLength = len(p.Command) + len(p.DeduplicationSuffix)
+			longestCommand = p.Command + p.DeduplicationSuffix
 		}
 	}
 
