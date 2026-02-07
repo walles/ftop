@@ -160,7 +160,7 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 
 		row := []string{
 			fmt.Sprintf("%d", p.Pid),
-			p.Command,
+			p.Command + p.DeduplicationSuffix,
 			p.Username,
 			p.CpuPercentString(),
 			p.CpuTimeString(),
@@ -254,7 +254,38 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	return combinedTable, len(usersTable), processesByScore, users, commands
 }
 
-func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, processes []processes.Process) {
+// Will provide cells covering at least width screen columns
+func renderCommand(command string, deduplicationSuffix string, width int, textColor twin.Color) []twin.StyledRune {
+	result := make([]twin.StyledRune, 0, width)
+	resultWidth := 0 // In screen columns
+
+	// Draw the command
+	for _, char := range command {
+		styledRune := twin.StyledRune{Rune: char, Style: twin.StyleDefault.WithForeground(textColor)}
+		result = append(result, styledRune)
+		resultWidth += styledRune.Width()
+	}
+
+	// Draw the deduplication suffix (faint)
+	for _, char := range deduplicationSuffix {
+		styledRune := twin.StyledRune{
+			Rune:  char,
+			Style: twin.StyleDefault.WithForeground(textColor).WithAttr(twin.AttrDim),
+		}
+
+		result = append(result, styledRune)
+		resultWidth += styledRune.Width()
+	}
+
+	for resultWidth < width {
+		result = append(result, twin.StyledRune{Rune: ' ', Style: twin.StyleDefault.WithForeground(textColor)})
+		resultWidth++
+	}
+
+	return result
+}
+
+func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
@@ -276,7 +307,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
 	currentUsername := getCurrentUsername()
 
-	commandColumn0 := x0 + widths[0] + 1             // Screen column
+	commandColumn0 := x0 + 1 + widths[0] + 1         // Screen column. x0 + 1 for left border, then PID column, then a space separator
 	commandColumnN := commandColumn0 + widths[1] - 1 // Screen column
 
 	// +2 = ignore top border and the header line
@@ -284,7 +315,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
-	for _, p := range processes {
+	for _, p := range procs {
 		if p.CpuTime != nil && p.CpuTime.Seconds() > maxCpuSecondsPerProcess {
 			maxCpuSecondsPerProcess = p.CpuTime.Seconds()
 		}
@@ -308,7 +339,17 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 			row[0], row[1], row[2], row[3], row[4], row[5],
 		)
 
+		var process *processes.Process
+		if rowIndex > 0 && rowIndex-1 < len(procs) {
+			process = &procs[rowIndex-1]
+		}
+
 		y := y0 + 1 + rowIndex // screen row
+
+		var commandCells []twin.StyledRune
+		if process != nil {
+			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+		}
 
 		var rowStyle twin.Style
 		if rowIndex == 0 {
@@ -321,31 +362,32 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 		x := x0 + 1 // screen column
 		for _, char := range line {
-			style := rowStyle
-			if rowIndex > 0 && x >= commandColumn0 && x <= commandColumnN {
-				style = style.WithForeground(userRamp.AtInt(y))
-			}
+			char := twin.StyledRune{Rune: char, Style: rowStyle}
 
-			if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
+			if rowIndex > 0 && x >= commandColumn0 && x <= commandColumnN {
+				// Command column
+
+				// FIXME: Given some cells are multiple screen columns wide, will this work?
+				char = commandCells[x-commandColumn0]
+			} else if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
+				// User column
 				username := row[2]
 				if username == "root" && currentUsername != "root" {
-					style = style.WithAttr(twin.AttrDim)
+					char.Style = char.Style.WithAttr(twin.AttrDim)
 				} else if username != currentUsername {
-					style = style.WithAttr(twin.AttrBold)
+					char.Style = char.Style.WithAttr(twin.AttrBold)
 				}
 			}
 
-			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
+			screen.SetCell(x, y, char)
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
-				x++
+				x += char.Width()
 				continue
 			}
 
-			index := rowIndex - 1 // Because rowIndex 0 is the header
-			if index < len(processes) {
-				process := processes[index]
+			if process != nil {
 				cpuFraction := 0.0
 				if process.CpuTime != nil && maxCpuSecondsPerProcess > 0.0 {
 					cpuFraction = process.CpuTime.Seconds() / maxCpuSecondsPerProcess
@@ -357,7 +399,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 			}
 
-			x++
+			x += char.Width()
 		}
 	}
 
