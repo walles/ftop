@@ -121,3 +121,51 @@ func TestCommandNameChangeWithMultipleProcesses(t *testing.T) {
 		t.Errorf("Expected disambiguator '2' for single remaining git process after other changed, got %q", result2)
 	}
 }
+
+func TestPointerComparison(t *testing.T) {
+	d := deduplicator{}
+
+	startTime := time.Date(2026, 2, 7, 18, 56, 40, 0, time.UTC)
+
+	// First polling iteration: Register Firefox process
+	firefox1 := &Process{
+		Pid:       12345,
+		startTime: startTime,
+		Command:   "Firefox",
+	}
+	d.register(firefox1)
+
+	// Firefox is the only one, so no disambiguator needed
+	result := d.disambiguator(firefox1)
+	if result != "" {
+		t.Errorf("Expected empty disambiguator for single Firefox, got %q", result)
+	}
+
+	// Second polling iteration: GetAll() creates a NEW Process object for the same Firefox
+	// Same PID, same start time, same command, but DIFFERENT POINTER
+	firefox2 := &Process{
+		Pid:       12345,
+		startTime: startTime,
+		Command:   "Firefox",
+	}
+	d.register(firefox2)
+
+	// This should still return "" because it's the same process
+	result = d.disambiguator(firefox2)
+	if result != "" {
+		t.Errorf("Expected empty disambiguator for same Firefox process (different pointer), got %q", result)
+	}
+
+	// Third iteration: Another new pointer for the same process
+	firefox3 := &Process{
+		Pid:       12345,
+		startTime: startTime,
+		Command:   "Firefox",
+	}
+	d.register(firefox3)
+
+	result = d.disambiguator(firefox3)
+	if result != "" {
+		t.Errorf("Expected empty disambiguator for same Firefox process (third pointer), got %q", result)
+	}
+}
