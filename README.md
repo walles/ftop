@@ -134,24 +134,21 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 - Implement process picking with arrow keys, note that in the Output section
   above
-- When a process is picked, show its hierarchy in the launched-binaries pane
-- When a process is picked, show its start timestamp and its age in the
+- When hovering a process, show its hierarchy in the launched-binaries pane
+- When hovering a process, show its start timestamp and its age in the
   launched-binaries pane
+- When hovering a process, show its nativity somewhere
 - When process naming fails, it must be possible to access the full command
-  line. Consider it might be really long.
+  line for error reporting. Consider it might be really long.
+- Implement filtering, note that in the Output section above
+- Implement killing the hovered process
+- When hovering a process, replace the two rightmost panes with info about that
+  process, note that in the Output section above
 - Test process rendering with process names with:
   - Wide chars, as in "multiple bytes per char"
   - Wide chars, as in "takes up multiple screen columns"
-- Implement filtering, note that in the Output section above
-- When hovering a process, replace the two rightmost panes with info about that
-  process, note that in the Output section above
 - Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
   `px`?
-- Implement different timings, note that in the Output section above:
-  - Used CPU time (what we have now)
-  - Used wall clock time including subprocesses. This would be for getting
-    `brew` to the top of the list when it's spawning a lot of `curl`s which
-    don't use much CPU.
 - Verify we have all Use Cases ^ covered
 - Consider having our own Homebrew tap
 - Consider how to handle macOS in CI
