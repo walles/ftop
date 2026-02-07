@@ -16,12 +16,15 @@ type Tracker struct {
 
 	longestCommandLength int
 
+	deduplicator deduplicator
+
 	OnUpdate chan struct{} // Call GetProcesses() to get the updated list
 }
 
 func NewTracker() *Tracker {
 	tracker := &Tracker{}
 	tracker.OnUpdate = make(chan struct{}, 1)
+	tracker.deduplicator = deduplicator{}
 
 	// Periodically update the process list
 	go func() {
@@ -42,6 +45,17 @@ func (tracker *Tracker) update() {
 	if err != nil {
 		log.Errorf("%v", err)
 		return
+	}
+
+	for _, proc := range procs {
+		tracker.deduplicator.register(proc)
+	}
+	for _, proc := range procs {
+		disambiguator := tracker.deduplicator.disambiguator(proc)
+		proc.DeduplicatedCommand = proc.Command
+		if disambiguator != "" {
+			proc.DeduplicatedCommand += "[" + disambiguator + "]"
+		}
 	}
 
 	longestCommandLength := 0

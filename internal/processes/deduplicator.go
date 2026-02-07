@@ -9,7 +9,7 @@ import (
 // Keeps track of all known processes, alive or now dead, and their names.
 //
 // If multiple process share the same name, the deduplicator can suggest a
-// suffix to disambiguate them.
+// disambiguator string to disambiguate them.
 type deduplicator struct {
 	// Map from unique process identifier (PID-startTime) to process
 	seen map[string]*Process
@@ -46,10 +46,10 @@ func (d *deduplicator) register(proc *Process) {
 // Suggest a disambiguating string for this process. Example return values could be:
 // - "" (the empty string) if there is only one of these
 // - "1" if there are multiple ones with this name, and this is the oldest one
-func (d *deduplicator) suffix(proc *Process) string {
+func (d *deduplicator) disambiguator(proc *Process) string {
 	processes := d.byName[proc.Command]
 
-	// If only one process with this name, no suffix needed
+	// If only one process with this name, no disambiguation needed
 	if len(processes) <= 1 {
 		return ""
 	}

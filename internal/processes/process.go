@@ -24,9 +24,10 @@ type Process struct {
 	children []*Process
 	parent   *Process
 
-	cmdline          string // "git clone git@github.com:walles/ftop.git"
-	Command          string // "git"
-	lowercaseCommand string // "git"
+	cmdline             string // "git clone git@github.com:walles/ftop.git"
+	Command             string // "git"
+	DeduplicatedCommand string // "git[2]", for disambiguating multiple processes with the same Command
+	lowercaseCommand    string // "git"
 
 	startTime time.Time
 
