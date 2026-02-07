@@ -254,6 +254,26 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 	return combinedTable, len(usersTable), processesByScore, users, commands
 }
 
+// Will provide cells covering at least width screen columns
+func renderCommand(command string, deduplicationSuffix string, width int, textColor twin.Color) []twin.StyledRune {
+	commandWithSuffix := command + deduplicationSuffix
+	result := make([]twin.StyledRune, 0, width)
+	resultWidth := 0 // In screen columns
+
+	for _, char := range commandWithSuffix {
+		styledRune := twin.StyledRune{Rune: char, Style: twin.StyleDefault.WithForeground(textColor)}
+		result = append(result, styledRune)
+		resultWidth += styledRune.Width()
+	}
+
+	for resultWidth < width {
+		result = append(result, twin.StyledRune{Rune: ' ', Style: twin.StyleDefault.WithForeground(textColor)})
+		resultWidth++
+	}
+
+	return result
+}
+
 func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
@@ -315,6 +335,11 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 		y := y0 + 1 + rowIndex // screen row
 
+		var commandCells []twin.StyledRune
+		if process != nil {
+			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+		}
+
 		var rowStyle twin.Style
 		if rowIndex == 0 {
 			// Header row, header style
@@ -326,25 +351,28 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 		x := x0 + 1 // screen column
 		for _, char := range line {
-			style := rowStyle
-			if rowIndex > 0 && x >= commandColumn0 && x <= commandColumnN {
-				style = style.WithForeground(userRamp.AtInt(y))
-			}
+			char := twin.StyledRune{Rune: char, Style: rowStyle}
 
-			if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
+			if rowIndex > 0 && x >= commandColumn0 && x <= commandColumnN {
+				// Command column
+
+				// FIXME: Given some cells are multiple screen columns wide, will this work?
+				char = commandCells[x-commandColumn0]
+			} else if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
+				// User column
 				username := row[2]
 				if username == "root" && currentUsername != "root" {
-					style = style.WithAttr(twin.AttrDim)
+					char.Style = char.Style.WithAttr(twin.AttrDim)
 				} else if username != currentUsername {
-					style = style.WithAttr(twin.AttrBold)
+					char.Style = char.Style.WithAttr(twin.AttrBold)
 				}
 			}
 
-			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
+			screen.SetCell(x, y, char)
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
-				x++
+				x += char.Width()
 				continue
 			}
 
@@ -360,7 +388,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
 			}
 
-			x++
+			x += char.Width()
 		}
 	}
 
