@@ -3,6 +3,7 @@ package processes
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/walles/ftop/internal/log"
@@ -389,9 +390,14 @@ func parseGuileCommand(cmdline string) *string {
 	return &base
 }
 
-// Generic script VM helper: handles VMs like node, ruby, bash, etc.
-// Returns nil if we failed to figure out the script name
-func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string {
+// Generic script VM helper: handles VMs like node, ruby, bash, etc. Returns nil
+// if we failed to figure out the script name
+//
+// ignoreSwitches: switches to ignore that do not take an argument
+//
+// ignoreSwitchesWithArg: switches to ignore that take an argument. "-I" in this
+// list will both "-I" and whatever the next argument is.
+func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSwitchesWithArg []string) *string {
 	// Login shells are also commands, the leading - doesn't help anybody.
 	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
 	array := cmdlineToSlice(strings.TrimPrefix(cmdline, "-"), exists)
@@ -414,15 +420,28 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string) *string 
 		ignore[s] = true
 	}
 	for len(filtered) > 1 {
-		key := filtered[1]
-		if eq := strings.Index(key, "="); eq != -1 {
-			key = key[:eq]
+		candidate := filtered[1]
+		if eq := strings.Index(candidate, "="); eq != -1 {
+			candidate = candidate[:eq]
 		}
-		if !ignore[key] {
-			break
+		if ignore[candidate] {
+			// Drop the ignored switch
+			filtered = append(filtered[:1], filtered[2:]...)
+			continue
 		}
-		// Drop the ignored switch
-		filtered = append(filtered[:1], filtered[2:]...)
+
+		// filtered[0] is the command, so to remove filtered[1] (switch) and
+		// filtered[2] (switch arg), filtered must have at least 3 elements.
+		// Also, make sure filtered[2] is not another switch, that likely means
+		// we are lost.
+		if slices.Contains(ignoreSwitchesWithArg, candidate) && len(filtered) >= 3 && !strings.HasPrefix(filtered[2], "-") {
+			// Drop the ignored switch and its argument
+			filtered = append(filtered[:1], filtered[3:]...)
+			continue
+		}
+
+		// Switches removed to the best of our ability
+		break
 	}
 
 	vm := filepath.Base(filtered[0])

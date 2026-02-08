@@ -396,6 +396,18 @@ func TestGetCommandRubySwitches(t *testing.T) {
 		cmdlineToCommand("/usr/bin/ruby -Eascii-8bit:ascii-8bit /usr/sbin/google-fluentd"),
 		"google-fluentd",
 	)
+
+	// -I switch and its argument should be ignored...
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -I /some/include /usr/local/bin/brew.rb update"),
+		"brew.rb update",
+	)
+
+	// ... but if no includes follow, give up
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -I"),
+		"ruby",
+	)
 }
 
 func TestGetCommandPerl(t *testing.T) {

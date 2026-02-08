@@ -251,13 +251,15 @@ func cmdlineToCommandInternal(cmdline string) string {
 			"-W1",
 			"-W2",
 			"--",
+		}, []string{
+			"-I",
 		}))
 	}
 
 	// Login shells are also commands, the leading - doesn't help anybody.
 	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
 	if slices.Contains([]string{"fish", "bash", "sh", "zsh"}, strings.TrimPrefix(command, "-")) {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{"-p"}))
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{"-p"}, nil))
 	}
 
 	if command == "node" {
@@ -265,7 +267,7 @@ func cmdlineToCommandInternal(cmdline string) string {
 			"--max_old_space_size",
 			"--no-warnings",
 			"--enable-source-maps",
-		}))
+		}, nil))
 	}
 
 	if command == "dotnet" {
@@ -304,7 +306,7 @@ func cmdlineToCommandInternal(cmdline string) string {
 	}
 
 	if PERL_BIN.MatchString(command) {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil))
+		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil, nil))
 	}
 
 	// macOS app / framework prefixing and human-friendly shortening

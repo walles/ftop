@@ -132,6 +132,7 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
+- Implement filtering, note that in the Output section above
 - Implement process picking with arrow keys, note that in the Output section
   above
 - When hovering a process, show its hierarchy in the launched-binaries pane
@@ -140,7 +141,6 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 - When hovering a process, show its nativity somewhere
 - When process naming fails, it must be possible to access the full command
   line for error reporting. Consider it might be really long.
-- Implement filtering, note that in the Output section above
 - Implement killing the hovered process
 - When hovering a process, replace the two rightmost panes with info about that
   process, note that in the Output section above
