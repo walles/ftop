@@ -419,8 +419,17 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSw
 	for _, s := range ignoreSwitches {
 		ignore[s] = true
 	}
+	haveDashDash := false
 	for len(filtered) > 1 {
 		candidate := filtered[1]
+		if candidate == "--" {
+			// "--" means "stop processing switches", so remove -- and don't
+			// ignore anything else
+			haveDashDash = true
+			filtered = append(filtered[:1], filtered[2:]...)
+			break
+		}
+
 		if eq := strings.Index(candidate, "="); eq != -1 {
 			candidate = candidate[:eq]
 		}
@@ -449,7 +458,7 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSw
 		return &vm
 	}
 
-	if strings.HasPrefix(filtered[1], "-") {
+	if strings.HasPrefix(filtered[1], "-") && !haveDashDash {
 		// Unknown option, help!
 		return nil
 	}
@@ -463,12 +472,12 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSw
 		return &script
 	}
 
-	sub := filtered[2]
-	if strings.HasPrefix(sub, "-") {
+	subcommand := filtered[2]
+	if strings.HasPrefix(subcommand, "-") {
 		return &script
 	}
 
-	pretty := script + " " + sub
+	pretty := script + " " + subcommand
 	return &pretty
 }
 

@@ -390,6 +390,10 @@ func TestGetCommandRubySwitches(t *testing.T) {
 		cmdlineToCommand("/usr/bin/ruby -W1 -- /apa/build.rb /bepa/cmake.rb"),
 		"build.rb",
 	)
+	assert.Equal(t,
+		cmdlineToCommand("/usr/bin/ruby -W1 -- -hello.rb /bepa/cmake.rb"),
+		"-hello.rb",
+	)
 
 	// Encoding switch should be ignored
 	assert.Equal(t,
