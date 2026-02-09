@@ -1,4 +1,4 @@
-package ftop
+package util
 
 import (
 	"os/user"
@@ -7,7 +7,7 @@ import (
 )
 
 // Or the empty string if lookup fails
-func getCurrentUsername() string {
+func GetCurrentUsername() string {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Infof("Failed to look up current user: %v", err)

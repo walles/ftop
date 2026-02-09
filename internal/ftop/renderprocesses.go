@@ -6,6 +6,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -305,7 +306,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
-	currentUsername := getCurrentUsername()
+	currentUsername := util.GetCurrentUsername()
 
 	commandColumn0 := x0 + 1 + widths[0] + 1         // Screen column. x0 + 1 for left border, then PID column, then a space separator
 	commandColumnN := commandColumn0 + widths[1] - 1 // Screen column

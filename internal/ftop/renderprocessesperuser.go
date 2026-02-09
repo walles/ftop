@@ -5,6 +5,7 @@ import (
 
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -27,7 +28,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 	usernameColumn0 := x0 + 1                          // Screen column
 	usernameColumnN := usernameColumn0 + widths[0] - 1 // Screen column
-	currentUsername := getCurrentUsername()
+	currentUsername := util.GetCurrentUsername()
 
 	// If y0 = 0 and y1 = 1, then there would be 0 content rows between the
 	// borders
