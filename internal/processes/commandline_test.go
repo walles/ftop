@@ -378,6 +378,11 @@ func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter"), "sudo runme")
 }
 
+// Ref: https://github.com/walles/ftop/issues/5
+func TestIgnoreShellCdAndAnd(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("/bin/sh -c cd ~/src/moor && moor twin/screen.go"), "moor")
+}
+
 func TestGetCommandRubySwitches(t *testing.T) {
 	// ruby with warning level switch and brew.rb subcommand
 	assert.Equal(t,

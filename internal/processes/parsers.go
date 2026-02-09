@@ -10,27 +10,29 @@ import (
 )
 
 // Returns nil if we failed to figure out the actual command being run
-func parseSudoCommand(cmdline string) *string {
-	withoutSudo, found := strings.CutPrefix(cmdline, "sudo ")
-	if !found {
+func parseSudoCommand(argv []string) *string {
+	if filepath.Base(argv[0]) != "sudo" {
 		return nil
 	}
+	if len(argv) < 2 {
+		result := "sudo"
+		return &result
+	}
 
-	if strings.HasPrefix(withoutSudo, "-") {
+	withoutSudo := argv[1:]
+	if strings.HasPrefix(withoutSudo[0], "-") {
 		// Give up on options
 		return nil
 	}
 
-	pretty := "sudo " + cmdlineToCommand(withoutSudo)
+	pretty := "sudo " + argvToCommand(withoutSudo)
 	return &pretty
 }
 
 // Returns nil if we failed to figure out the script name
-func parseDotnetCommand(cmdline string) *string {
-	parts := cmdlineToSlice(cmdline, exists)
-
-	filtered := make([]string, 0, len(parts))
-	for _, p := range parts {
+func parseDotnetCommand(argv []string) *string {
+	filtered := make([]string, 0, len(argv))
+	for _, p := range argv {
 		if p != "" {
 			filtered = append(filtered, p)
 		}
@@ -61,12 +63,10 @@ func parseDotnetCommand(cmdline string) *string {
 }
 
 // Returns nil if we failed to figure out the script name
-func parsePythonCommand(cmdline string) *string {
-	array := cmdlineToSlice(cmdline, exists)
-
+func parsePythonCommand(argv []string) *string {
 	// Filter empties
-	filtered := make([]string, 0, len(array))
-	for _, p := range array {
+	filtered := make([]string, 0, len(argv))
+	for _, p := range argv {
 		if p != "" {
 			filtered = append(filtered, p)
 		}
@@ -113,9 +113,9 @@ func parsePythonCommand(cmdline string) *string {
 }
 
 // Extract "aws command subcommand" from a command line starting with "aws"
-func parseAwsCommand(args []string) *string {
+func parseAwsCommand(argv []string) *string {
 	result := []string{"aws"}
-	for _, arg := range args[1:] {
+	for _, arg := range argv[1:] {
 		if strings.HasPrefix(arg, "--profile=") {
 			continue
 		}
@@ -165,15 +165,14 @@ func prettifyFullyQualifiedJavaClass(className string) *string {
 }
 
 // Returns nil if we failed to figure out a good Java name
-func parseJavaCommand(cmdline string) *string {
-	array := cmdlineToSlice(cmdline, exists)
-	java := filepath.Base(array[0])
-	if len(array) == 1 {
+func parseJavaCommand(argv []string) *string {
+	java := filepath.Base(argv[0])
+	if len(argv) == 1 {
 		return &java
 	}
 
 	state := "skip next"
-	for _, component0 := range array {
+	for _, component0 := range argv {
 		component := component0
 		if component == "" {
 			continue
@@ -280,7 +279,7 @@ func parseJavaCommand(cmdline string) *string {
 			return prettifyFullyQualifiedJavaClass(component)
 		}
 
-		log.Infof("The Java command line parser should never get here: <%s>", cmdline)
+		log.Infof("The Java command line parser should never get here: <%s>", argv)
 		return nil
 	}
 
@@ -288,14 +287,13 @@ func parseJavaCommand(cmdline string) *string {
 }
 
 // Returns nil if we failed to figure out the script name
-func parseDartCommand(cmdline string) *string {
-	array := cmdlineToSlice(cmdline, exists)
-	dart := filepath.Base(array[0])
-	if len(array) == 1 {
+func parseDartCommand(argv []string) *string {
+	dart := filepath.Base(argv[0])
+	if len(argv) == 1 {
 		return &dart
 	}
 
-	for _, candidate := range array[1:] {
+	for _, candidate := range argv[1:] {
 		if strings.HasPrefix(candidate, "-") {
 			continue
 		}
@@ -321,11 +319,10 @@ func parseDartCommand(cmdline string) *string {
 }
 
 // Returns nil if we failed to figure out the script name
-func parseGuileCommand(cmdline string) *string {
-	array := cmdlineToSlice(cmdline, exists)
+func parseGuileCommand(argv []string) *string {
 	// Remove empties
-	filtered := make([]string, 0, len(array))
-	for _, s := range array {
+	filtered := make([]string, 0, len(argv))
+	for _, s := range argv {
 		if s != "" {
 			filtered = append(filtered, s)
 		}
@@ -397,14 +394,14 @@ func parseGuileCommand(cmdline string) *string {
 //
 // ignoreSwitchesWithArg: switches to ignore that take an argument. "-I" in this
 // list will both "-I" and whatever the next argument is.
-func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSwitchesWithArg []string) *string {
+func parseGenericScriptCommand(argv []string, ignoreSwitches []string, ignoreSwitchesWithArg []string) *string {
 	// Login shells are also commands, the leading - doesn't help anybody.
 	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
-	array := cmdlineToSlice(strings.TrimPrefix(cmdline, "-"), exists)
+	argv[0] = strings.TrimPrefix(argv[0], "-")
 
 	// Filter empties
-	filtered := make([]string, 0, len(array))
-	for _, p := range array {
+	filtered := make([]string, 0, len(argv))
+	for _, p := range argv {
 		if p != "" {
 			filtered = append(filtered, p)
 		}
@@ -481,29 +478,27 @@ func parseGenericScriptCommand(cmdline string, ignoreSwitches []string, ignoreSw
 	return &pretty
 }
 
-func parseGitCommand(cmdline string) *string {
-	// Example: "git", "show", "-p"
-	array := cmdlineToSlice(cmdline, exists)
-
-	if len(array) == 0 {
+// Example: "git", "show", "-p"
+func parseGitCommand(argv []string) *string {
+	if len(argv) == 0 {
 		return nil
 	}
 
-	command := filepath.Base(array[0])
+	command := filepath.Base(argv[0])
 
-	if len(array) == 1 {
+	if len(argv) == 1 {
 		return &command
 	}
 
 	subCommandIndex := 1
-	for subCommandIndex < len(array) {
-		if array[subCommandIndex] == "-c" {
+	for subCommandIndex < len(argv) {
+		if argv[subCommandIndex] == "-c" {
 			// Skip "-c core.quotepath=false"
 			subCommandIndex += 2
 			continue
 		}
 
-		if strings.HasPrefix(array[subCommandIndex], "-") {
+		if strings.HasPrefix(argv[subCommandIndex], "-") {
 			// Unknown option, give up
 			return nil
 		}
@@ -512,25 +507,23 @@ func parseGitCommand(cmdline string) *string {
 		break
 	}
 
-	if subCommandIndex >= len(array) {
+	if subCommandIndex >= len(argv) {
 		return &command
 	}
 
-	gitCommand := command + " " + array[subCommandIndex]
+	gitCommand := command + " " + argv[subCommandIndex]
 	return &gitCommand
 }
 
 // Returns nil if we failed to figure out the subcommand
-func parseWithSubcommand(cmdline string, ignoreSwitches []string) *string {
-	array := cmdlineToSlice(cmdline, exists)
-
+func parseWithSubcommand(argv []string, ignoreSwitches []string) *string {
 	// Remove leading switches that match ignoreSwitches (matching up to '=')
 	ignore := make(map[string]bool, len(ignoreSwitches))
 	for _, s := range ignoreSwitches {
 		ignore[s] = true
 	}
-	for len(array) > 1 {
-		key := array[1]
+	for len(argv) > 1 {
+		key := argv[1]
 		if eq := strings.Index(key, "="); eq != -1 {
 			key = key[:eq]
 		}
@@ -538,20 +531,20 @@ func parseWithSubcommand(cmdline string, ignoreSwitches []string) *string {
 			break
 		}
 		// Drop the ignored switch
-		array = append(array[:1], array[2:]...)
+		argv = append(argv[:1], argv[2:]...)
 	}
 
-	command := filepath.Base(array[0])
-	if len(array) == 1 {
+	command := filepath.Base(argv[0])
+	if len(argv) == 1 {
 		return &command
 	}
 
-	if strings.HasPrefix(array[1], "-") {
+	if strings.HasPrefix(argv[1], "-") {
 		// Unknown option, help!
 		return nil
 	}
 
-	pretty := command + " " + array[1]
+	pretty := command + " " + argv[1]
 	return &pretty
 }
 

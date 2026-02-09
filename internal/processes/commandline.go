@@ -29,7 +29,6 @@ var commandCache = make(map[string]string)
 // The coalescing logic will then base decisions on whether this file path
 // exists or not.
 func getTrailingAbsolutePath(partialCmdline string) *string {
-
 	startIndex := -1
 	if strings.HasPrefix(partialCmdline, "/") {
 		startIndex = 0
@@ -165,9 +164,11 @@ func exists(path string) *bool {
 	return &res
 }
 
-// This is the testable version of cmdlineToSlice().
+// Convert "ls dir/" into ["ls", "dir/"]. Also handle spaces, so it can convert
+// "ls My Documents/" into ["ls", "My Documents/"].
 //
-// The exists function is called to check if a path exists on the filesystem.
+// The exists function is called to check if a path exists on the filesystem. It
+// is a parameter of its own for testability reasons.
 func cmdlineToSlice(cmdline string, exists func(string) *bool) []string {
 	baseSplit := strings.Split(cmdline, " ")
 	if len(baseSplit) == 1 {
@@ -211,29 +212,61 @@ func cmdlineToCommandInternal(cmdline string) string {
 		return cmdline
 	}
 
-	command := filepath.Base(cmdlineToSlice(cmdline, exists)[0])
+	argv := cmdlineToSlice(cmdline, exists)
+	return argvToCommand(argv)
+}
+
+// Convert "sh -c cd /some/dir && echo hello" to just "echo hello".
+func stripShellCdAndAnd(argv []string) []string {
+	shell := filepath.Base(argv[0])
+	if !slices.Contains([]string{"sh", "bash", "zsh", "fish"}, shell) {
+		return argv
+	}
+
+	if len(argv) < 6 {
+		return argv
+	}
+
+	if argv[1] != "-c" {
+		return argv
+	}
+
+	if argv[2] != "cd" {
+		return argv
+	}
+
+	if argv[4] != "&&" {
+		return argv
+	}
+
+	return argv[5:]
+}
+
+func argvToCommand(argv []string) string {
+	argv = stripShellCdAndAnd(argv)
+	command := filepath.Base(argv[0])
 
 	// Electron embeds inside .app bundles; clarify to app name
 	if command == "Electron" {
-		clarified := tryClarifyElectron(cmdline)
+		clarified := tryClarifyElectron(argv)
 		if clarified != nil && *clarified != "" {
 			return *clarified
 		}
 	}
 	if strings.HasPrefix(command, "python") || command == "Python" {
-		return faillog(cmdline, parsePythonCommand(cmdline))
+		return faillog(argv, parsePythonCommand(argv))
 	}
 
 	if command == "java" {
-		return faillog(cmdline, parseJavaCommand(cmdline))
+		return faillog(argv, parseJavaCommand(argv))
 	}
 
 	if command == "sudo" {
-		return faillog(cmdline, parseSudoCommand(cmdline))
+		return faillog(argv, parseSudoCommand(argv))
 	}
 
 	if command == "ruby" {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{
+		return faillog(argv, parseGenericScriptCommand(argv, []string{
 			"-a",
 			"-d",
 			"--debug",
@@ -259,11 +292,11 @@ func cmdlineToCommandInternal(cmdline string) string {
 	// Login shells are also commands, the leading - doesn't help anybody.
 	// Ref: https://unix.stackexchange.com/questions/38175/difference-between-login-shell-and-non-login-shell
 	if slices.Contains([]string{"fish", "bash", "sh", "zsh"}, strings.TrimPrefix(command, "-")) {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{"-p"}, nil))
+		return faillog(argv, parseGenericScriptCommand(argv, []string{"-p"}, nil))
 	}
 
 	if command == "node" {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, []string{
+		return faillog(argv, parseGenericScriptCommand(argv, []string{
 			"--max_old_space_size",
 			"--no-warnings",
 			"--enable-source-maps",
@@ -271,19 +304,19 @@ func cmdlineToCommandInternal(cmdline string) string {
 	}
 
 	if command == "dotnet" {
-		return faillog(cmdline, parseDotnetCommand(cmdline))
+		return faillog(argv, parseDotnetCommand(argv))
 	}
 
 	if command == "dart" {
-		return faillog(cmdline, parseDartCommand(cmdline))
+		return faillog(argv, parseDartCommand(argv))
 	}
 
 	if strings.HasPrefix(command, "guile") {
-		return faillog(cmdline, parseGuileCommand(cmdline))
+		return faillog(argv, parseGuileCommand(argv))
 	}
 
 	if command == "git" {
-		return faillog(cmdline, parseGitCommand(cmdline))
+		return faillog(argv, parseGitCommand(argv))
 	}
 
 	if slices.Contains([]string{
@@ -298,19 +331,19 @@ func cmdlineToCommandInternal(cmdline string) string {
 		"pip3",
 		"rustup",
 	}, command) {
-		return faillog(cmdline, parseWithSubcommand(cmdline, nil))
+		return faillog(argv, parseWithSubcommand(argv, nil))
 	}
 
 	if command == "terraform" {
-		return faillog(cmdline, parseWithSubcommand(cmdline, []string{"-chdir"}))
+		return faillog(argv, parseWithSubcommand(argv, []string{"-chdir"}))
 	}
 
 	if PERL_BIN.MatchString(command) {
-		return faillog(cmdline, parseGenericScriptCommand(cmdline, nil, nil))
+		return faillog(argv, parseGenericScriptCommand(argv, nil, nil))
 	}
 
 	// macOS app / framework prefixing and human-friendly shortening
-	appNamePrefix := getAppNamePrefix(cmdline)
+	appNamePrefix := getAppNamePrefix(argv)
 	if isHumanFriendly(command) {
 		appNamePrefix = ""
 	}
@@ -369,13 +402,13 @@ func coalesceAppCommand(command string) string {
 
 // If successful, just return the result. If unsuccessful log the problem and
 // return the VM name.
-func faillog(cmdline string, parseResult *string) string {
+func faillog(argv []string, parseResult *string) string {
 	if parseResult != nil {
 		return *parseResult
 	}
 
-	log.Infof("Parsing failed, using fallback: <%s>", cmdline)
-	return filepath.Base(cmdlineToSlice(cmdline, exists)[0])
+	log.Infof("Parsing failed, using fallback: <%s>", argv)
+	return filepath.Base(argv[0])
 }
 
 // AKA "Does this command contain any capital letters?"
@@ -389,8 +422,8 @@ func isHumanFriendly(command string) bool {
 }
 
 // On macOS, get which app this command is part of
-func getAppNamePrefix(cmdline string) string {
-	commandWithPath := cmdlineToSlice(cmdline, exists)[0]
+func getAppNamePrefix(argv []string) string {
+	commandWithPath := argv[0]
 	command := filepath.Base(commandWithPath)
 	parts := strings.SplitSeq(commandWithPath, "/")
 	for part := range parts {
@@ -420,8 +453,8 @@ func getAppNamePrefix(cmdline string) string {
 }
 
 // If any path component of the command ends with .app, return that component without the suffix
-func tryClarifyElectron(cmdline string) *string {
-	commandWithPath := cmdlineToSlice(cmdline, exists)[0]
+func tryClarifyElectron(argv []string) *string {
+	commandWithPath := argv[0]
 	parts := strings.Split(commandWithPath, "/")
 	for _, part := range parts {
 		if strings.HasSuffix(part, ".app") {
