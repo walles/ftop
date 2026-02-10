@@ -36,25 +36,23 @@ func (ui *Ui) MainLoop() {
 	for {
 		event := <-events
 
-		if _, ok := event.(twin.EventResize); ok {
+		switch e := event.(type) {
+		case twin.EventResize:
 			allProcesses := procsTracker.Processes()
 			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-		}
 
-		if _, ok := event.(processListUpdated); ok {
+		case processListUpdated:
 			allProcesses := procsTracker.Processes()
 			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-		}
 
-		if event, ok := event.(twin.EventRune); ok {
-			if event.Rune() == 'q' {
-				break
+		case twin.EventRune:
+			if e.Rune() == 'q' {
+				return
 			}
-		}
 
-		if event, ok := event.(twin.EventKeyCode); ok {
-			if event.KeyCode() == twin.KeyEscape {
-				break
+		case twin.EventKeyCode:
+			if e.KeyCode() == twin.KeyEscape {
+				return
 			}
 		}
 	}
