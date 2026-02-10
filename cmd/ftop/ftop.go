@@ -12,9 +12,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/walles/ftop/internal/ftop"
-	"github.com/walles/ftop/internal/io"
 	"github.com/walles/ftop/internal/log"
-	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
 )
@@ -22,8 +20,6 @@ import (
 // Build a binary using build.sh to get a proper version string here. This
 // pre-filled string will be used otherwise.
 var versionString = "<build with ./build.sh to get a version number here>"
-
-type processListUpdated struct{}
 
 func main() {
 	argsParser, err := kong.New(
@@ -146,54 +142,8 @@ func mainLoop(pleasePanic bool) int {
 
 	theme := themes.NewTheme(CLI.Theme.String(), screen.TerminalBackground())
 
-	procsTracker := processes.NewTracker()
-	ioTracker := io.NewTracker()
-
-	events := make(chan twin.Event)
-	go func() {
-		defer func() {
-			log.PanicHandler("main/screen events poller", recover(), debug.Stack())
-		}()
-		for event := range screen.Events() {
-			events <- event
-		}
-	}()
-	go func() {
-		defer func() {
-			log.PanicHandler("main/processes tracker poller", recover(), debug.Stack())
-		}()
-		for range procsTracker.OnUpdate {
-			events <- processListUpdated{}
-		}
-	}()
-
 	ui := ftop.NewUi(screen, theme)
-
-	for {
-		event := <-events
-
-		if _, ok := event.(twin.EventResize); ok {
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-		}
-
-		if _, ok := event.(processListUpdated); ok {
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-		}
-
-		if event, ok := event.(twin.EventRune); ok {
-			if event.Rune() == 'q' {
-				break
-			}
-		}
-
-		if event, ok := event.(twin.EventKeyCode); ok {
-			if event.KeyCode() == twin.KeyEscape {
-				break
-			}
-		}
-	}
+	ui.MainLoop()
 
 	return 0
 }
