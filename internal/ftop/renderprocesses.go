@@ -404,8 +404,20 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		}
 	}
 
-	renderFrame(screen, theme, x0, y0, x1, y1, "By Process")
+	const byProcess = "By Process"
+	renderFrame(screen, theme, x0, y0, x1, y1, byProcess)
+	renderSearchPrompt(screen, theme, x0+2+len(byProcess)+3, y0, x1-2)
 	renderLegend(screen, theme, y1, x1)
+}
+
+func renderSearchPrompt(screen twin.Screen, theme themes.Theme, x0 int, y int, x1 int) {
+	x := x0
+
+	x += drawText(screen, x, y, x1, "Search: ", twin.StyleDefault.WithForeground(theme.Foreground()))
+	screen.SetCell(x, y, twin.StyledRune{
+		Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
+		Rune:  '/',
+	})
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
