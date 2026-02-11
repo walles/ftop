@@ -415,17 +415,17 @@ func renderFilterPrompt(screen twin.Screen, theme themes.Theme, active bool, x0 
 
 	if active {
 		x += screen.SetCell(x, y, twin.NewStyledRune('F', twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrReverse)))
-		x += drawText(screen, x, y, x1, "ilter  ", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim).WithAttr(twin.AttrUnderline))
+		x += drawText(screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim).WithAttr(twin.AttrUnderline))
 		screen.SetCell(x, y, twin.StyledRune{
 			Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
 			Rune:  '⏎',
 		})
 	} else {
-		x += drawText(screen, x, y, x1, "Filter: ", twin.StyleDefault.WithForeground(theme.Foreground()))
-		screen.SetCell(x, y, twin.StyledRune{
-			Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
-			Rune:  '/',
+		x += screen.SetCell(x, y, twin.StyledRune{
+			Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()),
+			Rune:  'F',
 		})
+		drawText(screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim))
 	}
 }
 

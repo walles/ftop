@@ -12,7 +12,7 @@ func (h *eventHandlerBase) onRune(r rune) {
 		return
 	}
 
-	if r == '/' {
+	if r == '/' || r == 'f' {
 		// Switch to the filter event handler
 		h.ui.eventHandler = &eventHandlerFilter{ui: h.ui}
 	}
