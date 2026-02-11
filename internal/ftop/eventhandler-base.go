@@ -23,4 +23,10 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 		h.ui.done = true
 		return
 	}
+
+	if keyCode == twin.KeyBackspace {
+		// Clear the filter
+		h.ui.filter = ""
+		return
+	}
 }
