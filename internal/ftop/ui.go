@@ -16,6 +16,8 @@ type Ui struct {
 
 	eventHandler eventHandler
 
+	filter string // Empty means no filter
+
 	done bool
 
 	// At this width or wider, we have always managed to render all three panes.
