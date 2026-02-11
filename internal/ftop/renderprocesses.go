@@ -406,14 +406,14 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	const byProcess = "By Process"
 	renderFrame(screen, theme, x0, y0, x1, y1, byProcess)
-	renderSearchPrompt(screen, theme, x0+2+len(byProcess)+3, y0, x1-2)
+	renderFilterPrompt(screen, theme, x0+2+len(byProcess)+3, y0, x1-2)
 	renderLegend(screen, theme, y1, x1)
 }
 
-func renderSearchPrompt(screen twin.Screen, theme themes.Theme, x0 int, y int, x1 int) {
+func renderFilterPrompt(screen twin.Screen, theme themes.Theme, x0 int, y int, x1 int) {
 	x := x0
 
-	x += drawText(screen, x, y, x1, "Search: ", twin.StyleDefault.WithForeground(theme.Foreground()))
+	x += drawText(screen, x, y, x1, "Filter: ", twin.StyleDefault.WithForeground(theme.Foreground()))
 	screen.SetCell(x, y, twin.StyledRune{
 		Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
 		Rune:  '/',

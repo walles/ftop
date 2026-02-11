@@ -11,6 +11,11 @@ func (h *eventHandlerBase) onRune(r rune) {
 		h.ui.done = true
 		return
 	}
+
+	if r == '/' {
+		// Switch to the filter event handler
+		h.ui.eventHandler = &eventHandlerFilter{ui: h.ui}
+	}
 }
 
 func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {

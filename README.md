@@ -82,7 +82,7 @@ you debug logs after `ftop` is done.
 - Which new processes are being launched and why?
   - The ftop launched-binaries tree is excellent for this
 - Is some particular service running?
-  - Process search by name or number
+  - Filter processes by name or number
 - Which users are consuming CPU?
   - User top list by CPU usage
 - Which users are consuming RAM?
