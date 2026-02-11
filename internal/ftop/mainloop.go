@@ -9,9 +9,9 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-type processListUpdated struct{}
-
 func (ui *Ui) MainLoop() {
+	type processListUpdated struct{}
+
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()
 
@@ -33,30 +33,17 @@ func (ui *Ui) MainLoop() {
 		}
 	}()
 
-	for {
-		event := <-events
+	for !ui.done {
+		switch event := (<-events).(type) {
+		case twin.EventRune:
+			ui.eventHandler.onRune(event.Rune())
 
-		if _, ok := event.(twin.EventResize); ok {
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
+		case twin.EventKeyCode:
+			ui.eventHandler.onKeyCode(event.KeyCode())
 		}
 
-		if _, ok := event.(processListUpdated); ok {
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-		}
-
-		if event, ok := event.(twin.EventRune); ok {
-			if event.Rune() == 'q' {
-				break
-			}
-		}
-
-		if event, ok := event.(twin.EventKeyCode); ok {
-			if event.KeyCode() == twin.KeyEscape {
-				break
-			}
-		}
+		procs := procsTracker.Processes()
+		procs = processes.Filter(procs, ui.filter)
+		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
 	}
-
 }

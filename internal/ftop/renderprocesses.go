@@ -34,14 +34,14 @@ func canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Pro
 //
 // y0 and y1 are screen rows and are both inclusive. Borders will be drawn on
 // those rows.
-func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
+func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y1 int) {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
 	table, usersHeight, processes, users, commands := createProcessesTable(processesRaw, renderHeight-2)
 
-	width, _ := screen.Size()
+	width, _ := u.screen.Size()
 
 	// -2 for borders, -5 for column dividers, -2 for the two borders between
 	// sections and -2 for column dividers in the right section
@@ -57,8 +57,8 @@ func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRa
 	usersBottomBorder := y0 + 1 + usersHeight
 	commandsTopRow := usersBottomBorder + 1
 
-	renderProcesses(screen, theme, 0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
-	renderPerUser(screen, theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users)
+	u.renderProcesses(0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
+	renderPerUser(u.screen, u.theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users)
 
 	// Skip the per-user rows. If usersHeight is 0:
 	// 0: post-users separator line
@@ -67,7 +67,7 @@ func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRa
 	//
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
-	renderPerCommand(screen, theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
+	renderPerCommand(u.screen, u.theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
 }
 
 func isWideEnough(table [][]string, widths []int) bool {
@@ -96,7 +96,7 @@ func isWideEnough(table [][]string, widths []int) bool {
 	return true
 }
 
-func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
+func (u *Ui) renderSingleProcessesPane(processesRaw []processes.Process, y0 int, y1 int) {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
@@ -109,7 +109,7 @@ func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processes
 		table[rowIndex] = row[:6]
 	}
 
-	width, _ := screen.Size()
+	width, _ := u.screen.Size()
 
 	// -2 for borders, -5 for column dividers
 	availableToColumns := width - 2 - 5
@@ -117,7 +117,7 @@ func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processes
 	// Don't grow the PID column, that looks weird
 	widths := ui.ColumnWidths(table, availableToColumns, false)
 
-	renderProcesses(screen, theme, 0, y0, width-1, y1, table, widths, processes)
+	u.renderProcesses(0, y0, width-1, y1, table, widths, processes)
 }
 
 // Render three tables and combine them: per-process (on the left), per-user
@@ -286,7 +286,7 @@ func renderCommand(command string, deduplicationSuffix string, width int, textCo
 	return result
 }
 
-func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
+func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
@@ -298,11 +298,11 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		widths[5], widths[5],
 	)
 
-	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())
-	cpuRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxCpu())
+	memoryRamp := ui.NewColorRamp(0.0, 1.0, u.theme.LoadBarMin(), u.theme.LoadBarMaxRam())
+	cpuRamp := ui.NewColorRamp(0.0, 1.0, u.theme.LoadBarMin(), u.theme.LoadBarMaxCpu())
 
 	// +2 = ignore top border and the header line
-	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.Foreground(), theme.FadedForeground())
+	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), u.theme.Foreground(), u.theme.FadedForeground())
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
 	userColumnN := userColumn0 + widths[2] - 1        // Screen column
@@ -312,7 +312,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 	commandColumnN := commandColumn0 + widths[1] - 1 // Screen column
 
 	// +2 = ignore top border and the header line
-	userRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), theme.HighlightedForeground(), theme.FadedForeground())
+	userRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), u.theme.HighlightedForeground(), u.theme.FadedForeground())
 
 	maxCpuSecondsPerProcess := 0.0
 	maxRssKbPerProcess := 0
@@ -350,6 +350,13 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 		var commandCells []twin.StyledRune
 		if process != nil {
 			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+		} else {
+			// Cover the command column with empty cells
+			commandCells = make([]twin.StyledRune, 0, widths[1])
+			space := twin.StyledRune{Rune: ' ', Style: twin.StyleDefault.WithForeground(userRamp.AtInt(y))}
+			for len(commandCells) < widths[1] {
+				commandCells = append(commandCells, space)
+			}
 		}
 
 		var rowStyle twin.Style
@@ -380,7 +387,7 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				}
 			}
 
-			screen.SetCell(x, y, char)
+			u.screen.SetCell(x, y, char)
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
@@ -397,15 +404,17 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 				if maxRssKbPerProcess > 0 {
 					memFraction = float64(process.RssKb) / float64(maxRssKbPerProcess)
 				}
-				perProcessCpuAndMemBar.SetCellBackground(screen, x, y, cpuFraction, memFraction)
+				perProcessCpuAndMemBar.SetCellBackground(u.screen, x, y, cpuFraction, memFraction)
 			}
 
 			x += char.Width()
 		}
 	}
 
-	renderFrame(screen, theme, x0, y0, x1, y1, "By Process")
-	renderLegend(screen, theme, y1, x1)
+	const byProcess = "By Process"
+	renderFrame(u.screen, u.theme, x0, y0, x1, y1, byProcess)
+	u.renderFilterPrompt(x0+2+len(byProcess)+3, y0, x1-2)
+	renderLegend(u.screen, u.theme, y1, x1)
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a

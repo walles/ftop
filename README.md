@@ -23,6 +23,8 @@ Notes:
   `ftop` run.
 - Note the two sections on the right showing CPU and memory usage per user and
   per command.
+- The process list can be filtered by a search string, matching command line,
+  user name or PID.
 - Note the `IO` section, showing IO usage per device with high watermarks.
 - Sort keys are CPU usage, memory usage and the number of recently spawned child
   processes. CPU usage is defined as CPU-time-since-`ftop`-started, making the
@@ -82,7 +84,7 @@ you debug logs after `ftop` is done.
 - Which new processes are being launched and why?
   - The ftop launched-binaries tree is excellent for this
 - Is some particular service running?
-  - Process search by name or number
+  - Filter processes by name or number
 - Which users are consuming CPU?
   - User top list by CPU usage
 - Which users are consuming RAM?
@@ -132,7 +134,6 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Implement filtering, note that in the Output section above
 - Implement process picking with arrow keys, note that in the Output section
   above
 - When hovering a process, show its hierarchy in the launched-binaries pane
@@ -200,3 +201,4 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
   minute".
 - If we have 10 different "claude" processes, dedup them as "claude[5]" in the
   Command column. The dedup suffixes should be stable within one `ftop` run.
+- Implement filtering, note that in the Output section above

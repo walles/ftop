@@ -5,9 +5,20 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+type eventHandler interface {
+	onRune(r rune)
+	onKeyCode(keyCode twin.KeyCode)
+}
+
 type Ui struct {
 	theme  themes.Theme
 	screen twin.Screen
+
+	eventHandler eventHandler
+
+	filter string // Empty means no filter
+
+	done bool
 
 	// At this width or wider, we have always managed to render all three panes.
 	// Below this, we shouldn't even try.
@@ -18,9 +29,13 @@ type Ui struct {
 }
 
 func NewUi(screen twin.Screen, theme themes.Theme) *Ui {
-	return &Ui{
+	ui := &Ui{
 		theme:                    theme,
 		screen:                   screen,
 		minThreePanesScreenWidth: 0, // Will be kept up to date by ftop.Ui.Render()
 	}
+
+	ui.eventHandler = &eventHandlerBase{ui: ui}
+
+	return ui
 }

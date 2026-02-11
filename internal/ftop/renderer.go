@@ -83,11 +83,11 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 	}
 
 	if width < u.minThreePanesScreenWidth {
-		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		u.renderSingleProcessesPane(processesRaw, overviewHeight, processesBottomRow)
 	} else if canRenderThreeProcessPanes(u.screen, processesRaw, overviewHeight, processesBottomRow) {
-		renderThreeProcessPanes(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		u.renderThreeProcessPanes(processesRaw, overviewHeight, processesBottomRow)
 	} else {
-		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		u.renderSingleProcessesPane(processesRaw, overviewHeight, processesBottomRow)
 
 		// Current width didn't work, maybe one column more would do the trick?
 		newMinThreePanesWidth := width + 1
