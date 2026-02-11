@@ -410,25 +410,6 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, isEditingFilter boo
 	renderLegend(screen, theme, y1, x1)
 }
 
-func renderFilterPrompt(screen twin.Screen, theme themes.Theme, active bool, x0 int, y int, x1 int) {
-	x := x0
-
-	if active {
-		x += screen.SetCell(x, y, twin.NewStyledRune('F', twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrReverse)))
-		x += drawText(screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim).WithAttr(twin.AttrUnderline))
-		screen.SetCell(x, y, twin.StyledRune{
-			Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
-			Rune:  '⏎',
-		})
-	} else {
-		x += screen.SetCell(x, y, twin.StyledRune{
-			Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()),
-			Rune:  'F',
-		})
-		drawText(screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim))
-	}
-}
-
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
 // RAM load bar behind it.
 func renderLegend(screen twin.Screen, theme themes.Theme, y int, rightFrameBorder int) {
