@@ -34,22 +34,15 @@ func (ui *Ui) MainLoop() {
 	}()
 
 	for !ui.done {
-		event := <-events
-
-		switch e := event.(type) {
-		case twin.EventResize:
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-
-		case processListUpdated:
-			allProcesses := procsTracker.Processes()
-			ui.Render(allProcesses, ioTracker.Stats(), procsTracker.Launches())
-
+		switch event := (<-events).(type) {
 		case twin.EventRune:
-			ui.eventHandler.onRune(e.Rune())
+			ui.eventHandler.onRune(event.Rune())
 
 		case twin.EventKeyCode:
-			ui.eventHandler.onKeyCode(e.KeyCode())
+			ui.eventHandler.onKeyCode(event.KeyCode())
 		}
+
+		_, isEditingFilter := ui.eventHandler.(*eventHandlerFilter)
+		ui.Render(isEditingFilter, procsTracker.Processes(), ioTracker.Stats(), procsTracker.Launches())
 	}
 }

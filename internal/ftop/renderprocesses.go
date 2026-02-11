@@ -34,7 +34,7 @@ func canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Pro
 //
 // y0 and y1 are screen rows and are both inclusive. Borders will be drawn on
 // those rows.
-func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
+func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, isEditingFilter bool, processesRaw []processes.Process, y0 int, y1 int) {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
@@ -57,7 +57,7 @@ func renderThreeProcessPanes(screen twin.Screen, theme themes.Theme, processesRa
 	usersBottomBorder := y0 + 1 + usersHeight
 	commandsTopRow := usersBottomBorder + 1
 
-	renderProcesses(screen, theme, 0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
+	renderProcesses(screen, theme, isEditingFilter, 0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
 	renderPerUser(screen, theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users)
 
 	// Skip the per-user rows. If usersHeight is 0:
@@ -96,7 +96,7 @@ func isWideEnough(table [][]string, widths []int) bool {
 	return true
 }
 
-func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processesRaw []processes.Process, y0 int, y1 int) {
+func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, isEditingFilter bool, processesRaw []processes.Process, y0 int, y1 int) {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
@@ -117,7 +117,7 @@ func renderSingleProcessesPane(screen twin.Screen, theme themes.Theme, processes
 	// Don't grow the PID column, that looks weird
 	widths := ui.ColumnWidths(table, availableToColumns, false)
 
-	renderProcesses(screen, theme, 0, y0, width-1, y1, table, widths, processes)
+	renderProcesses(screen, theme, isEditingFilter, 0, y0, width-1, y1, table, widths, processes)
 }
 
 // Render three tables and combine them: per-process (on the left), per-user
@@ -286,7 +286,7 @@ func renderCommand(command string, deduplicationSuffix string, width int, textCo
 	return result
 }
 
-func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
+func renderProcesses(screen twin.Screen, theme themes.Theme, isEditingFilter bool, x0, y0, x1, y1 int, table [][]string, widths []int, procs []processes.Process) {
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
 	// 5", and the "-" means left-align.
 	formatString := fmt.Sprintf("%%%d.%ds %%-%d.%ds %%-%d.%ds %%%d.%ds %%%d.%ds %%%d.%ds",
@@ -406,14 +406,20 @@ func renderProcesses(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int,
 
 	const byProcess = "By Process"
 	renderFrame(screen, theme, x0, y0, x1, y1, byProcess)
-	renderFilterPrompt(screen, theme, x0+2+len(byProcess)+3, y0, x1-2)
+	renderFilterPrompt(screen, theme, isEditingFilter, x0+2+len(byProcess)+3, y0, x1-2)
 	renderLegend(screen, theme, y1, x1)
 }
 
-func renderFilterPrompt(screen twin.Screen, theme themes.Theme, x0 int, y int, x1 int) {
+func renderFilterPrompt(screen twin.Screen, theme themes.Theme, active bool, x0 int, y int, x1 int) {
 	x := x0
 
-	x += drawText(screen, x, y, x1, "Filter: ", twin.StyleDefault.WithForeground(theme.Foreground()))
+	if active {
+		x += screen.SetCell(x, y, twin.NewStyledRune('F', twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrReverse)))
+		x += drawText(screen, x, y, x1, "ilter  ", twin.StyleDefault.WithForeground(theme.Foreground()).WithAttr(twin.AttrDim).WithAttr(twin.AttrUnderline))
+	} else {
+		x += drawText(screen, x, y, x1, "Filter: ", twin.StyleDefault.WithForeground(theme.Foreground()))
+	}
+
 	screen.SetCell(x, y, twin.StyledRune{
 		Style: twin.StyleDefault.WithForeground(theme.HighlightedForeground()).WithAttr(twin.AttrBold),
 		Rune:  '/',

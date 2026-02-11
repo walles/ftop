@@ -31,7 +31,7 @@ type commandStats struct {
 	stats
 }
 
-func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
+func (u *Ui) Render(isEditingFilter bool, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
 	const overviewHeight = 5 // Including borders
 
 	width, height := u.screen.Size()
@@ -83,11 +83,11 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 	}
 
 	if width < u.minThreePanesScreenWidth {
-		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		renderSingleProcessesPane(u.screen, u.theme, isEditingFilter, processesRaw, overviewHeight, processesBottomRow)
 	} else if canRenderThreeProcessPanes(u.screen, processesRaw, overviewHeight, processesBottomRow) {
-		renderThreeProcessPanes(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		renderThreeProcessPanes(u.screen, u.theme, isEditingFilter, processesRaw, overviewHeight, processesBottomRow)
 	} else {
-		renderSingleProcessesPane(u.screen, u.theme, processesRaw, overviewHeight, processesBottomRow)
+		renderSingleProcessesPane(u.screen, u.theme, isEditingFilter, processesRaw, overviewHeight, processesBottomRow)
 
 		// Current width didn't work, maybe one column more would do the trick?
 		newMinThreePanesWidth := width + 1
