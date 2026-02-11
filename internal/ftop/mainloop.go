@@ -42,7 +42,8 @@ func (ui *Ui) MainLoop() {
 			ui.eventHandler.onKeyCode(event.KeyCode())
 		}
 
-		_, isEditingFilter := ui.eventHandler.(*eventHandlerFilter)
-		ui.Render(isEditingFilter, procsTracker.Processes(), ioTracker.Stats(), procsTracker.Launches())
+		procs := procsTracker.Processes()
+		procs = processes.Filter(procs, ui.filter)
+		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
 	}
 }

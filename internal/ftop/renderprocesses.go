@@ -350,6 +350,13 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		var commandCells []twin.StyledRune
 		if process != nil {
 			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+		} else {
+			// Cover the command column with empty cells
+			commandCells = make([]twin.StyledRune, 0, widths[1])
+			space := twin.StyledRune{Rune: ' ', Style: twin.StyleDefault.WithForeground(userRamp.AtInt(y))}
+			for len(commandCells) < widths[1] {
+				commandCells = append(commandCells, space)
+			}
 		}
 
 		var rowStyle twin.Style

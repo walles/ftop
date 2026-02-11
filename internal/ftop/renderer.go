@@ -31,7 +31,7 @@ type commandStats struct {
 	stats
 }
 
-func (u *Ui) Render(isEditingFilter bool, processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
+func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launches *processes.LaunchNode) {
 	const overviewHeight = 5 // Including borders
 
 	width, height := u.screen.Size()
