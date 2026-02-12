@@ -217,33 +217,27 @@ func cmdlineToCommandInternal(cmdline string) string {
 }
 
 // Convert "sh -c cd /some/dir && echo hello" to just "echo hello".
-func stripShellCdAndAnd(argv []string) []string {
+func stripShellPrefix(argv []string) []string {
 	shell := filepath.Base(argv[0])
 	if !slices.Contains([]string{"sh", "bash", "zsh", "fish"}, shell) {
 		return argv
 	}
 
-	if len(argv) < 6 {
-		return argv
+	// "sh -c cd /some/dir && echo hello"
+	if len(argv) >= 6 && argv[1] == "-c" && argv[2] == "cd" && argv[4] == "&&" {
+		return argv[5:]
 	}
 
-	if argv[1] != "-c" {
-		return argv
+	// "sh -c which minikube"
+	if len(argv) >= 3 && argv[1] == "-c" {
+		return argv[2:]
 	}
 
-	if argv[2] != "cd" {
-		return argv
-	}
-
-	if argv[4] != "&&" {
-		return argv
-	}
-
-	return argv[5:]
+	return argv
 }
 
 func argvToCommand(argv []string) string {
-	argv = stripShellCdAndAnd(argv)
+	argv = stripShellPrefix(argv)
 	command := filepath.Base(argv[0])
 
 	// Electron embeds inside .app bundles; clarify to app name
@@ -331,6 +325,10 @@ func argvToCommand(argv []string) string {
 		"pip3",
 		"rustup",
 	}, command) {
+		return faillog(argv, parseWithSubcommand(argv, nil))
+	}
+
+	if command == "which" {
 		return faillog(argv, parseWithSubcommand(argv, nil))
 	}
 

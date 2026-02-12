@@ -258,6 +258,7 @@ func TestGetGitCommandline(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false reflog --max-count 50"), "git reflog")
 	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false"), "git")
 	assert.Equal(t, cmdlineToCommand("git -c"), "git")
+	assert.Equal(t, cmdlineToCommand("git -C /tmp/hello show"), "git show")
 }
 
 func TestGetTerraformCommandline(t *testing.T) {
@@ -381,6 +382,10 @@ func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
 // Ref: https://github.com/walles/ftop/issues/5
 func TestIgnoreShellCdAndAnd(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("/bin/sh -c cd ~/src/moor && moor twin/screen.go"), "moor")
+}
+
+func TestIgnoreLeadingShellC(t *testing.T) {
+	assert.Equal(t, cmdlineToCommand("/bin/sh -c which minikube"), "which minikube")
 }
 
 func TestGetCommandRubySwitches(t *testing.T) {

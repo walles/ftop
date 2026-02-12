@@ -498,6 +498,12 @@ func parseGitCommand(argv []string) *string {
 			continue
 		}
 
+		if argv[subCommandIndex] == "-C" {
+			// Skip "-C /tmp/hello"
+			subCommandIndex += 2
+			continue
+		}
+
 		if strings.HasPrefix(argv[subCommandIndex], "-") {
 			// Unknown option, give up
 			return nil
