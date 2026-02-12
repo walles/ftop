@@ -40,6 +40,17 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 				Rune:  ' ',
 			})
 
+			// Fill with underlined characters to match the length of the
+			// edit-mode-without-filter text, so the end marker doesn't jump
+			// around when the user starts typing.
+			lastX := x0 + len("Filter")
+			for x < lastX {
+				x += ui.screen.SetCell(x, y, twin.StyledRune{
+					Style: twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrUnderline),
+					Rune:  ' ',
+				})
+			}
+
 			ui.screen.SetCell(x, y, twin.StyledRune{
 				Style: twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrBold),
 				Rune:  '⏎',
