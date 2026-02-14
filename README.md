@@ -38,8 +38,13 @@ Notes:
 
 ## Installation
 
-Download binaries from <https://github.com/walles/ftop/releases> and put them in
-somewhere in your `$PATH`, `/usr/local/bin/` comes to mind.
+```
+brew install walles/johan/ftop
+```
+
+Otherwise you can download binaries from
+<https://github.com/walles/ftop/releases> and put them in somewhere in your
+`$PATH`, `/usr/local/bin/` comes to mind.
 
 Or do this to [install `ftop` into
 `$GOPATH/bin`](https://manpages.debian.org/testing/golang-go/go-install.1.en.html),
