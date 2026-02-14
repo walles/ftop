@@ -115,3 +115,32 @@ gh release create "${VERSION}" \
 echo
 echo "Release ${VERSION} created successfully!"
 echo "View it at: https://github.com/walles/ftop/releases/tag/${VERSION}"
+
+# Update Homebrew tap
+echo
+echo "Updating Homebrew tap..."
+
+# Calculate new tarball SHA256
+#
+# curl flags are: fail on HTTP errors, silent, show errors even when silent and follow redirects.
+NEW_SHA256=$(curl -fsSL "https://github.com/walles/ftop/archive/refs/tags/${VERSION}.tar.gz" | shasum -a 256 | cut -d' ' -f1)
+
+TAP_DIR="../homebrew-johan"
+if [ -d "$TAP_DIR" ]; then
+    # Update the formula
+    FORMULA="$TAP_DIR/Formula/ftop.rb"
+    sed -i '' "s|archive/refs/tags/v[0-9.]*\.tar\.gz|archive/refs/tags/${VERSION}.tar.gz|" "$FORMULA"
+    sed -i '' "s|sha256 \"[a-f0-9]*\"|sha256 \"$NEW_SHA256\"|" "$FORMULA"
+
+    # Commit and push
+    git -C "$TAP_DIR" add Formula/ftop.rb
+    git -C "$TAP_DIR" commit -m "ftop: update to ${VERSION}"
+    git -C "$TAP_DIR" push
+
+    echo "✓ Homebrew tap updated"
+else
+    echo "⚠ Tap directory not found at $TAP_DIR"
+    echo "  Update this file manually: https://github.com/walles/homebrew-johan/blob/main/Formula/ftop.rb"
+    echo "  - URL: https://github.com/walles/ftop/archive/refs/tags/${VERSION}.tar.gz"
+    echo "  - SHA256: $NEW_SHA256"
+fi
