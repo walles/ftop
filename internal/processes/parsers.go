@@ -223,6 +223,9 @@ func parseJavaCommand(argv []string) *string {
 			if strings.HasPrefix(component, "--add-modules=") {
 				continue
 			}
+			if strings.HasPrefix(component, "--enable-native-access=") {
+				continue
+			}
 			if strings.HasPrefix(component, "@") {
 				continue
 			}

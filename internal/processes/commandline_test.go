@@ -723,6 +723,7 @@ func TestGetCommandJava(t *testing.T) {
 	assert.Equal(t, cmdlineToCommand("java -dahej SomeClass"), "SomeClass")
 	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c SomeClass"), "SomeClass")
 	assert.Equal(t, cmdlineToCommand("java -classpath /a/b/c SomeClass"), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java --enable-native-access=ALL-UNNAMED SomeClass"), "SomeClass")
 
 	// Invalid command lines
 	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c"), "java")
