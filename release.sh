@@ -3,7 +3,7 @@
 set -e -o pipefail
 
 # Bail if we're on a dirty version
-if [ -n "$(git diff --stat)" ]; then
+if [ -n "$(git diff HEAD --stat)" ]; then
   echo "ERROR: Please commit all changes before doing a release"
   echo
   git status
@@ -126,8 +126,13 @@ echo "Updating Homebrew tap..."
 NEW_SHA256=$(curl -fsSL "https://github.com/walles/ftop/archive/refs/tags/${VERSION}.tar.gz" | shasum -a 256 | cut -d' ' -f1)
 
 TAP_DIR="../homebrew-johan"
-if [ -d "$TAP_DIR" ]; then
-    # Update the formula
+if [ -d "$TAP_DIR" ] && \
+   [ -z "$(git -C "$TAP_DIR" diff HEAD --stat)" ] && \
+   [ "$(git -C "$TAP_DIR" rev-parse --abbrev-ref HEAD)" = "main" ]; then
+    # Make sure we are up to date
+    git -C "$TAP_DIR" pull --quiet
+
+    # All checks passed, update the formula
     FORMULA="$TAP_DIR/Formula/ftop.rb"
     sed -i '' "s|archive/refs/tags/v[0-9.]*\.tar\.gz|archive/refs/tags/${VERSION}.tar.gz|" "$FORMULA"
     sed -i '' "s|sha256 \"[a-f0-9]*\"|sha256 \"$NEW_SHA256\"|" "$FORMULA"
@@ -139,8 +144,8 @@ if [ -d "$TAP_DIR" ]; then
 
     echo "✓ Homebrew tap updated"
 else
-    echo "⚠ Tap directory not found at $TAP_DIR"
-    echo "  Update this file manually: https://github.com/walles/homebrew-johan/blob/main/Formula/ftop.rb"
+    echo "WARNING: Homebrew tap not updated."
+    echo "  Please update this file manually: https://github.com/walles/homebrew-johan/blob/main/Formula/ftop.rb"
     echo "  - URL: https://github.com/walles/ftop/archive/refs/tags/${VERSION}.tar.gz"
     echo "  - SHA256: $NEW_SHA256"
 fi
