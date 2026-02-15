@@ -387,7 +387,19 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 				}
 			}
 
+			if u.selectedLine != nil && *u.selectedLine == rowIndex-1 {
+				// Picked process line, highlight it!
+				char.Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
+			}
+
 			u.screen.SetCell(x, y, char)
+
+			if u.selectedLine != nil && *u.selectedLine == rowIndex-1 {
+				// Picked process line, don't draw any load bars since they will
+				// mess up the highlighting.
+				x += char.Width()
+				continue
+			}
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
