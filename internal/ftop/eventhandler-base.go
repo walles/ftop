@@ -31,23 +31,23 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 	}
 
 	if keyCode == twin.KeyDown {
-		if h.ui.selectedLine == nil {
-			// No line selected, select the first one
-			h.ui.selectedLine = new(int)
+		if h.ui.pickedLine == nil {
+			// No line picked, pick the first one
+			h.ui.pickedLine = new(int)
 		} else {
-			// Move selection down
-			*h.ui.selectedLine++
+			// Move pick down
+			*h.ui.pickedLine++
 		}
 		return
 	}
 
-	if keyCode == twin.KeyUp && h.ui.selectedLine != nil {
-		if *h.ui.selectedLine > 0 {
-			// Move selection up
-			*h.ui.selectedLine--
+	if keyCode == twin.KeyUp && h.ui.pickedLine != nil {
+		if *h.ui.pickedLine > 0 {
+			// Move pick up
+			*h.ui.pickedLine--
 		} else {
 			// And it's gone!!
-			h.ui.selectedLine = nil
+			h.ui.pickedLine = nil
 		}
 	}
 }

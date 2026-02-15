@@ -20,9 +20,9 @@ type Ui struct {
 
 	done bool
 
-	// nil means no line selection. If the value is too large it should be
-	// updated by the rendering code.
-	selectedLine *int
+	// nil means no line picked. If the value is too large it should be updated
+	// by the rendering code.
+	pickedLine *int
 
 	// At this width or wider, we have always managed to render all three panes.
 	// Below this, we shouldn't even try.

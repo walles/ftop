@@ -83,7 +83,7 @@ you debug logs after `ftop` is done.
 - Which processes are IO heavy?
   - Process top list by IO usage
 - Is this specific process leaking memory?
-  - When a process is selected, replace the user top lists with a braille
+  - When a process is picked, replace the user top lists with a braille
     history chart for the current process. This means we need to collect
     historical data for each process.
 - Which new processes are being launched and why?
@@ -108,7 +108,7 @@ you debug logs after `ftop` is done.
   - Nah, let's just not care about this until somebody explicitly asks for it
 - I need to find and kill a runaway process.
   - Find: Process top list
-  - Kill: Select process and provide a way for the user to request its termination
+  - Kill: Pick process and provide a way for the user to request its termination
 - Why is some process running on my system?
   - The px-for-one-process view is excellent for this
 

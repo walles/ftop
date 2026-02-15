@@ -335,6 +335,14 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	// Render table contents
 	//
 
+	if u.pickedLine != nil {
+		lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
+		if *u.pickedLine > lastVisibleProcessIndex {
+			// Don't let the pick move out of view
+			u.pickedLine = &lastVisibleProcessIndex
+		}
+	}
+
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
 			row[0], row[1], row[2], row[3], row[4], row[5],
@@ -387,14 +395,14 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 				}
 			}
 
-			if u.selectedLine != nil && *u.selectedLine == rowIndex-1 {
+			if u.pickedLine != nil && *u.pickedLine == rowIndex-1 {
 				// Picked process line, highlight it!
 				char.Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
 			}
 
 			u.screen.SetCell(x, y, char)
 
-			if u.selectedLine != nil && *u.selectedLine == rowIndex-1 {
+			if u.pickedLine != nil && *u.pickedLine == rowIndex-1 {
 				// Picked process line, don't draw any load bars since they will
 				// mess up the highlighting.
 				x += char.Width()

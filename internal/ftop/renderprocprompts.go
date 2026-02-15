@@ -23,14 +23,14 @@ func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int) int {
 	})
 
 	style := twin.StyleDefault
-	if ui.selectedLine == nil {
-		// No selection, dim to indicate picking is inactive
+	if ui.pickedLine == nil {
+		// No pick, dim to indicate picking is inactive
 		style = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrDim)
 	}
 	x += drawText(ui.screen, x, y, x1, "Pick", style)
 
 	upStyle := style
-	if ui.selectedLine != nil {
+	if ui.pickedLine != nil {
 		upStyle = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground())
 	}
 	x += ui.screen.SetCell(x, y, twin.StyledRune{
