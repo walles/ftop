@@ -305,7 +305,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), u.theme.Foreground(), u.theme.FadedForeground())
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
-	userColumnN := userColumn0 + widths[2] - 1        // Screen column
+	userColumnN := userColumn0 + widths[2]            // Screen column
 	currentUsername := util.GetCurrentUsername()
 
 	commandColumn0 := x0 + 1 + widths[0] + 1         // Screen column. x0 + 1 for left border, then PID column, then a space separator
