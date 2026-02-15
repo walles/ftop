@@ -4,6 +4,43 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int) {
+	x := x0
+
+	x = ui.renderPickAProcPrompt(x, y, x1)
+	x += 3
+	ui.renderFilterPrompt(x, y, x1)
+}
+
+// Returns the first empty x coordinate after the rendered prompt
+func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int) int {
+	x := x0
+
+	downStyle := twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground())
+	x += ui.screen.SetCell(x, y, twin.StyledRune{
+		Style: downStyle,
+		Rune:  '↓',
+	})
+
+	style := twin.StyleDefault
+	if ui.selectedLine == nil {
+		// No selection, dim to indicate picking is inactive
+		style = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrDim)
+	}
+	x += drawText(ui.screen, x, y, x1, "Pick", style)
+
+	upStyle := style
+	if ui.selectedLine != nil {
+		upStyle = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground())
+	}
+	x += ui.screen.SetCell(x, y, twin.StyledRune{
+		Style: upStyle,
+		Rune:  '↑',
+	})
+
+	return x
+}
+
 func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 	x := x0
 

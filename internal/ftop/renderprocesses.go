@@ -425,7 +425,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 
 	const byProcess = "By Process"
 	renderFrame(u.screen, u.theme, x0, y0, x1, y1, byProcess)
-	u.renderFilterPrompt(x0+2+len(byProcess)+3, y0, x1-2)
+	u.renderHeaderHints(x0+2+len(byProcess)+3, y0, x1-2)
 	renderLegend(u.screen, u.theme, y1, x1)
 }
 
