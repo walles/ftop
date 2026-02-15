@@ -418,3 +418,7 @@ func (p *Process) CpuTimeOrZero() time.Duration {
 
 	return *p.CpuTime
 }
+
+func (p *Process) SameAs(other Process) bool {
+	return p.Pid == other.Pid && p.startTime.Equal(other.startTime)
+}

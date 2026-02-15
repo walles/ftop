@@ -34,9 +34,11 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 		if h.ui.pickedLine == nil {
 			// No line picked, pick the first one
 			h.ui.pickedLine = new(int)
+			h.ui.pickedProcess = nil
 		} else {
 			// Move pick down
 			*h.ui.pickedLine++
+			h.ui.pickedProcess = nil
 		}
 		return
 	}
@@ -45,9 +47,11 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 		if *h.ui.pickedLine > 0 {
 			// Move pick up
 			*h.ui.pickedLine--
+			h.ui.pickedProcess = nil
 		} else {
 			// And it's gone!!
 			h.ui.pickedLine = nil
+			h.ui.pickedProcess = nil
 		}
 	}
 }

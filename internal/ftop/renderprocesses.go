@@ -10,12 +10,12 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-func canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Process, y0 int, y1 int) bool {
+func (u *Ui) canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Process, y0 int, y1 int) bool {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, _, _, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+	table, _, _, _, _ := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	width, _ := screen.Size()
 
@@ -39,7 +39,7 @@ func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, usersHeight, processes, users, commands := createProcessesTable(processesRaw, renderHeight-2)
+	table, usersHeight, processes, users, commands := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	width, _ := u.screen.Size()
 
@@ -101,7 +101,7 @@ func (u *Ui) renderSingleProcessesPane(processesRaw []processes.Process, y0 int,
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, _, processes, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+	table, _, processes, _, _ := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	// Drop the three rightmost columns (per-user and per-command) from the
 	// table
@@ -127,7 +127,7 @@ func (u *Ui) renderSingleProcessesPane(processesRaw []processes.Process, y0 int,
 // the per-user section.
 //
 // processesHeight is the height of the table, without borders
-func createProcessesTable(processesRaw []processes.Process, processesHeight int) (
+func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHeight int) (
 	[][]string,
 	int,
 	[]processes.Process,
@@ -154,6 +154,9 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 			nativity: p.Nativity,
 		}
 	})
+
+	processesByScore = u.fixPickedProcess(processesByScore)
+
 	for _, p := range processesByScore {
 		if len(procsTable) >= processesHeight {
 			break
