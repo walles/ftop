@@ -332,16 +332,32 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0, x1-1, cpuRamp, memoryRamp)
 
 	//
-	// Render table contents
+	// Track process picks
 	//
 
-	if u.pickedLine != nil {
+	if u.pickedLine == nil {
+		u.pickedProcess = nil
+	} else {
+		// Clip process pick and update the process pointer
+
 		lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
 		if *u.pickedLine > lastVisibleProcessIndex {
 			// Don't let the pick move out of view
 			u.pickedLine = &lastVisibleProcessIndex
 		}
+
+		if *u.pickedLine >= len(procs) {
+			// Don't let the pick move past the end of the process list
+			maxProcessIndex := len(procs) - 1
+			u.pickedLine = &maxProcessIndex
+		}
+
+		u.pickedProcess = &procs[*u.pickedLine]
 	}
+
+	//
+	// Render table contents
+	//
 
 	for rowIndex, row := range table {
 		line := fmt.Sprintf(formatString,
