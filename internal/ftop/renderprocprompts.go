@@ -9,6 +9,8 @@ func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int) {
 
 	x = ui.renderPickAProcPrompt(x, y, x1)
 	x += 3
+	x = ui.renderKillPrompt(x, y, x1)
+	x += 3
 	ui.renderFilterPrompt(x, y, x1)
 }
 
@@ -16,27 +18,42 @@ func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int) {
 func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int) int {
 	x := x0
 
-	downStyle := twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground())
+	downStyle := ui.theme.PromptKey()
 	x += ui.screen.SetCell(x, y, twin.StyledRune{
 		Style: downStyle,
 		Rune:  '↓',
 	})
 
-	style := twin.StyleDefault
+	style := ui.theme.PromptActive()
 	if ui.pickedLine == nil {
-		// No pick, dim to indicate picking is inactive
-		style = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrDim)
+		style = ui.theme.PromptPassive()
 	}
 	x += drawText(ui.screen, x, y, x1, "Pick", style)
 
-	upStyle := style
+	upStyle := ui.theme.PromptPassive()
 	if ui.pickedLine != nil {
-		upStyle = twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground())
+		upStyle = ui.theme.PromptKey()
 	}
 	x += ui.screen.SetCell(x, y, twin.StyledRune{
 		Style: upStyle,
 		Rune:  '↑',
 	})
+
+	return x
+}
+
+func (ui *Ui) renderKillPrompt(x0 int, y int, x1 int) int {
+	x := x0
+
+	if ui.pickedLine == nil {
+		x += drawText(ui.screen, x0, y, x1, "Kill", ui.theme.PromptPassive())
+	} else {
+		x += ui.screen.SetCell(x, y, twin.StyledRune{
+			Style: ui.theme.PromptKey(),
+			Rune:  'K',
+		})
+		x += drawText(ui.screen, x, y, x1, "ill", ui.theme.PromptActive())
+	}
 
 	return x
 }
@@ -49,31 +66,35 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 	if len(ui.filter) == 0 {
 		// No filter
 		if isEditingFilter {
-			// No filter, but in edit mode
-			x += ui.screen.SetCell(x, y, twin.NewStyledRune('F', twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrReverse)))
-			x += drawText(ui.screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrDim).WithAttr(twin.AttrUnderline))
+			// No filter, but in edit mode, use plain foreground color to
+			// indicate text entry
+			style := twin.StyleDefault.WithForeground(ui.theme.Foreground())
+			x += ui.screen.SetCell(x, y, twin.NewStyledRune('F', style.WithAttr(twin.AttrReverse)))
+			x += drawText(ui.screen, x, y, x1, "ilter", style.WithAttr(twin.AttrUnderline))
 			ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrBold),
+				Style: ui.theme.PromptKey(),
 				Rune:  '⏎',
 			})
 		} else {
 			// No filter, not in edit mode
 			x += ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()),
+				Style: ui.theme.PromptKey(),
 				Rune:  'F',
 			})
-			drawText(ui.screen, x, y, x1, "ilter", twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrDim))
+			drawText(ui.screen, x, y, x1, "ilter", ui.theme.PromptPassive())
 		}
 	} else {
 		// Have a filter
 
 		if isEditingFilter {
-			// Have a filter, and in edit mode. Underline the string.
-			x += drawText(ui.screen, x, y, x1, ui.filter, twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrUnderline))
+			// Have a filter, and in edit mode. Use plain foreground to indicate
+			// text entry, and underline the string.
+			style := twin.StyleDefault.WithForeground(ui.theme.Foreground())
+			x += drawText(ui.screen, x, y, x1, ui.filter, style.WithAttr(twin.AttrUnderline))
 
 			// Cursor
 			x += ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrReverse),
+				Style: style.WithAttr(twin.AttrReverse),
 				Rune:  ' ',
 			})
 
@@ -83,20 +104,22 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 			lastX := x0 + len("Filter")
 			for x < lastX {
 				x += ui.screen.SetCell(x, y, twin.StyledRune{
-					Style: twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrUnderline),
+					Style: style.WithAttr(twin.AttrUnderline),
 					Rune:  ' ',
 				})
 			}
 
 			ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrBold),
+				Style: ui.theme.PromptKey(),
 				Rune:  '⏎',
 			})
 		} else {
-			// Have a filter, not in edit mode
-			x += drawText(ui.screen, x, y, x1, ui.filter, twin.StyleDefault.WithForeground(ui.theme.Foreground()))
+			// Have a filter, not in edit mode. Use plain foreground to indicate
+			// edited text.
+			style := twin.StyleDefault.WithForeground(ui.theme.Foreground()).WithAttr(twin.AttrUnderline)
+			x += drawText(ui.screen, x, y, x1, ui.filter, style)
 			ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: twin.StyleDefault.WithForeground(ui.theme.HighlightedForeground()).WithAttr(twin.AttrBold),
+				Style: ui.theme.PromptKey(),
 				Rune:  '⌫',
 			})
 		}
