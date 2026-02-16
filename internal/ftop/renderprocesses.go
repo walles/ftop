@@ -338,9 +338,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	// Track process picks
 	//
 
-	if u.pickedLine == nil {
-		u.pickedProcess = nil
-	} else {
+	if u.pickedLine != nil {
 		// Clip process pick and update the process pointer
 
 		lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
@@ -354,7 +352,12 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 			maxProcessIndex := len(procs) - 1
 			u.pickedLine = &maxProcessIndex
 		}
+	}
 
+	if u.pickedLine == nil || *u.pickedLine < 0 {
+		u.pickedProcess = nil
+		u.pickedLine = nil
+	} else {
 		u.pickedProcess = &procs[*u.pickedLine]
 	}
 
