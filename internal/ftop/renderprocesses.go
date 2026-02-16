@@ -455,7 +455,17 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 
 	const byProcess = "By Process"
 	renderFrame(u.screen, u.theme, x0, y0, x1, y1, byProcess)
-	u.renderHeaderHints(x0+2+len(byProcess)+3, y0, x1-2)
+
+	pickUpArrow := u.pickedLine != nil
+
+	// Down arrow is available if we can move down, limited by both screen height and process count
+	lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
+	lastProcessIndex := len(procs) - 1
+	maxPickableIndex := min(lastProcessIndex, lastVisibleProcessIndex)
+	pickDownArrow := len(procs) > 0 && (u.pickedLine == nil || *u.pickedLine < maxPickableIndex)
+
+	u.renderHeaderHints(x0+2+len(byProcess)+3, y0, x1-2, pickDownArrow, pickUpArrow)
+
 	renderLegend(u.screen, u.theme, y1, x1)
 }
 

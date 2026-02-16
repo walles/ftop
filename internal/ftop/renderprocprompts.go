@@ -4,10 +4,10 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int) {
+func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int, pickDownArrow bool, pickUpArrow bool) {
 	x := x0
 
-	x = ui.renderPickAProcPrompt(x, y, x1)
+	x = ui.renderPickAProcPrompt(x, y, x1, pickDownArrow, pickUpArrow)
 	x += 3
 	x = ui.renderKillPrompt(x, y, x1)
 	x += 3
@@ -15,10 +15,13 @@ func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int) {
 }
 
 // Returns the first empty x coordinate after the rendered prompt
-func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int) int {
+func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int, pickDownArrow bool, pickUpArrow bool) int {
 	x := x0
 
 	downStyle := ui.theme.PromptKey()
+	if !pickDownArrow {
+		downStyle = ui.theme.PromptPassive()
+	}
 	x += ui.screen.SetCell(x, y, twin.StyledRune{
 		Style: downStyle,
 		Rune:  '↓',
@@ -30,9 +33,9 @@ func (ui *Ui) renderPickAProcPrompt(x0 int, y int, x1 int) int {
 	}
 	x += drawText(ui.screen, x, y, x1, "Pick", style)
 
-	upStyle := ui.theme.PromptPassive()
-	if ui.pickedLine != nil {
-		upStyle = ui.theme.PromptKey()
+	upStyle := ui.theme.PromptKey()
+	if !pickUpArrow {
+		upStyle = ui.theme.PromptPassive()
 	}
 	x += ui.screen.SetCell(x, y, twin.StyledRune{
 		Style: upStyle,
