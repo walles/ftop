@@ -30,7 +30,7 @@ func (h *eventHandlerBase) onRune(r rune) {
 			return
 		}
 
-		err = p.Signal(syscall.SIGTERM)
+		err = p.Signal(syscall.SIGKILL)
 		if err != nil {
 			log.Infof("Failed to kill process %s: %v", h.ui.pickedProcess.String(), err)
 			return
