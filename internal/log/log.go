@@ -86,12 +86,10 @@ func String(highlighted bool) string {
 
 	var s strings.Builder
 	for _, e := range entries {
-		s.WriteString(fmt.Sprintf(
-			"[%s] %-5s: %s\n",
+		fmt.Fprintf(&s, "[%s] %-5s: %s\n",
 			e.timestamp.Format(time.RFC3339),
 			levelToString(e.level, highlighted),
-			formatMessage(e.level, e.message, highlighted),
-		))
+			formatMessage(e.level, e.message, highlighted))
 	}
 
 	return strings.TrimRight(s.String(), "\n")
