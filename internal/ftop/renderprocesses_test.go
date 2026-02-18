@@ -19,7 +19,8 @@ func TestCreateProcessTable(t *testing.T) {
 		{Pid: 1, Command: "one", Username: "one", RssKb: 10, CpuTime: toDuration(10)},
 	}
 
-	table, usersHeight, returnedSortedProcs, users, commands := createProcessesTable(sortedProcs, 6)
+	var u Ui
+	table, usersHeight, returnedSortedProcs, users, commands := u.createProcessesTable(sortedProcs, 6)
 
 	assert.Equal(t, usersHeight, 2) // Header line + 1 user line
 	assert.Equal(t, reflect.DeepEqual(returnedSortedProcs, sortedProcs), true)

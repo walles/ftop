@@ -10,12 +10,12 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-func canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Process, y0 int, y1 int) bool {
+func (u *Ui) canRenderThreeProcessPanes(screen twin.Screen, processesRaw []processes.Process, y0 int, y1 int) bool {
 	// Including borders. If they are the same, the height is still 1.
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, _, _, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+	table, _, _, _, _ := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	width, _ := screen.Size()
 
@@ -39,7 +39,7 @@ func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, usersHeight, processes, users, commands := createProcessesTable(processesRaw, renderHeight-2)
+	table, usersHeight, processes, users, commands := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	width, _ := u.screen.Size()
 
@@ -101,7 +101,7 @@ func (u *Ui) renderSingleProcessesPane(processesRaw []processes.Process, y0 int,
 	renderHeight := y1 - y0 + 1
 
 	// -2 for borders, they won't be part of the table
-	table, _, processes, _, _ := createProcessesTable(processesRaw, renderHeight-2)
+	table, _, processes, _, _ := u.createProcessesTable(processesRaw, renderHeight-2)
 
 	// Drop the three rightmost columns (per-user and per-command) from the
 	// table
@@ -127,7 +127,7 @@ func (u *Ui) renderSingleProcessesPane(processesRaw []processes.Process, y0 int,
 // the per-user section.
 //
 // processesHeight is the height of the table, without borders
-func createProcessesTable(processesRaw []processes.Process, processesHeight int) (
+func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHeight int) (
 	[][]string,
 	int,
 	[]processes.Process,
@@ -154,6 +154,9 @@ func createProcessesTable(processesRaw []processes.Process, processesHeight int)
 			nativity: p.Nativity,
 		}
 	})
+
+	processesByScore = u.fixPickedProcess(processesByScore)
+
 	for _, p := range processesByScore {
 		if len(procsTable) >= processesHeight {
 			break
@@ -305,7 +308,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	topBottomRamp := ui.NewColorRamp(float64(y0+2), float64(y1-1), u.theme.Foreground(), u.theme.FadedForeground())
 
 	userColumn0 := x0 + 1 + widths[0] + 1 + widths[1] // Screen column
-	userColumnN := userColumn0 + widths[2] - 1        // Screen column
+	userColumnN := userColumn0 + widths[2]            // Screen column
 	currentUsername := util.GetCurrentUsername()
 
 	commandColumn0 := x0 + 1 + widths[0] + 1         // Screen column. x0 + 1 for left border, then PID column, then a space separator
@@ -330,6 +333,33 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	// color. The effect is especially visible for processes with low PIDs and
 	// short load bars, like the init (PID 1) process.
 	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0, x1-1, cpuRamp, memoryRamp)
+
+	//
+	// Track process picks
+	//
+
+	if u.pickedLine != nil {
+		// Clip process pick and update the process pointer
+
+		lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
+		if *u.pickedLine > lastVisibleProcessIndex {
+			// Don't let the pick move out of view
+			u.pickedLine = &lastVisibleProcessIndex
+		}
+
+		if *u.pickedLine >= len(procs) {
+			// Don't let the pick move past the end of the process list
+			maxProcessIndex := len(procs) - 1
+			u.pickedLine = &maxProcessIndex
+		}
+	}
+
+	if u.pickedLine == nil || *u.pickedLine < 0 {
+		u.pickedProcess = nil
+		u.pickedLine = nil
+	} else {
+		u.pickedProcess = &procs[*u.pickedLine]
+	}
 
 	//
 	// Render table contents
@@ -387,7 +417,19 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 				}
 			}
 
+			if u.pickedLine != nil && *u.pickedLine == rowIndex-1 {
+				// Picked process line, highlight it!
+				char.Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
+			}
+
 			u.screen.SetCell(x, y, char)
+
+			if u.pickedLine != nil && *u.pickedLine == rowIndex-1 {
+				// Picked process line, don't draw any load bars since they will
+				// mess up the highlighting.
+				x += char.Width()
+				continue
+			}
 
 			if rowIndex == 0 {
 				// Header row, no load bars here
@@ -413,7 +455,17 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 
 	const byProcess = "By Process"
 	renderFrame(u.screen, u.theme, x0, y0, x1, y1, byProcess)
-	u.renderFilterPrompt(x0+2+len(byProcess)+3, y0, x1-2)
+
+	pickUpArrow := u.pickedLine != nil
+
+	// Down arrow is available if we can move down, limited by both screen height and process count
+	lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
+	lastProcessIndex := len(procs) - 1
+	maxPickableIndex := min(lastProcessIndex, lastVisibleProcessIndex)
+	pickDownArrow := len(procs) > 0 && (u.pickedLine == nil || *u.pickedLine < maxPickableIndex)
+
+	u.renderHeaderHints(x0+2+len(byProcess)+3, y0, x1-2, pickDownArrow, pickUpArrow)
+
 	renderLegend(u.screen, u.theme, y1, x1)
 }
 

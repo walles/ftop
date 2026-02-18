@@ -84,7 +84,7 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 
 	if width < u.minThreePanesScreenWidth {
 		u.renderSingleProcessesPane(processesRaw, overviewHeight, processesBottomRow)
-	} else if canRenderThreeProcessPanes(u.screen, processesRaw, overviewHeight, processesBottomRow) {
+	} else if u.canRenderThreeProcessPanes(u.screen, processesRaw, overviewHeight, processesBottomRow) {
 		u.renderThreeProcessPanes(processesRaw, overviewHeight, processesBottomRow)
 	} else {
 		u.renderSingleProcessesPane(processesRaw, overviewHeight, processesBottomRow)

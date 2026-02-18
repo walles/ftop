@@ -1,6 +1,7 @@
 package ftop
 
 import (
+	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
 )
@@ -19,6 +20,13 @@ type Ui struct {
 	filter string // Empty means no filter
 
 	done bool
+
+	// nil means no line picked. If the value is too large it should be updated
+	// by the rendering code.
+	pickedLine *int
+
+	// This will be updated during rendering
+	pickedProcess *processes.Process
 
 	// At this width or wider, we have always managed to render all three panes.
 	// Below this, we shouldn't even try.

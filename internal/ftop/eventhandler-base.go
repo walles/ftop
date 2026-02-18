@@ -1,6 +1,12 @@
 package ftop
 
-import "github.com/walles/moor/v2/twin"
+import (
+	"os"
+	"syscall"
+
+	"github.com/walles/ftop/internal/log"
+	"github.com/walles/moor/v2/twin"
+)
 
 type eventHandlerBase struct {
 	ui *Ui
@@ -16,6 +22,22 @@ func (h *eventHandlerBase) onRune(r rune) {
 		// Switch to the filter event handler
 		h.ui.eventHandler = &eventHandlerFilter{ui: h.ui}
 	}
+
+	if r == 'k' && h.ui.pickedProcess != nil {
+		p, err := os.FindProcess(h.ui.pickedProcess.Pid)
+		if err != nil {
+			log.Infof("Process %s not found for killing: %v", h.ui.pickedProcess.String(), err)
+			return
+		}
+
+		err = p.Signal(syscall.SIGKILL)
+		if err != nil {
+			log.Infof("Failed to kill process %s: %v", h.ui.pickedProcess.String(), err)
+			return
+		}
+
+		log.Debugf("Killed process %s", h.ui.pickedProcess.String())
+	}
 }
 
 func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
@@ -28,5 +50,30 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 		// Clear the filter
 		h.ui.filter = ""
 		return
+	}
+
+	if keyCode == twin.KeyDown {
+		if h.ui.pickedLine == nil {
+			// No line picked, pick the first one
+			h.ui.pickedLine = new(int)
+			h.ui.pickedProcess = nil
+		} else {
+			// Move pick down
+			*h.ui.pickedLine++
+			h.ui.pickedProcess = nil
+		}
+		return
+	}
+
+	if keyCode == twin.KeyUp && h.ui.pickedLine != nil {
+		if *h.ui.pickedLine > 0 {
+			// Move pick up
+			*h.ui.pickedLine--
+			h.ui.pickedProcess = nil
+		} else {
+			// And it's gone!!
+			h.ui.pickedLine = nil
+			h.ui.pickedProcess = nil
+		}
 	}
 }

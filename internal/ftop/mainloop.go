@@ -15,7 +15,10 @@ func (ui *Ui) MainLoop() {
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()
 
-	events := make(chan twin.Event)
+	// With race detection enabled (makes everything slow) and holding the down
+	// arrow key, I saw event queues of at most 3. 10 will give us some headroom
+	// on top of that.
+	events := make(chan twin.Event, 10)
 	go func() {
 		defer func() {
 			log.PanicHandler("main/screen events poller", recover(), debug.Stack())
@@ -40,6 +43,11 @@ func (ui *Ui) MainLoop() {
 
 		case twin.EventKeyCode:
 			ui.eventHandler.onKeyCode(event.KeyCode())
+		}
+
+		if len(events) > 0 {
+			// More events to handle, don't redraw until the queue is empty.
+			continue
 		}
 
 		procs := procsTracker.Processes()

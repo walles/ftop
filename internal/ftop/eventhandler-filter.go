@@ -24,4 +24,16 @@ func (h *eventHandlerFilter) onKeyCode(keyCode twin.KeyCode) {
 			h.ui.filter = string(runes[:len(runes)-1])
 		}
 	}
+
+	if keyCode == twin.KeyDown {
+		// FIXME: Should we switch back or not switch back?
+
+		// Switch back to the default event handler...
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+
+		// ... and go down. This feels natural when searching, finding and then
+		// wanting to pick the process we found.
+		h.ui.eventHandler.onKeyCode(twin.KeyDown)
+		return
+	}
 }

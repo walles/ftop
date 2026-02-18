@@ -127,3 +127,17 @@ func (t Theme) Border() twin.Color {
 func (t Theme) BorderTitle() twin.Color {
 	return t.borderTitle
 }
+
+func (t Theme) PromptActive() twin.Style {
+	return twin.StyleDefault.WithForeground(t.Background().Mix(t.HighlightedForeground(), 0.7))
+}
+
+func (t Theme) PromptPassive() twin.Style {
+	return twin.StyleDefault.WithForeground(t.HighlightedForeground()).WithAttr(twin.AttrDim)
+}
+
+// Style for a single cell containing a key that can be pressed to trigger an
+// action, e.g. "K" in "Kill".
+func (t Theme) PromptKey() twin.Style {
+	return twin.StyleDefault.WithForeground(t.HighlightedForeground()).WithAttr(twin.AttrBold)
+}
