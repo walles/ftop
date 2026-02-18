@@ -2,6 +2,7 @@ package processes
 
 import (
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +47,9 @@ func (tracker *Tracker) update() {
 		log.Errorf("%v", err)
 		return
 	}
+
+	// Restore original commands for dying processes
+	preserveDyingProcessCommands(procs, tracker.current)
 
 	for _, proc := range procs {
 		tracker.deduplicator.register(proc)
@@ -161,4 +165,36 @@ func (tracker *Tracker) Launches() *LaunchNode {
 	}
 
 	return clone(tracker.launches)
+}
+
+// preserveDyingProcessCommands restores the original command names for processes
+// that are dying (shown with parenthesized names like "(bash)").
+func preserveDyingProcessCommands(current []*Process, previous map[int]*Process) {
+	if previous == nil {
+		return
+	}
+
+	for _, proc := range current {
+		// Check if this is a dying process (parenthesized command)
+		if !strings.HasPrefix(proc.cmdline, "(") || !strings.HasSuffix(proc.cmdline, ")") {
+			continue
+		}
+
+		// Look up the previous state of this process
+		oldProc, found := previous[proc.Pid]
+		if !found {
+			continue
+		}
+
+		// Verify it's the same process using SameAs (checks PID and start time)
+		if !oldProc.SameAs(*proc) {
+			continue
+		}
+
+		// Restore the original command information
+		log.Debugf("Restoring command: %q -> %q", proc.Command, oldProc.Command)
+		proc.cmdline = oldProc.cmdline
+		proc.Command = oldProc.Command
+		proc.lowercaseCommand = oldProc.lowercaseCommand
+	}
 }
