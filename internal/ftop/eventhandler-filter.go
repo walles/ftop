@@ -11,7 +11,19 @@ func (h *eventHandlerFilter) onRune(r rune) {
 }
 
 func (h *eventHandlerFilter) onKeyCode(keyCode twin.KeyCode) {
-	if keyCode == twin.KeyEscape || keyCode == twin.KeyEnter {
+	if keyCode == twin.KeyEnter {
+		if h.ui.pickedLine == nil {
+			// No line picked, handle Enter key as "move to the first process"
+			h.ui.pickedLine = new(int)
+			h.ui.pickedProcess = nil
+		}
+
+		// Switch back to the default event handler
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		return
+	}
+
+	if keyCode == twin.KeyEscape {
 		// Switch back to the default event handler
 		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
 		return
