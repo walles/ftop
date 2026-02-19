@@ -42,6 +42,13 @@ func (h *eventHandlerBase) onRune(r rune) {
 
 func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 	if keyCode == twin.KeyEscape {
+		if h.ui.pickedLine != nil {
+			// Clear the pick
+			h.ui.pickedLine = nil
+			h.ui.pickedProcess = nil
+			return
+		}
+
 		h.ui.done = true
 		return
 	}
