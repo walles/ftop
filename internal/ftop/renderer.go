@@ -101,6 +101,11 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		renderLaunchedCommands(u.screen, u.theme, launches, processesBottomRow+1, height-1)
 	}
 
+	_, isKilling := u.eventHandler.(*eventHandlerKill)
+	if isKilling {
+		u.renderKillUi(width-6, 5)
+	}
+
 	u.screen.Show()
 }
 

@@ -24,6 +24,9 @@ func (h *eventHandlerBase) onRune(r rune) {
 	}
 
 	if r == 'k' && h.ui.pickedProcess != nil {
+		h.ui.eventHandler = &eventHandlerKill{ui: h.ui, process: h.ui.pickedProcess}
+
+		// FIXME: Move the rest of this block into eventhandler-kill.go
 		p, err := os.FindProcess(h.ui.pickedProcess.Pid)
 		if err != nil {
 			log.Infof("Process %s not found for killing: %v", h.ui.pickedProcess.String(), err)
