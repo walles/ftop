@@ -192,7 +192,6 @@ func preserveDyingProcessCommands(current []*Process, previous map[int]*Process)
 		}
 
 		// Restore the original command information
-		log.Debugf("Restoring command: %q -> %q", proc.Command, oldProc.Command)
 		proc.cmdline = oldProc.cmdline
 		proc.Command = oldProc.Command
 		proc.lowercaseCommand = oldProc.lowercaseCommand
