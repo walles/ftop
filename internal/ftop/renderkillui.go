@@ -45,7 +45,8 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		panic(fmt.Sprintf("Not a kill handler: %+v", u.eventHandler))
 	}
 
-	if killer.excuse == "" {
+	excuse := killer.getExcuse()
+	if excuse == "" {
 		// Kill not attempted yet, tell user we are awaiting confirmation
 
 		// "Press k to kill launchd(1)."
@@ -71,7 +72,7 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		y := y0 + 1
 		x += drawText(u.screen, x, y, x1, "Failed to kill "+killer.process.String()+": ", twin.StyleDefault)
 		drawText(u.screen, x, y, x1,
-			killer.excuse,
+			excuse,
 			twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
 		)
 

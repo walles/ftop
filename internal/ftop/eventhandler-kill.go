@@ -3,7 +3,9 @@ package ftop
 import (
 	"fmt"
 	"os"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
@@ -11,22 +13,47 @@ import (
 )
 
 type eventHandlerKill struct {
-	ui         *Ui
-	process    *processes.Process
+	ui      *Ui
+	process *processes.Process
+
+	lock       sync.RWMutex // Protects excuse and lastSignal
 	excuse     string
 	lastSignal *syscall.Signal
 }
 
-// Returns an explanation if the kill failed, or the empty string if it succeeded
-func (h *eventHandlerKill) kill(signal syscall.Signal) string {
-	if h.ui.pickedProcess == nil {
-		// Process not available
-		return "No process selected, cannot kill"
-	}
+func (killer *eventHandlerKill) getExcuse() string {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
 
+	return killer.excuse
+}
+
+func (killer *eventHandlerKill) setExcuse(excuse string) {
+	killer.lock.Lock()
+	defer killer.lock.Unlock()
+
+	killer.excuse = excuse
+}
+
+func (killer *eventHandlerKill) hasLastSignal() bool {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignal != nil
+}
+
+func (killer *eventHandlerKill) setLastSignal(signal syscall.Signal) {
+	killer.lock.Lock()
+	defer killer.lock.Unlock()
+
+	killer.lastSignal = &signal
+}
+
+// Returns an explanation if the kill failed, or the empty string if it succeeded
+func (killer *eventHandlerKill) kill(signal syscall.Signal) string {
 	// Kill the process
 
-	p, err := os.FindProcess(h.process.Pid)
+	p, err := os.FindProcess(killer.process.Pid)
 	if err != nil {
 		return fmt.Sprintf("Not found for killing: %v", err)
 	}
@@ -37,21 +64,21 @@ func (h *eventHandlerKill) kill(signal syscall.Signal) string {
 	}
 
 	// Remember what we just did
-	h.lastSignal = &signal
+	killer.setLastSignal(signal)
 
-	log.Debugf("Killed process %s", h.ui.pickedProcess.String())
+	log.Debugf("Killed process %s", killer.process.String())
 	return ""
 }
 
-func (h *eventHandlerKill) onRune(r rune) {
-	if h.excuse != "" {
+func (killer *eventHandlerKill) onRune(r rune) {
+	if killer.getExcuse() != "" {
 		// Kill was attempted but failed, user should have been informed, exit
 		// on any key
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
 		return
 	}
 
-	if h.lastSignal != nil {
+	if killer.hasLastSignal() {
 		// We have already started signalling, ignore all keyboard input except
 		// for ESC, but that's handled in onKeyCode().
 		return
@@ -59,28 +86,53 @@ func (h *eventHandlerKill) onRune(r rune) {
 
 	if r != 'k' {
 		// Abort
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
 		return
 	}
 
-	excuse := h.kill(syscall.SIGTERM)
+	excuse := killer.kill(syscall.SIGTERM)
 	if excuse != "" {
 		// Kill failed, set an excuse that we can show to the user
-		h.excuse = excuse
+		killer.setExcuse(excuse)
 	}
+
+	go func() {
+		// Wait 5s for the process to die
+		time.Sleep(5 * time.Second)
+		if !killer.process.IsAlive() {
+			// It's gone!
+			return
+		}
+
+		// It's still there, try SIGKILL
+		excuse := killer.kill(syscall.SIGKILL)
+		if excuse != "" {
+			// Kill failed, set an excuse that we can show to the user
+			killer.setExcuse(excuse)
+			return
+		}
+
+		// Wait 5s for the process to die
+		time.Sleep(5 * time.Second)
+
+		// FIXME: Tell the user we failed
+		if killer.process.IsAlive() {
+			killer.setExcuse("Process is still alive after SIGKILL")
+		}
+	}()
 }
 
-func (h *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
+func (killer *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
 	if keyCode == twin.KeyEscape {
 		// FIXME: Do we need to stop some background process here from counting
 		// down and sending signals?
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
 		return
 	}
 
-	if h.excuse != "" {
+	if killer.getExcuse() != "" {
 		// Kill was attempted but failed, exit on any key
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
 		return
 	}
 }
