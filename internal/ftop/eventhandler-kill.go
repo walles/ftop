@@ -1,6 +1,7 @@
 package ftop
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 
@@ -12,45 +13,64 @@ import (
 type eventHandlerKill struct {
 	ui      *Ui
 	process *processes.Process
+	excuse  string
 }
 
-func (h *eventHandlerKill) onRune(r rune) {
-	defer func() {
-		// After handling the kill, switch back to the base event handler
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
-	}()
-
-	if r != 'k' {
-		// Abort
-		return
-	}
-
+// Returns an explanation if the kill failed, or the empty string if it succeeded
+func (h *eventHandlerKill) kill() string {
 	if h.ui.pickedProcess == nil {
 		// Process not available
-		log.Infof("No process selected, cannot kill")
-		return
+		return "No process selected, cannot kill"
 	}
 
 	// Kill the process
 
 	p, err := os.FindProcess(h.ui.pickedProcess.Pid)
 	if err != nil {
-		log.Infof("Process %s not found for killing: %v", h.ui.pickedProcess.String(), err)
-		return
+		return fmt.Sprintf("Not found for killing: %v", err)
 	}
 
 	err = p.Signal(syscall.SIGKILL)
 	if err != nil {
-		log.Infof("Failed to kill process %s: %v", h.ui.pickedProcess.String(), err)
-		return
+		return err.Error()
 	}
 
 	log.Debugf("Killed process %s", h.ui.pickedProcess.String())
+	return ""
+}
 
+func (h *eventHandlerKill) onRune(r rune) {
+	if h.excuse != "" {
+		// Kill was attempted but failed, exit on any key
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		return
+	}
+
+	if r != 'k' {
+		// Abort
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		return
+	}
+
+	excuse := h.kill()
+	if excuse == "" {
+		// Kill succeeded, we are done
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		return
+	}
+
+	// Kill failed, set an excuse that we can show to the user
+	h.excuse = excuse
 }
 
 func (h *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
 	if keyCode == twin.KeyEscape {
+		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		return
+	}
+
+	if h.excuse != "" {
+		// Kill was attempted but failed, exit on any key
 		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
 		return
 	}
