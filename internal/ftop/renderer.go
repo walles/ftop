@@ -123,8 +123,7 @@ func renderOverview(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, o
 	renderFrame(screen, theme, 0, 0, overviewWidth-1, 4, "Overview")
 
 	// Draw "Quit" prompt in upper right corner
-	width, _ := screen.Size()
-	x := width - (len("Quit") + 2)
+	x := overviewWidth - (len("Quit") + 2)
 	x += screen.SetCell(x, 0, twin.StyledRune{Rune: 'Q', Style: theme.PromptKey()})
 	drawText(screen, x, 0, overviewWidth-1, "uit", theme.PromptActive())
 }
