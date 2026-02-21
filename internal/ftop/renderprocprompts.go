@@ -84,7 +84,7 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 				Style: ui.theme.PromptKey(),
 				Rune:  'F',
 			})
-			drawText(ui.screen, x, y, x1, "ilter", ui.theme.PromptPassive())
+			drawText(ui.screen, x, y, x1, "ilter", ui.theme.PromptActive())
 		}
 	} else {
 		// Have a filter
