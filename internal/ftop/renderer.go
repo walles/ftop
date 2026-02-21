@@ -103,7 +103,13 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 
 	_, isKilling := u.eventHandler.(*eventHandlerKill)
 	if isKilling {
-		u.renderKillUi(width-6, 5)
+		// Calculate the screen row for the picked process
+		// The picked process is rendered at: overviewHeight + 1 (border) + 1 (header) + pickedLine
+		nextToScreenRow := overviewHeight + 2
+		if u.pickedLine != nil {
+			nextToScreenRow += *u.pickedLine
+		}
+		u.renderKillUi(nextToScreenRow)
 	}
 
 	u.screen.Show()
