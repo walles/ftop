@@ -25,7 +25,7 @@ func (h *eventHandlerKill) kill() string {
 
 	// Kill the process
 
-	p, err := os.FindProcess(h.ui.pickedProcess.Pid)
+	p, err := os.FindProcess(h.process.Pid)
 	if err != nil {
 		return fmt.Sprintf("Not found for killing: %v", err)
 	}
