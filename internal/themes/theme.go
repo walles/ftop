@@ -80,8 +80,8 @@ func newLightTheme(bg *twin.Color) Theme {
 		loadBarMaxRam: twin.NewColorHex(0xccccff),
 		loadBarMaxIO:  twin.NewColorHex(0xaaaa55),
 
-		border:      twin.NewColorHex(0x9090e0),
-		borderTitle: twin.NewColorHex(0xb77d7d),
+		border:      twin.NewColorHex(0xc0c0ff),
+		borderTitle: twin.NewColorHex(0x902020),
 	}
 }
 
