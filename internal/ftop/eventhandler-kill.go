@@ -101,6 +101,8 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		time.Sleep(5 * time.Second)
 		if !killer.process.IsAlive() {
 			// It's gone!
+			killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+
 			return
 		}
 
@@ -115,10 +117,14 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		// Wait 5s for the process to die
 		time.Sleep(5 * time.Second)
 
-		// FIXME: Tell the user we failed
-		if killer.process.IsAlive() {
-			killer.setExcuse("Process is still alive after SIGKILL")
+		if !killer.process.IsAlive() {
+			// It's gone!
+			killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+			return
 		}
+
+		// Tell the user we failed
+		killer.setExcuse("Process is still alive after SIGKILL")
 	}()
 }
 
