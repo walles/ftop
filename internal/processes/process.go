@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/walles/ftop/internal/log"
@@ -421,4 +423,13 @@ func (p *Process) CpuTimeOrZero() time.Duration {
 
 func (p *Process) SameAs(other Process) bool {
 	return p.Pid == other.Pid && p.startTime.Equal(other.startTime)
+}
+
+func (p *Process) IsAlive() bool {
+	err := syscall.Kill(p.Pid, 0)
+	if err == nil {
+		return true
+	}
+
+	return errors.Is(err, syscall.EPERM)
 }

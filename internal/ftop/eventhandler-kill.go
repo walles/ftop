@@ -3,75 +3,208 @@ package ftop
 import (
 	"fmt"
 	"os"
+	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/moor/v2/twin"
 )
 
+const deathPollInterval = 200 * time.Millisecond
+const KillTimeout = 5 * time.Second
+
 type eventHandlerKill struct {
 	ui      *Ui
 	process *processes.Process
-	excuse  string
+
+	// If true, we will stop waiting for any outstanding kill attempt
+	closing atomic.Bool
+
+	lock   sync.RWMutex // Protects excuse and lastSignal
+	excuse string
+
+	lastSignal          *syscall.Signal
+	lastSignalTimestamp *time.Time
+}
+
+func (killer *eventHandlerKill) getExcuse() string {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.excuse
+}
+
+func (killer *eventHandlerKill) setExcuse(excuse string) {
+	killer.lock.Lock()
+	defer killer.lock.Unlock()
+
+	killer.excuse = excuse
+}
+
+func (killer *eventHandlerKill) hasLastSignal() bool {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignal != nil
+}
+
+func (killer *eventHandlerKill) GetLastSignal() *syscall.Signal {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignal
+}
+
+func (killer *eventHandlerKill) GetLastSignalTimestamp() *time.Time {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignalTimestamp
+}
+
+func (killer *eventHandlerKill) setLastSignal(signal syscall.Signal) {
+	killer.lock.Lock()
+	defer killer.lock.Unlock()
+
+	killer.lastSignal = &signal
+	now := time.Now()
+	killer.lastSignalTimestamp = &now
 }
 
 // Returns an explanation if the kill failed, or the empty string if it succeeded
-func (h *eventHandlerKill) kill() string {
-	if h.ui.pickedProcess == nil {
-		// Process not available
-		return "No process selected, cannot kill"
-	}
-
+func (killer *eventHandlerKill) kill(signal syscall.Signal) string {
 	// Kill the process
 
-	p, err := os.FindProcess(h.process.Pid)
+	p, err := os.FindProcess(killer.process.Pid)
 	if err != nil {
 		return fmt.Sprintf("Not found for killing: %v", err)
 	}
 
-	err = p.Signal(syscall.SIGKILL)
+	err = p.Signal(signal)
 	if err != nil {
 		return err.Error()
 	}
 
-	log.Debugf("Killed process %s", h.ui.pickedProcess.String())
+	// Remember what we just did
+	killer.setLastSignal(signal)
+
+	log.Debugf("Killed process %s", killer.process.String())
 	return ""
 }
 
-func (h *eventHandlerKill) onRune(r rune) {
-	if h.excuse != "" {
-		// Kill was attempted but failed, exit on any key
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+func (killer *eventHandlerKill) onRune(r rune) {
+	if killer.getExcuse() != "" {
+		// Kill was attempted but failed, user should have been informed, exit
+		// on any key
+		killer.close()
+		return
+	}
+
+	if killer.hasLastSignal() {
+		// We have already started signalling, ignore all keyboard input except
+		// for ESC, but that's handled in onKeyCode().
 		return
 	}
 
 	if r != 'k' {
 		// Abort
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.close()
 		return
 	}
 
-	excuse := h.kill()
-	if excuse == "" {
-		// Kill succeeded, we are done
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+	excuse := killer.kill(syscall.SIGTERM)
+	if excuse != "" {
+		// Kill failed, set an excuse that we can show to the user
+		killer.setExcuse(excuse)
+		killer.ui.requestRedraw()
 		return
 	}
 
-	// Kill failed, set an excuse that we can show to the user
-	h.excuse = excuse
+	killer.ui.requestRedraw()
+
+	go func() {
+		// Wait 5s for the process to die
+		deadline := time.Now().Add(KillTimeout)
+		for time.Now().Before(deadline) {
+			if killer.closing.Load() {
+				// User aborted, stop waiting and don't send any more signals
+				killer.ui.requestRedraw()
+				return
+			}
+			if !killer.process.IsAlive() {
+				// It's gone!
+				killer.close()
+				killer.ui.requestRedraw()
+				return
+			}
+			time.Sleep(deathPollInterval)
+			killer.ui.requestRedraw()
+		}
+
+		if killer.closing.Load() {
+			// User aborted, we are done
+			killer.ui.requestRedraw()
+			return
+		}
+
+		// It's still there, try SIGKILL
+		excuse := killer.kill(syscall.SIGKILL)
+		if excuse != "" {
+			// Kill failed, set an excuse that we can show to the user
+			killer.setExcuse(excuse)
+			killer.ui.requestRedraw()
+			return
+		}
+
+		// Wait 5s for the process to die
+		deadline = time.Now().Add(KillTimeout)
+		for time.Now().Before(deadline) {
+			if killer.closing.Load() {
+				// User aborted, stop waiting
+				killer.ui.requestRedraw()
+				return
+			}
+			if !killer.process.IsAlive() {
+				// It's gone!
+				killer.close()
+				killer.ui.requestRedraw()
+				return
+			}
+			time.Sleep(deathPollInterval)
+			killer.ui.requestRedraw()
+		}
+
+		// Tell the user we failed
+		killer.setExcuse("Process is still alive after SIGKILL")
+		killer.ui.requestRedraw()
+	}()
 }
 
-func (h *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
+func (killer *eventHandlerKill) close() {
+	killer.closing.Store(true)
+
+	select {
+	case killer.ui.events <- replaceEventHandler{
+		old: killer,
+		new: &eventHandlerBase{ui: killer.ui},
+	}:
+	default:
+		log.Errorf("Could not send event to replace kill event handler")
+	}
+}
+
+func (killer *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
 	if keyCode == twin.KeyEscape {
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.close()
 		return
 	}
 
-	if h.excuse != "" {
+	if killer.getExcuse() != "" {
 		// Kill was attempted but failed, exit on any key
-		h.ui.eventHandler = &eventHandlerBase{ui: h.ui}
+		killer.close()
 		return
 	}
 }

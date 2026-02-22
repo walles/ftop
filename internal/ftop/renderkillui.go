@@ -2,7 +2,10 @@ package ftop
 
 import (
 	"fmt"
+	"syscall"
+	"time"
 
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -40,28 +43,23 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		}
 	}
 
+	defer func() {
+		renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+
+		// Draw "Quit" prompt in upper right corner
+		x := x1 - (len("Quit") + 2)
+		y := y0
+		x += u.screen.SetCell(x, y, twin.StyledRune{Rune: 'Q', Style: u.theme.PromptKey()})
+		drawText(u.screen, x, y, x1, "uit", u.theme.PromptActive())
+	}()
+
 	killer, ok := u.eventHandler.(*eventHandlerKill)
 	if !ok {
 		panic(fmt.Sprintf("Not a kill handler: %+v", u.eventHandler))
 	}
 
-	if killer.excuse == "" {
-		// Kill not attempted yet, tell user we are awaiting confirmation
-
-		// "Press k to kill launchd(1)."
-		x := x0 + 1
-		x += drawText(u.screen, x, y0+1, x1, "Press ", u.theme.PromptActive())
-		x += drawText(u.screen, x, y0+1, x1, "k", u.theme.PromptKey())
-		x += drawText(u.screen, x, y0+1, x1, " to kill ", u.theme.PromptActive())
-		x += drawText(u.screen, x, y0+1, x1,
-			killer.process.String(),
-			twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
-		)
-		u.screen.SetCell(x, y0+1, twin.StyledRune{
-			Rune:  '.',
-			Style: u.theme.PromptActive(),
-		})
-	} else {
+	excuse := killer.getExcuse()
+	if excuse != "" {
 		// We have some excuse, tell the user the kill failed
 
 		// "Failed to kill launchd(1): permission denied."
@@ -71,7 +69,7 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		y := y0 + 1
 		x += drawText(u.screen, x, y, x1, "Failed to kill "+killer.process.String()+": ", twin.StyleDefault)
 		drawText(u.screen, x, y, x1,
-			killer.excuse,
+			excuse,
 			twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
 		)
 
@@ -80,7 +78,59 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		x += drawText(u.screen, x, y, x1, "Press ", u.theme.PromptActive())
 		x += drawText(u.screen, x, y, x1, "any key", u.theme.PromptKey())
 		drawText(u.screen, x, y, x1, " to continue.", u.theme.PromptActive())
+		return
 	}
 
-	renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+	lastSignalTimestamp := killer.GetLastSignalTimestamp()
+	if lastSignalTimestamp != nil {
+		// Awaiting kill result
+
+		x := x0 + 1
+		y := y0 + 1
+		x += drawText(u.screen, x, y, x1, "Killing ", twin.StyleDefault)
+		x += drawText(u.screen, x, y, x1, killer.process.String(), twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()))
+		drawText(u.screen, x, y, x1, "...", twin.StyleDefault)
+
+		y += 2
+		x = x0 + 1
+		signal := killer.GetLastSignal()
+		name := signal.String()
+		switch *signal {
+		case syscall.SIGKILL:
+			name = "SIGKILL"
+		case syscall.SIGTERM:
+			name = "SIGTERM"
+		}
+		drawText(u.screen, x, y, x1, name, twin.StyleDefault)
+
+		loadBarRamp := ui.NewColorRamp(0.0, 1.0, u.theme.Background(), u.theme.HighlightedForeground())
+		loadBar := ui.NewLoadBar(x0+1, x1-1, loadBarRamp)
+		loadBar.SetWatermark(1.0) // Give the progress bar a background color
+
+		elapsed := time.Since(*lastSignalTimestamp)
+		loadFraction := elapsed.Seconds() / KillTimeout.Seconds()
+
+		for fillX := x0 + 1; fillX < x1; fillX++ {
+			loadBar.SetCellBackground(u.screen, fillX, y, loadFraction)
+		}
+
+		return
+	}
+
+	// Kill not attempted yet, tell user we are awaiting confirmation
+
+	// "Press k to kill launchd(1)."
+	x := x0 + 3
+	y := y0 + 2
+	x += drawText(u.screen, x, y, x1, "Press ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y, x1, "k", u.theme.PromptKey())
+	x += drawText(u.screen, x, y, x1, " to kill ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y, x1,
+		killer.process.String(),
+		twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
+	)
+	u.screen.SetCell(x, y, twin.StyledRune{
+		Rune:  '.',
+		Style: u.theme.PromptActive(),
+	})
 }

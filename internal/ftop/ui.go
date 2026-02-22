@@ -16,6 +16,7 @@ type Ui struct {
 	screen twin.Screen
 
 	eventHandler eventHandler
+	events       chan any
 
 	filter string // Empty means no filter
 
@@ -38,8 +39,14 @@ type Ui struct {
 
 func NewUi(screen twin.Screen, theme themes.Theme) *Ui {
 	ui := &Ui{
-		theme:                    theme,
-		screen:                   screen,
+		theme:  theme,
+		screen: screen,
+
+		// With race detection enabled (makes everything slow) and holding the down
+		// arrow key, I saw event queues of at most 3. 10 will give us some headroom
+		// on top of that.
+		events: make(chan any, 10),
+
 		minThreePanesScreenWidth: 0, // Will be kept up to date by ftop.Ui.Render()
 	}
 
