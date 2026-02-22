@@ -2,6 +2,7 @@ package ftop
 
 import (
 	"fmt"
+	"syscall"
 
 	"github.com/walles/moor/v2/twin"
 )
@@ -40,29 +41,15 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		}
 	}
 
+	defer renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+
 	killer, ok := u.eventHandler.(*eventHandlerKill)
 	if !ok {
 		panic(fmt.Sprintf("Not a kill handler: %+v", u.eventHandler))
 	}
 
 	excuse := killer.getExcuse()
-	if excuse == "" {
-		// Kill not attempted yet, tell user we are awaiting confirmation
-
-		// "Press k to kill launchd(1)."
-		x := x0 + 1
-		x += drawText(u.screen, x, y0+1, x1, "Press ", u.theme.PromptActive())
-		x += drawText(u.screen, x, y0+1, x1, "k", u.theme.PromptKey())
-		x += drawText(u.screen, x, y0+1, x1, " to kill ", u.theme.PromptActive())
-		x += drawText(u.screen, x, y0+1, x1,
-			killer.process.String(),
-			twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
-		)
-		u.screen.SetCell(x, y0+1, twin.StyledRune{
-			Rune:  '.',
-			Style: u.theme.PromptActive(),
-		})
-	} else {
+	if excuse != "" {
 		// We have some excuse, tell the user the kill failed
 
 		// "Failed to kill launchd(1): permission denied."
@@ -81,7 +68,47 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		x += drawText(u.screen, x, y, x1, "Press ", u.theme.PromptActive())
 		x += drawText(u.screen, x, y, x1, "any key", u.theme.PromptKey())
 		drawText(u.screen, x, y, x1, " to continue.", u.theme.PromptActive())
+		return
 	}
 
-	renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+	if killer.GetLastSignalTimestamp() != nil {
+		// Awaiting kill result
+		x := x0 + 1
+		y := y0 + 1
+		x += drawText(u.screen, x, y, x1, "Killing ", twin.StyleDefault)
+		x += drawText(u.screen, x, y, x1, killer.process.String(), twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()))
+		drawText(u.screen, x, y, x1, "...", twin.StyleDefault)
+
+		y += 2
+		x = x0 + 1
+		signal := killer.GetLastSignal()
+		name := signal.String()
+		switch *signal {
+		case syscall.SIGKILL:
+			name = "SIGKILL"
+		case syscall.SIGTERM:
+			name = "SIGTERM"
+		}
+		drawText(u.screen, x, y, x1, name, twin.StyleDefault)
+
+		// FIXME: Make a progress bar on the last line
+
+		return
+	}
+
+	// Kill not attempted yet, tell user we are awaiting confirmation
+
+	// "Press k to kill launchd(1)."
+	x := x0 + 1
+	x += drawText(u.screen, x, y0+1, x1, "Press ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y0+1, x1, "k", u.theme.PromptKey())
+	x += drawText(u.screen, x, y0+1, x1, " to kill ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y0+1, x1,
+		killer.process.String(),
+		twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
+	)
+	u.screen.SetCell(x, y0+1, twin.StyledRune{
+		Rune:  '.',
+		Style: u.theme.PromptActive(),
+	})
 }

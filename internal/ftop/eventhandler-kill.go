@@ -13,6 +13,9 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+const deathPollInterval = 200 * time.Millisecond
+const KillTimeout = 5 * time.Second
+
 type eventHandlerKill struct {
 	ui      *Ui
 	process *processes.Process
@@ -20,9 +23,11 @@ type eventHandlerKill struct {
 	// If true, we will stop waiting for any outstanding kill attempt
 	closing atomic.Bool
 
-	lock       sync.RWMutex // Protects excuse and lastSignal
-	excuse     string
-	lastSignal *syscall.Signal
+	lock   sync.RWMutex // Protects excuse and lastSignal
+	excuse string
+
+	lastSignal          *syscall.Signal
+	lastSignalTimestamp *time.Time
 }
 
 func (killer *eventHandlerKill) getExcuse() string {
@@ -46,11 +51,27 @@ func (killer *eventHandlerKill) hasLastSignal() bool {
 	return killer.lastSignal != nil
 }
 
+func (killer *eventHandlerKill) GetLastSignal() *syscall.Signal {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignal
+}
+
+func (killer *eventHandlerKill) GetLastSignalTimestamp() *time.Time {
+	killer.lock.RLock()
+	defer killer.lock.RUnlock()
+
+	return killer.lastSignalTimestamp
+}
+
 func (killer *eventHandlerKill) setLastSignal(signal syscall.Signal) {
 	killer.lock.Lock()
 	defer killer.lock.Unlock()
 
 	killer.lastSignal = &signal
+	now := time.Now()
+	killer.lastSignalTimestamp = &now
 }
 
 // Returns an explanation if the kill failed, or the empty string if it succeeded
@@ -98,26 +119,34 @@ func (killer *eventHandlerKill) onRune(r rune) {
 	if excuse != "" {
 		// Kill failed, set an excuse that we can show to the user
 		killer.setExcuse(excuse)
+		killer.ui.requestRedraw()
+		return
 	}
+
+	killer.ui.requestRedraw()
 
 	go func() {
 		// Wait 5s for the process to die
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(KillTimeout)
 		for time.Now().Before(deadline) {
 			if killer.closing.Load() {
 				// User aborted, stop waiting and don't send any more signals
+				killer.ui.requestRedraw()
 				return
 			}
 			if !killer.process.IsAlive() {
 				// It's gone!
 				killer.close()
+				killer.ui.requestRedraw()
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(deathPollInterval)
+			killer.ui.requestRedraw()
 		}
 
 		if killer.closing.Load() {
 			// User aborted, we are done
+			killer.ui.requestRedraw()
 			return
 		}
 
@@ -126,26 +155,31 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		if excuse != "" {
 			// Kill failed, set an excuse that we can show to the user
 			killer.setExcuse(excuse)
+			killer.ui.requestRedraw()
 			return
 		}
 
 		// Wait 5s for the process to die
-		deadline = time.Now().Add(5 * time.Second)
+		deadline = time.Now().Add(KillTimeout)
 		for time.Now().Before(deadline) {
 			if killer.closing.Load() {
 				// User aborted, stop waiting
+				killer.ui.requestRedraw()
 				return
 			}
 			if !killer.process.IsAlive() {
 				// It's gone!
 				killer.close()
+				killer.ui.requestRedraw()
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(deathPollInterval)
+			killer.ui.requestRedraw()
 		}
 
 		// Tell the user we failed
 		killer.setExcuse("Process is still alive after SIGKILL")
+		killer.ui.requestRedraw()
 	}()
 }
 

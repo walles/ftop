@@ -9,15 +9,17 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+// Replace current event handle with another one. This is basically a mode
+// switch.
 type replaceEventHandler struct {
 	// To prevent stale updates, old must match before replacing
 	old eventHandler
 	new eventHandler
 }
 
-func (ui *Ui) MainLoop() {
-	type processListUpdated struct{}
+type redrawUi struct{}
 
+func (ui *Ui) MainLoop() {
 	procsTracker := processes.NewTracker()
 	ioTracker := io.NewTracker()
 
@@ -34,13 +36,13 @@ func (ui *Ui) MainLoop() {
 			log.PanicHandler("main/processes tracker poller", recover(), debug.Stack())
 		}()
 		for range procsTracker.OnUpdate {
-			ui.events <- processListUpdated{}
+			ui.events <- redrawUi{}
 		}
 	}()
 
 	for !ui.done {
 		switch event := (<-ui.events).(type) {
-		case processListUpdated:
+		case redrawUi:
 			// This block intentionally left blank since process list update
 			// events only exist to trigger a redraw.
 
@@ -71,5 +73,14 @@ func (ui *Ui) MainLoop() {
 		procs := procsTracker.Processes()
 		procs = processes.Filter(procs, ui.filter)
 		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
+	}
+}
+
+// This will request a redraw of the UI
+func (ui *Ui) requestRedraw() {
+	select {
+	case ui.events <- redrawUi{}:
+	default:
+		log.Infof("Failed to request UI redraw")
 	}
 }
