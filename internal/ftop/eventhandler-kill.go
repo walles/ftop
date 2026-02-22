@@ -98,12 +98,14 @@ func (killer *eventHandlerKill) onRune(r rune) {
 
 	go func() {
 		// Wait 5s for the process to die
-		time.Sleep(5 * time.Second)
-		if !killer.process.IsAlive() {
-			// It's gone!
-			killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
-
-			return
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if !killer.process.IsAlive() {
+				// It's gone!
+				killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
 
 		// It's still there, try SIGKILL
@@ -115,12 +117,14 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		}
 
 		// Wait 5s for the process to die
-		time.Sleep(5 * time.Second)
-
-		if !killer.process.IsAlive() {
-			// It's gone!
-			killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
-			return
+		deadline = time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if !killer.process.IsAlive() {
+				// It's gone!
+				killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
 
 		// Tell the user we failed
