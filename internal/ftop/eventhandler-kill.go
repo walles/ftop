@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 type eventHandlerKill struct {
 	ui      *Ui
 	process *processes.Process
+
+	// If true, we will stop waiting for any outstanding kill attempt
+	closing atomic.Bool
 
 	lock       sync.RWMutex // Protects excuse and lastSignal
 	excuse     string
@@ -74,7 +78,7 @@ func (killer *eventHandlerKill) onRune(r rune) {
 	if killer.getExcuse() != "" {
 		// Kill was attempted but failed, user should have been informed, exit
 		// on any key
-		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
+		killer.close()
 		return
 	}
 
@@ -86,7 +90,7 @@ func (killer *eventHandlerKill) onRune(r rune) {
 
 	if r != 'k' {
 		// Abort
-		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
+		killer.close()
 		return
 	}
 
@@ -100,12 +104,21 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		// Wait 5s for the process to die
 		deadline := time.Now().Add(5 * time.Second)
 		for time.Now().Before(deadline) {
+			if killer.closing.Load() {
+				// User aborted, stop waiting and don't send any more signals
+				return
+			}
 			if !killer.process.IsAlive() {
 				// It's gone!
-				killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+				killer.close()
 				return
 			}
 			time.Sleep(100 * time.Millisecond)
+		}
+
+		if killer.closing.Load() {
+			// User aborted, we are done
+			return
 		}
 
 		// It's still there, try SIGKILL
@@ -119,9 +132,13 @@ func (killer *eventHandlerKill) onRune(r rune) {
 		// Wait 5s for the process to die
 		deadline = time.Now().Add(5 * time.Second)
 		for time.Now().Before(deadline) {
+			if killer.closing.Load() {
+				// User aborted, stop waiting
+				return
+			}
 			if !killer.process.IsAlive() {
 				// It's gone!
-				killer.ui.events <- replaceEventHandler{old: killer, new: &eventHandlerBase{ui: killer.ui}}
+				killer.close()
 				return
 			}
 			time.Sleep(100 * time.Millisecond)
@@ -132,17 +149,28 @@ func (killer *eventHandlerKill) onRune(r rune) {
 	}()
 }
 
+func (killer *eventHandlerKill) close() {
+	killer.closing.Store(true)
+
+	select {
+	case killer.ui.events <- replaceEventHandler{
+		old: killer,
+		new: &eventHandlerBase{ui: killer.ui},
+	}:
+	default:
+		log.Errorf("Could not send event to replace kill event handler")
+	}
+}
+
 func (killer *eventHandlerKill) onKeyCode(keyCode twin.KeyCode) {
 	if keyCode == twin.KeyEscape {
-		// FIXME: Do we need to stop some background process here from counting
-		// down and sending signals?
-		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
+		killer.close()
 		return
 	}
 
 	if killer.getExcuse() != "" {
 		// Kill was attempted but failed, exit on any key
-		killer.ui.eventHandler = &eventHandlerBase{ui: killer.ui}
+		killer.close()
 		return
 	}
 }
