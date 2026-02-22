@@ -43,7 +43,15 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		}
 	}
 
-	defer renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+	defer func() {
+		renderFrame(u.screen, u.theme, x0, y0, x1, y1, "Kill process")
+
+		// Draw "Quit" prompt in upper right corner
+		x := x1 - (len("Quit") + 2)
+		y := y0
+		x += u.screen.SetCell(x, y, twin.StyledRune{Rune: 'Q', Style: u.theme.PromptKey()})
+		drawText(u.screen, x, y, x1, "uit", u.theme.PromptActive())
+	}()
 
 	killer, ok := u.eventHandler.(*eventHandlerKill)
 	if !ok {
