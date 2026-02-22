@@ -120,15 +120,16 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 	// Kill not attempted yet, tell user we are awaiting confirmation
 
 	// "Press k to kill launchd(1)."
-	x := x0 + 1
-	x += drawText(u.screen, x, y0+1, x1, "Press ", u.theme.PromptActive())
-	x += drawText(u.screen, x, y0+1, x1, "k", u.theme.PromptKey())
-	x += drawText(u.screen, x, y0+1, x1, " to kill ", u.theme.PromptActive())
-	x += drawText(u.screen, x, y0+1, x1,
+	x := x0 + 3
+	y := y0 + 2
+	x += drawText(u.screen, x, y, x1, "Press ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y, x1, "k", u.theme.PromptKey())
+	x += drawText(u.screen, x, y, x1, " to kill ", u.theme.PromptActive())
+	x += drawText(u.screen, x, y, x1,
 		killer.process.String(),
 		twin.StyleDefault.WithForeground(u.theme.HighlightedForeground()),
 	)
-	u.screen.SetCell(x, y0+1, twin.StyledRune{
+	u.screen.SetCell(x, y, twin.StyledRune{
 		Rune:  '.',
 		Style: u.theme.PromptActive(),
 	})
