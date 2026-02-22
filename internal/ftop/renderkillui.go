@@ -3,7 +3,9 @@ package ftop
 import (
 	"fmt"
 	"syscall"
+	"time"
 
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -71,8 +73,10 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		return
 	}
 
-	if killer.GetLastSignalTimestamp() != nil {
+	lastSignalTimestamp := killer.GetLastSignalTimestamp()
+	if lastSignalTimestamp != nil {
 		// Awaiting kill result
+
 		x := x0 + 1
 		y := y0 + 1
 		x += drawText(u.screen, x, y, x1, "Killing ", twin.StyleDefault)
@@ -91,7 +95,16 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		}
 		drawText(u.screen, x, y, x1, name, twin.StyleDefault)
 
-		// FIXME: Make a progress bar on the last line
+		loadBarRamp := ui.NewColorRamp(0.0, 1.0, u.theme.Background(), u.theme.HighlightedForeground())
+		loadBar := ui.NewLoadBar(x0+1, x1-1, loadBarRamp)
+		loadBar.SetWatermark(1.0) // Give the progress bar a background color
+
+		elapsed := time.Since(*lastSignalTimestamp)
+		loadFraction := elapsed.Seconds() / KillTimeout.Seconds()
+
+		for fillX := x0 + 1; fillX < x1; fillX++ {
+			loadBar.SetCellBackground(u.screen, fillX, y, loadFraction)
+		}
 
 		return
 	}
