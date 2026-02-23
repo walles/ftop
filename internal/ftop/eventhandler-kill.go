@@ -91,7 +91,7 @@ func (killer *eventHandlerKill) kill(signal syscall.Signal) string {
 	// Remember what we just did
 	killer.setLastSignal(signal)
 
-	log.Debugf("Killed process %s", killer.process.String())
+	log.Debugf("Sent signal %d to process %s", signal, killer.process.String())
 	return ""
 }
 
