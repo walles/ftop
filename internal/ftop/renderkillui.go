@@ -104,7 +104,7 @@ func (u *Ui) renderKillUi(nextToScreenRow int) {
 		drawText(u.screen, x, y, x1, name, twin.StyleDefault)
 
 		loadBarRamp := ui.NewColorRamp(0.0, 1.0, u.theme.Background(), u.theme.HighlightedForeground())
-		loadBar := ui.NewLoadBar(x0+1, x1-1, loadBarRamp)
+		loadBar := ui.NewBackwardsLoadBar(x0+1, x1-1, loadBarRamp)
 		loadBar.SetWatermark(1.0) // Give the progress bar a background color
 
 		elapsed := time.Since(*lastSignalTimestamp)
