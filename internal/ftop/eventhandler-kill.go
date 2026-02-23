@@ -13,7 +13,11 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-const deathPollInterval = 200 * time.Millisecond
+// This controls the framerate of the waiting-for-process-to-die progress bar
+// in renderkillui.go.
+const deathPollFramerate = 20
+const deathPollInterval = time.Second / deathPollFramerate
+
 const KillTimeout = 5 * time.Second
 
 type eventHandlerKill struct {

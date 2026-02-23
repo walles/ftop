@@ -9,6 +9,9 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+// NOTE: The framerate of the progress bar is controlled by deathPollFramerate
+// in eventhandler-kill.go.
+
 func (u *Ui) renderKillUi(nextToScreenRow int) {
 	w, h := u.screen.Size()
 
