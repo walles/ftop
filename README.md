@@ -139,9 +139,12 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Implement process picking with arrow keys, note that in the Output section
-  above
-- Implement killing the hovered process
+- Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
+  `px`? For starters I want to know:
+  - full process command line (can take lots of space)
+  - process hierarchy parents and possibly children, do what `px` does
+  - process start time and age
+- Implement the rest of the `px` process info features
 - When hovering a process, show its hierarchy in the launched-binaries pane
 - When hovering a process, show its start timestamp and its age in the
   launched-binaries pane
@@ -150,13 +153,12 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
   line for error reporting. Consider it might be really long.
 - When hovering a process, replace the two rightmost panes with info about that
   process, note that in the Output section above
+- Offer to kill as root if we don't have permissions to kill a process. Prompt
+  for `sudo` password.
 - Test process rendering with process names with:
   - Wide chars, as in "multiple bytes per char"
   - Wide chars, as in "takes up multiple screen columns"
-- Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
-  `px`?
 - Verify we have all Use Cases ^ covered
-- Consider having our own Homebrew tap
 - Consider how to handle macOS in CI
 - Profile and see if there's any low-hanging fruit to fix performance-wise
 - Accept smaller window sizes
@@ -207,3 +209,7 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 - If we have 10 different "claude" processes, dedup them as "claude[5]" in the
   Command column. The dedup suffixes should be stable within one `ftop` run.
 - Implement filtering, note that in the Output section above
+- Implement process picking with arrow keys, note that in the Output section
+  above
+- Implement killing the hovered process
+- Consider having our own Homebrew tap
