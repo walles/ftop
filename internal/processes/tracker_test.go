@@ -44,6 +44,72 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		assert.Equal(t, "hello.sh", current[0].lowercaseCommand)
 	})
 
+	// From "man ps" on macOS
+	t.Run("preserves command from <defunct> processes", func(t *testing.T) {
+		// Previous frame: healthy bash process running hello.sh
+		previous := map[int]*Process{
+			1234: {
+				Pid:              1234,
+				startTime:        startTime,
+				cmdline:          "bash hello.sh",
+				Command:          "hello.sh",
+				lowercaseCommand: "hello.sh",
+			},
+		}
+
+		// Current frame: same process but now defunct
+		current := []*Process{
+			{
+				Pid:              1234,
+				startTime:        startTime,
+				cmdline:          "<defunct>",
+				Command:          "<defunct>",
+				lowercaseCommand: "<defunct>",
+			},
+		}
+
+		// Apply preservation logic
+		preserveDyingProcessCommands(current, previous)
+
+		// Verify command was preserved
+		assert.Equal(t, current[0].cmdline, "bash hello.sh")
+		assert.Equal(t, current[0].Command, "hello.sh")
+		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
+	})
+
+	// From "man ps" on macOS
+	t.Run("preserves command from <exiting> processes", func(t *testing.T) {
+		// Previous frame: healthy bash process running hello.sh
+		previous := map[int]*Process{
+			1234: {
+				Pid:              1234,
+				startTime:        startTime,
+				cmdline:          "bash hello.sh",
+				Command:          "hello.sh",
+				lowercaseCommand: "hello.sh",
+			},
+		}
+
+		// Current frame: same process but now exiting
+		current := []*Process{
+			{
+				Pid:              1234,
+				startTime:        startTime,
+				cmdline:          "<exiting>",
+				Command:          "<exiting>",
+				lowercaseCommand: "<exiting>",
+			},
+		}
+
+		// Apply preservation logic
+		preserveDyingProcessCommands(current, previous)
+
+		// Verify command was preserved
+		assert.Equal(t, current[0].cmdline, "bash hello.sh")
+		assert.Equal(t, current[0].Command, "hello.sh")
+		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
+	})
+
 	t.Run("does not preserve when PID is reused with different start time", func(t *testing.T) {
 		// Previous frame: bash process
 		previous := map[int]*Process{

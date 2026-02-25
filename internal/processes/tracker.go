@@ -176,7 +176,8 @@ func preserveDyingProcessCommands(current []*Process, previous map[int]*Process)
 
 	for _, proc := range current {
 		// Check if this is a dying process (parenthesized command)
-		if !strings.HasPrefix(proc.cmdline, "(") || !strings.HasSuffix(proc.cmdline, ")") {
+		isParenthesized := strings.HasPrefix(proc.cmdline, "(") && strings.HasSuffix(proc.cmdline, ")")
+		if proc.cmdline != "<defunct>" && proc.cmdline != "<exiting>" && !isParenthesized {
 			continue
 		}
 
