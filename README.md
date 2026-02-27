@@ -139,15 +139,15 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- Implement the I-picked-a-process-by-pressing-enter menu screen. By spawning
-  `px`? For starters I want to know:
+- When hovering a process, show its hierarchy in the launched-binaries pane
+- When hovering a process, show its start timestamp and its age in the
+  launched-binaries pane
+- Implement the process info screen. By spawning `px`? For starters I want to
+  know:
   - full process command line (can take lots of space)
   - process hierarchy parents and possibly children, do what `px` does
   - process start time and age
 - Implement the rest of the `px` process info features
-- When hovering a process, show its hierarchy in the launched-binaries pane
-- When hovering a process, show its start timestamp and its age in the
-  launched-binaries pane
 - When hovering a process, show its nativity somewhere
 - When process naming fails, it must be possible to access the full command
   line for error reporting. Consider it might be really long.
