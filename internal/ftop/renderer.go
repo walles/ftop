@@ -109,7 +109,7 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		renderLaunchedCommands(u.screen, u.theme, launches, processesBottomRow+1, height-1)
 	} else {
 		// We are hovering a process, show its hierarchy in the launched-binaries pane
-		u.renderProcessHierarchy(processesBottomRow+1, height-1)
+		u.renderProcessInfoPane(processesBottomRow+1, height-1)
 	}
 
 	_, isKilling := u.eventHandler.(*eventHandlerKill)
