@@ -40,6 +40,8 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		return
 	}
 
+	u.syncPickedProcess(processesRaw, -1)
+
 	ioStatsWidth := 25                    // Including borders
 	overviewWidth := width - ioStatsWidth // Including borders
 
@@ -51,26 +53,36 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 	}
 
 	heightWithoutOverview := height - overviewHeight
-	maxScreenLaunchedCommandsHeight := heightWithoutOverview / 3      // Including borders
-	launchedCommandsHeight := getLaunchedCommandsHeight(launches) + 2 // + 2 for borders
-	if launchedCommandsHeight > maxScreenLaunchedCommandsHeight {
-		launchedCommandsHeight = maxScreenLaunchedCommandsHeight
+	maxBottomSectionHeight := heightWithoutOverview / 3 // Including borders
+	var bottomSectionHeight int
+	if u.pickedProcess == nil {
+		bottomSectionHeight = getLaunchedCommandsHeight(launches) + 2 // + 2 for borders
+	} else {
+		// We are hovering a proces
+		bottomSectionHeight = 3 // 3 = 1 for the hierarchy and 2 for borders
 	}
-	if launchedCommandsHeight <= 2 {
-		launchedCommandsHeight = 0
+	if bottomSectionHeight > maxBottomSectionHeight {
+		bottomSectionHeight = maxBottomSectionHeight
+	}
+	if bottomSectionHeight <= 2 {
+		bottomSectionHeight = 0
 	}
 
 	// Processes use the remaining height. This number includes borders.
-	processesHeight := height - overviewHeight - launchedCommandsHeight
+	processesHeight := height - overviewHeight - bottomSectionHeight
 	if processesHeight < 6 {
 		// 6 = Heights of per-user and per-command blocks with one line each and
 		// borders. From top to bottom: border, user, border, border, command,
 		// border.
-		launchedCommandsHeight = 0
+		bottomSectionHeight = 0
 		processesHeight = height - overviewHeight
 	}
 
 	processesBottomRow := overviewHeight + processesHeight - 1
+	// -3 because processesHeight includes top + bottom borders and one header row.
+	visibleProcessRows := processesHeight - 3
+	maxVisibleProcessIndex := visibleProcessRows - 1
+	u.syncPickedProcess(processesRaw, maxVisibleProcessIndex)
 
 	u.screen.Clear()
 
@@ -97,8 +109,13 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		}
 	}
 
-	if launchedCommandsHeight > 0 {
+	if bottomSectionHeight == 0 {
+		// No room for the bottom section, this block intentionally left blank
+	} else if u.pickedProcess == nil {
 		renderLaunchedCommands(u.screen, u.theme, launches, processesBottomRow+1, height-1)
+	} else {
+		// We are hovering a process, show its hierarchy in the launched-binaries pane
+		u.renderProcessInfoPane(processesBottomRow+1, height-1)
 	}
 
 	_, isKilling := u.eventHandler.(*eventHandlerKill)

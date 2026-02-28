@@ -144,16 +144,7 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 	procsTable := [][]string{
 		procsHeaders,
 	}
-	processesByScore := SortByScore(processesRaw, func(p processes.Process) stats {
-		return stats{
-			// The name in this case is really a fallback sort key for when the
-			// other sort keys are all equal.
-			name:     p.String(),
-			cpuTime:  p.CpuTimeOrZero(),
-			rssKb:    p.RssKb,
-			nativity: p.Nativity,
-		}
-	})
+	processesByScore := sortProcessesForDisplay(processesRaw)
 
 	processesByScore = u.fixPickedProcess(processesByScore)
 
@@ -333,33 +324,6 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	// color. The effect is especially visible for processes with low PIDs and
 	// short load bars, like the init (PID 1) process.
 	perProcessCpuAndMemBar := ui.NewOverlappingLoadBars(x0, x1-1, cpuRamp, memoryRamp)
-
-	//
-	// Track process picks
-	//
-
-	if u.pickedLine != nil {
-		// Clip process pick and update the process pointer
-
-		lastVisibleProcessIndex := len(table) - 2 // -1 for header, -1 for zero-indexing
-		if *u.pickedLine > lastVisibleProcessIndex {
-			// Don't let the pick move out of view
-			u.pickedLine = &lastVisibleProcessIndex
-		}
-
-		if *u.pickedLine >= len(procs) {
-			// Don't let the pick move past the end of the process list
-			maxProcessIndex := len(procs) - 1
-			u.pickedLine = &maxProcessIndex
-		}
-	}
-
-	if u.pickedLine == nil || *u.pickedLine < 0 {
-		u.pickedProcess = nil
-		u.pickedLine = nil
-	} else {
-		u.pickedProcess = &procs[*u.pickedLine]
-	}
 
 	//
 	// Render table contents

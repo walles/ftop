@@ -157,3 +157,39 @@ func TestFixPickedProcess_MoveToLastPosition(t *testing.T) {
 	assert.Equal(t, result[2].Pid, 4)
 	assert.Equal(t, result[3].Pid, 2) // Moved here
 }
+
+func TestSyncPickedProcess_FirstPickFromLine(t *testing.T) {
+	ui := makeTestUi()
+
+	procs := []processes.Process{
+		makeProcess(1, "one"),
+		makeProcess(2, "two"),
+		makeProcess(3, "three"),
+	}
+
+	pickedLine := 0
+	ui.pickedLine = &pickedLine
+	ui.pickedProcess = nil
+
+	ui.syncPickedProcess(procs, -1)
+
+	assert.Equal(t, ui.pickedProcess.Pid, 1)
+}
+
+func TestSyncPickedProcess_ClampsPickedLine(t *testing.T) {
+	ui := makeTestUi()
+
+	procs := []processes.Process{
+		makeProcess(1, "one"),
+		makeProcess(2, "two"),
+	}
+
+	pickedLine := 99
+	ui.pickedLine = &pickedLine
+	ui.pickedProcess = nil
+
+	ui.syncPickedProcess(procs, -1)
+
+	assert.Equal(t, *ui.pickedLine, 1)
+	assert.Equal(t, ui.pickedProcess.Pid, 2)
+}
