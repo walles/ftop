@@ -39,12 +39,25 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		}
 	}
 
-	// FIXME: If the hierarchy string is too long, take out a part in the middle
-	// and replace it with "…"
+	// If the hierarchy string is too long, take out a part in the middle
+	availableWidth := x1 - 1
+	hierarchy = truncateToLength(hierarchy, availableWidth)
 
 	y := y0 + 1
 	for i, styledRune := range hierarchy {
 		x := i + 1
 		u.screen.SetCell(x, y, styledRune)
 	}
+}
+
+// If the hierarchy string is too long, take out a part in the middle
+func truncateToLength(runes []twin.StyledRune, maxLength int) []twin.StyledRune {
+	if len(runes) <= maxLength {
+		return runes
+	}
+
+	removeCount := len(runes) - maxLength
+	removeStartInclusive := (len(runes) - removeCount) / 2
+	removeEndExclusive := removeStartInclusive + removeCount
+	return append(runes[:removeStartInclusive], runes[removeEndExclusive:]...)
 }
