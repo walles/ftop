@@ -35,6 +35,11 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		name := bottomUpNames[i]
 		color := ramp.AtInt(i)
 		style := twin.StyleDefault.WithForeground(color)
+
+		if i == 0 {
+			style = style.WithAttr(twin.AttrBold)
+		}
+
 		for _, r := range name {
 			hierarchy = append(hierarchy, twin.StyledRune{Rune: r, Style: style})
 		}
