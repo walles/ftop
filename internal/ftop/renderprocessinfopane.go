@@ -27,8 +27,9 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 	hierarchy := make([]twin.StyledRune, 0)
 	for i := len(bottomUpNames) - 1; i >= 0; i-- {
 		if len(hierarchy) > 0 {
-			hierarchy = append(hierarchy, twin.StyledRune{Rune: '⎯', Style: twin.StyleDefault})
-			hierarchy = append(hierarchy, twin.StyledRune{Rune: '⎯', Style: twin.StyleDefault})
+			style := twin.StyleDefault.WithForeground(u.theme.FadedForeground())
+			hierarchy = append(hierarchy, twin.StyledRune{Rune: '―', Style: style})
+			hierarchy = append(hierarchy, twin.StyledRune{Rune: '―', Style: style})
 		}
 
 		name := bottomUpNames[i]
@@ -41,7 +42,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	// If the hierarchy string is too long, take out a part in the middle
 	availableWidth := x1 - 1
-	hierarchy = truncateToLength(hierarchy, availableWidth)
+	hierarchy = u.truncateToLength(hierarchy, availableWidth)
 
 	y := y0 + 1
 	for i, styledRune := range hierarchy {
@@ -51,13 +52,35 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 }
 
 // If the hierarchy string is too long, take out a part in the middle
-func truncateToLength(runes []twin.StyledRune, maxLength int) []twin.StyledRune {
+func (u *Ui) truncateToLength(runes []twin.StyledRune, maxLength int) []twin.StyledRune {
 	if len(runes) <= maxLength {
 		return runes
 	}
 
-	removeCount := len(runes) - maxLength
+	removeCount := len(runes) - maxLength + 1 // Plus one for the space we're inserting in the middle
 	removeStartInclusive := (len(runes) - removeCount) / 2
 	removeEndExclusive := removeStartInclusive + removeCount
-	return append(runes[:removeStartInclusive], runes[removeEndExclusive:]...)
+
+	spaceIndex := removeStartInclusive
+
+	truncated := make([]twin.StyledRune, maxLength)
+	copy(truncated, runes[:removeStartInclusive])
+	truncated[removeStartInclusive] = twin.StyledRune{Rune: ' ', Style: twin.StyleDefault}
+	copy(truncated[removeStartInclusive+1:], runes[removeEndExclusive:])
+
+	if len(truncated) >= 5 {
+		// FIXME: Should we fade like this or should we have a more obvious ellipsis instead?
+		u.fadeStyleTowardsBackground(&truncated[spaceIndex-2], 1.0/3.0)
+		u.fadeStyleTowardsBackground(&truncated[spaceIndex-1], 2.0/3.0)
+		u.fadeStyleTowardsBackground(&truncated[spaceIndex+1], 2.0/3.0)
+		u.fadeStyleTowardsBackground(&truncated[spaceIndex+2], 1.0/3.0)
+	}
+
+	return truncated
+}
+
+// Higher fraction means closer to the background color
+func (u *Ui) fadeStyleTowardsBackground(styledRune *twin.StyledRune, fraction float64) {
+	faded := styledRune.Style.Foreground().Mix(u.theme.Background(), fraction)
+	styledRune.Style = styledRune.Style.WithForeground(faded)
 }
