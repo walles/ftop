@@ -76,6 +76,10 @@ func (p *Process) String() string {
 	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
 }
 
+func (p *Process) Parent() *Process {
+	return p.parent
+}
+
 // Parse a local date from ps into a datetime.datetime object.
 //
 // Example inputs:
