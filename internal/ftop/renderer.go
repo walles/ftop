@@ -79,7 +79,9 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 	}
 
 	processesBottomRow := overviewHeight + processesHeight - 1
-	maxVisibleProcessIndex := processesHeight - 4
+	// -3 because processesHeight includes top + bottom borders and one header row.
+	visibleProcessRows := processesHeight - 3
+	maxVisibleProcessIndex := visibleProcessRows - 1
 	u.syncPickedProcess(processesRaw, maxVisibleProcessIndex)
 
 	u.screen.Clear()
