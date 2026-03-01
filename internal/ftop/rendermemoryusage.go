@@ -7,6 +7,7 @@ import (
 	"github.com/walles/ftop/internal/sysload"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -20,8 +21,8 @@ func renderMemoryUsage(screen twin.Screen, theme themes.Theme, width int) {
 	ramUsePercent := float64(sysload.RamUsedBytes) / float64(sysload.RamTotalBytes) * 100.0
 	description := fmt.Sprintf("RAM Use: %.0f%%  [%sB / %sB]",
 		ramUsePercent,
-		ui.FormatMemory(int64(sysload.RamUsedBytes)),
-		ui.FormatMemory(int64(sysload.RamTotalBytes)),
+		util.FormatMemory(int64(sysload.RamUsedBytes)),
+		util.FormatMemory(int64(sysload.RamTotalBytes)),
 	)
 
 	memoryRamp := ui.NewColorRamp(0.0, 1.0, theme.LoadBarMin(), theme.LoadBarMaxRam())

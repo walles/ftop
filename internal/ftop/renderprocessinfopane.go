@@ -1,7 +1,10 @@
 package ftop
 
 import (
+	"time"
+
 	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -60,10 +63,12 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	y += 1
 	x := 1
-	x += drawText(u.screen, x, y, x1, "Started at ", plain)
+	x += drawText(u.screen, x, y, x1, "Started ", plain)
+	x += drawText(u.screen, x, y, x1, util.FormatDuration(time.Since(u.pickedProcess.StartTime())), highlighted)
+	x += drawText(u.screen, x, y, x1, " ago at ", plain)
 
 	startString := u.pickedProcess.StartTime().Format("2006-01-02 15:04:05")
-	x += drawText(u.screen, x, y, x1, startString, highlighted)
+	drawText(u.screen, x, y, x1, startString, highlighted)
 }
 
 // If the hierarchy string is too long, take out a part in the middle

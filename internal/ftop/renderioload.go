@@ -5,7 +5,7 @@ import (
 
 	"github.com/walles/ftop/internal/io"
 	"github.com/walles/ftop/internal/themes"
-	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -27,8 +27,8 @@ func renderIOLoad(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, wid
 		}
 	}
 
-	bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(maxBytesPerSecond)), "B") + "B/s"
-	watermarkStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(maxHighWatermark)), "B") + "B/s"
+	bpsStringWithTrailingB := strings.TrimSuffix(util.FormatMemory(int64(maxBytesPerSecond)), "B") + "B/s"
+	watermarkStringWithTrailingB := strings.TrimSuffix(util.FormatMemory(int64(maxHighWatermark)), "B") + "B/s"
 
 	x1 := width - 1
 

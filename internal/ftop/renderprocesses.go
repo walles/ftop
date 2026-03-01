@@ -159,7 +159,7 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 			p.Username,
 			p.CpuPercentString(),
 			p.CpuTimeString(),
-			ui.FormatMemory(int64(p.RssKb) * 1024),
+			util.FormatMemory(int64(p.RssKb) * 1024),
 		}
 
 		procsTable = append(procsTable, row)
@@ -183,8 +183,8 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 
 		row := []string{
 			u.name,
-			ui.FormatDuration(u.cpuTime),
-			ui.FormatMemory(1024 * int64(u.rssKb)),
+			util.FormatDuration(u.cpuTime),
+			util.FormatMemory(1024 * int64(u.rssKb)),
 		}
 
 		usersTable = append(usersTable, row)
@@ -208,8 +208,8 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 
 		row := []string{
 			b.name,
-			ui.FormatDuration(b.cpuTime),
-			ui.FormatMemory(1024 * int64(b.rssKb)),
+			util.FormatDuration(b.cpuTime),
+			util.FormatMemory(1024 * int64(b.rssKb)),
 		}
 
 		commandsTable = append(commandsTable, row)

@@ -9,6 +9,7 @@ import (
 	"github.com/walles/ftop/internal/io"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -35,7 +36,7 @@ func renderIoTopList(screen twin.Screen, theme themes.Theme, ioStats []io.Stat, 
 			break
 		}
 
-		bpsStringWithTrailingB := strings.TrimSuffix(ui.FormatMemory(int64(stat.BytesPerSecond)), "B") + "B/s"
+		bpsStringWithTrailingB := strings.TrimSuffix(util.FormatMemory(int64(stat.BytesPerSecond)), "B") + "B/s"
 
 		paddedDeviceName := fmt.Sprintf("%-7s ", stat.DeviceName)
 		x := x0 + 1

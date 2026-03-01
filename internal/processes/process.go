@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/walles/ftop/internal/log"
-	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
 )
 
@@ -418,7 +417,7 @@ func (p *Process) CpuTimeString() string {
 		return "--"
 	}
 
-	return ui.FormatDuration(*p.CpuTime)
+	return util.FormatDuration(*p.CpuTime)
 }
 
 func (p *Process) CpuTimeOrZero() time.Duration {
