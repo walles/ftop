@@ -127,6 +127,25 @@ go run ./cmd/ftop
    - `go tool pprof -relative_percentages -web profile-cpu.out`
    - `go tool pprof -relative_percentages -web profile-heap.out`
 
+## Benchmarking
+
+Run one named benchmark (replace with the benchmark you want):
+
+```sh
+go test ./internal/ftop -run '^$' -bench '^BenchmarkSortProcessesForDisplay$' -cpuprofile profile-cpu.out -memprofile profile-heap.out
+```
+
+Inspect the generated profiles:
+
+```sh
+go tool pprof -relative_percentages -web profile-cpu.out
+go tool pprof -relative_percentages -web profile-heap.out
+```
+
+You can also inspect in the terminal with `go tool pprof -top benchmark-cpu.out`.
+
+
+
 ## Screenshot
 
 Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
