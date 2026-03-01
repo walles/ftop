@@ -1,13 +1,17 @@
 package ftop
 
-import "github.com/walles/ftop/internal/processes"
+import (
+	"strconv"
+
+	"github.com/walles/ftop/internal/processes"
+)
 
 func sortProcessesForDisplay(processesRaw []processes.Process) []processes.Process {
 	return SortByScore(processesRaw, func(p processes.Process) stats {
 		return stats{
 			// The name in this case is really a fallback sort key for when the
 			// other sort keys are all equal.
-			name:     p.String(),
+			name:     strconv.Itoa(p.Pid),
 			cpuTime:  p.CpuTimeOrZero(),
 			rssKb:    p.RssKb,
 			nativity: p.Nativity,
