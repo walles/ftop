@@ -80,6 +80,10 @@ func (p *Process) Parent() *Process {
 	return p.parent
 }
 
+func (p *Process) StartTime() time.Time {
+	return p.startTime
+}
+
 // Parse a local date from ps into a datetime.datetime object.
 //
 // Example inputs:

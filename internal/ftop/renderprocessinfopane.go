@@ -24,6 +24,9 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	ramp := ui.NewColorRamp(0, float64(len(bottomUpNames))-1, u.theme.Foreground(), u.theme.FadedForeground())
 
+	highlighted := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
+	plain := twin.StyleDefault.WithForeground(u.theme.Foreground())
+
 	hierarchy := make([]twin.StyledRune, 0)
 	for i := len(bottomUpNames) - 1; i >= 0; i-- {
 		if len(hierarchy) > 0 {
@@ -37,7 +40,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		style := twin.StyleDefault.WithForeground(color)
 
 		if i == 0 {
-			style = style.WithAttr(twin.AttrBold)
+			style = highlighted
 		}
 
 		for _, r := range name {
@@ -54,6 +57,13 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		x := i + 1
 		u.screen.SetCell(x, y, styledRune)
 	}
+
+	y += 1
+	x := 1
+	x += drawText(u.screen, x, y, x1, "Started at ", plain)
+
+	startString := u.pickedProcess.StartTime().Format("2006-01-02 15:04:05")
+	x += drawText(u.screen, x, y, x1, startString, highlighted)
 }
 
 // If the hierarchy string is too long, take out a part in the middle

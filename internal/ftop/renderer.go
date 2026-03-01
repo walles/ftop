@@ -59,7 +59,7 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		bottomSectionHeight = getLaunchedCommandsHeight(launches) + 2 // + 2 for borders
 	} else {
 		// We are hovering a proces
-		bottomSectionHeight = 3 // 3 = 1 for the hierarchy and 2 for borders
+		bottomSectionHeight = 4 // 4 = 2 for hierarchy, start time and runtime, and 2 for borders
 	}
 	if bottomSectionHeight > maxBottomSectionHeight {
 		bottomSectionHeight = maxBottomSectionHeight
