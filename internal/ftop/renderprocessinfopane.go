@@ -25,6 +25,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		bottomUpNames = append(bottomUpNames, p.Command)
 	}
 
+	// FIXME: Always show the current process as highlighted. Before that, go from faded to foreground.
 	ramp := ui.NewColorRamp(0, float64(len(bottomUpNames))-1, u.theme.Foreground(), u.theme.FadedForeground())
 
 	highlighted := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
