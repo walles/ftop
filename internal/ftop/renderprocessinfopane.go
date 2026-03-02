@@ -25,8 +25,8 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		bottomUpNames = append(bottomUpNames, p.Command)
 	}
 
-	// FIXME: Always show the current process as highlighted. Before that, go from faded to foreground.
-	ramp := ui.NewColorRamp(0, float64(len(bottomUpNames))-1, u.theme.Foreground(), u.theme.FadedForeground())
+	// Always show the current process as highlighted. Before that, go from faded to foreground.
+	ramp := ui.NewColorRamp(0, float64(len(bottomUpNames))-2, u.theme.Foreground(), u.theme.FadedForeground())
 
 	highlighted := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
 	plain := twin.StyleDefault.WithForeground(u.theme.Foreground())
@@ -40,12 +40,14 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		}
 
 		name := bottomUpNames[i]
-		color := ramp.AtInt(i)
-		style := twin.StyleDefault.WithForeground(color)
-
+		var color twin.Color
 		if i == 0 {
-			style = highlighted
+			// Always highlight the current process
+			color = u.theme.HighlightedForeground()
+		} else {
+			color = ramp.AtInt(i - 1)
 		}
+		style := twin.StyleDefault.WithForeground(color)
 
 		for _, r := range name {
 			hierarchy = append(hierarchy, twin.StyledRune{Rune: r, Style: style})
