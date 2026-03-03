@@ -76,3 +76,11 @@ func FormatMemory(bytes int64) string {
 	// No decimals for larger numbers
 	return fmt.Sprintf("%.0f%s", number, unit)
 }
+
+// Example responses:"100%", "10%", "9.9%", "0.0%"
+func FormatPercent(percent float64) string {
+	if percent < 10 {
+		return fmt.Sprintf("%.1f%%", percent)
+	}
+	return fmt.Sprintf("%.0f%%", percent)
+}

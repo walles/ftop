@@ -71,7 +71,15 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 	x += drawText(u.screen, x, y, x1, " ago at ", plain)
 
 	startString := u.pickedProcess.StartTime().Format("2006-01-02 15:04:05")
-	drawText(u.screen, x, y, x1, startString, highlighted)
+	x += drawText(u.screen, x, y, x1, startString, highlighted)
+
+	x += drawText(u.screen, x, y, x1, ". It used ", plain)
+	x += drawText(u.screen, x, y, x1, util.FormatDuration(u.pickedProcess.CpuTimeOrZero()), highlighted)
+	x += drawText(u.screen, x, y, x1, " CPU, or ", plain)
+
+	percentCpu := 100.0 * float64(u.pickedProcess.CpuTimeOrZero()) / float64(time.Since(u.pickedProcess.StartTime()))
+	x += drawText(u.screen, x, y, x1, util.FormatPercent(percentCpu), highlighted)
+	drawText(u.screen, x, y, x1, ".", plain)
 }
 
 // If the hierarchy string is too long, take out a part in the middle
