@@ -64,7 +64,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		u.screen.SetCell(x, y, styledRune)
 	}
 
-	y += 1
+	y += 2
 	x := 1
 	x += drawText(u.screen, x, y, x1, "Started ", plain)
 	x += drawText(u.screen, x, y, x1, util.FormatDuration(time.Since(u.pickedProcess.StartTime())), highlighted)
