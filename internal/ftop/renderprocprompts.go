@@ -11,6 +11,8 @@ func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int, pickDownArrow bool, pickU
 	x += 3
 	x = ui.renderKillPrompt(x, y, x1)
 	x += 3
+	x = ui.renderInfoPrompt(x, y, x1)
+	x += 3
 	ui.renderFilterPrompt(x, y, x1)
 }
 
@@ -56,6 +58,22 @@ func (ui *Ui) renderKillPrompt(x0 int, y int, x1 int) int {
 			Rune:  'K',
 		})
 		x += drawText(ui.screen, x, y, x1, "ill", ui.theme.PromptActive())
+	}
+
+	return x
+}
+
+func (ui *Ui) renderInfoPrompt(x0 int, y int, x1 int) int {
+	x := x0
+
+	if ui.pickedLine == nil {
+		x += drawText(ui.screen, x0, y, x1, "Info", ui.theme.PromptPassive())
+	} else {
+		x += ui.screen.SetCell(x, y, twin.StyledRune{
+			Style: ui.theme.PromptKey(),
+			Rune:  'I',
+		})
+		x += drawText(ui.screen, x, y, x1, "nfo", ui.theme.PromptActive())
 	}
 
 	return x
