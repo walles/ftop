@@ -44,7 +44,7 @@ func NewTracker() *Tracker {
 func (tracker *Tracker) update() {
 	procs, err := GetAll()
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("Process tracker refresh failed, keeping previous snapshot: %v", err)
 		return
 	}
 
