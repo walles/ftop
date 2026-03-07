@@ -10,8 +10,15 @@ require (
 )
 
 require (
+	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/alecthomas/chroma/v2 v2.22.0 // indirect
+	github.com/charlievieth/strcase v0.0.5 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/sirupsen/logrus v1.8.3 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
+	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56 // indirect
 )

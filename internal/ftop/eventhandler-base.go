@@ -1,6 +1,7 @@
 package ftop
 
 import (
+	"github.com/walles/ftop/internal/log"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -21,6 +22,16 @@ func (h *eventHandlerBase) onRune(r rune) {
 
 	if r == 'k' && h.ui.pickedProcess != nil {
 		h.ui.eventHandler = &eventHandlerKill{ui: h.ui, process: h.ui.pickedProcess}
+	}
+
+	proc := h.ui.pickedProcess
+	if r == 'i' && proc != nil {
+		err := h.ui.screen.PauseAndCall(func() error {
+			return pageProcessInfo(proc)
+		})
+		if err != nil {
+			log.Infof("Failed to page %s info: %v", proc.String(), err)
+		}
 	}
 }
 
