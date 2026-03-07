@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/alecthomas/kong v1.13.0
 	github.com/jbenet/go-detect-race v0.0.0-20150302022421-3463798d9574
-	github.com/walles/moor/v2 v2.11.1-0.20260303053927-591b6a042439
+	github.com/walles/moor/v2 v2.11.1
 	golang.org/x/sys v0.26.0
 )
 
