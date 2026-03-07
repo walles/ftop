@@ -83,6 +83,14 @@ func (p *Process) StartTime() time.Time {
 	return p.startTime
 }
 
+// Command line split into arguments, with path coalescing matching command
+// parsing. Example return value:
+//
+//	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
+func (p *Process) CommandLine() []string {
+	return cmdlineToSlice(p.cmdline, exists)
+}
+
 // Parse a local date from ps into a datetime.datetime object.
 //
 // Example inputs:

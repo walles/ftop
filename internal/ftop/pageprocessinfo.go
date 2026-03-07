@@ -1,6 +1,8 @@
 package ftop
 
 import (
+	"strings"
+
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/moor/v2/pkg/moor"
 )
@@ -10,5 +12,6 @@ func pageProcessInfo(proc *processes.Process) error {
 		panic("proc is nil, can't page process info")
 	}
 
-	return moor.PageFromString(proc.String(), moor.Options{})
+	lines := strings.Join(proc.CommandLine(), "\n  ")
+	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
 }
