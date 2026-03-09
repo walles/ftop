@@ -131,6 +131,9 @@ func mainLoop(pleasePanic bool) int {
 	}
 
 	defer onExit(screen, CLI.Debug)
+	log.SetPanicShutdownHook(func() {
+		onExit(screen, true)
+	})
 
 	defer func() {
 		log.PanicHandler("main", recover(), debug.Stack())
