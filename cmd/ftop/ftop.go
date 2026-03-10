@@ -21,7 +21,23 @@ import (
 // pre-filled string will be used otherwise.
 var versionString = "<build with ./build.sh to get a version number here>"
 
+type twinLoggerAdapter struct{}
+
+func (t *twinLoggerAdapter) Debug(message string) {
+	log.Debugf("twin: %s", message)
+}
+
+func (t *twinLoggerAdapter) Info(message string) {
+	log.Infof("twin: %s", message)
+}
+
+func (t *twinLoggerAdapter) Error(message string) {
+	log.Errorf("twin: %s", message)
+}
+
 func main() {
+	twin.SetLogger(&twinLoggerAdapter{})
+
 	argsParser, err := kong.New(
 		&CLI,
 		kong.Description("Shows a top list of running processes.\n\nhttps://github.com/walles/ftop"),
