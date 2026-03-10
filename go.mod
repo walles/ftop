@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/alecthomas/kong v1.13.0
 	github.com/jbenet/go-detect-race v0.0.0-20150302022421-3463798d9574
-	github.com/walles/moor/v2 v2.11.1
+	github.com/walles/moor/v2 v2.11.2-0.20260310185907-668256d4f484
 	golang.org/x/sys v0.26.0
 )
 
@@ -20,5 +20,6 @@ require (
 	github.com/sirupsen/logrus v1.8.3 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56 // indirect
 )
