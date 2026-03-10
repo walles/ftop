@@ -2,6 +2,7 @@ package processes
 
 import (
 	"testing"
+	"time"
 
 	"github.com/walles/ftop/internal/assert"
 )
@@ -165,16 +166,30 @@ func TestIncrementLaunchCount_mismatchedRootPanics(t *testing.T) {
 	// Create a root with a different command than ancestry[0]
 	root := &LaunchNode{Command: "different"}
 
-	didPanic := false
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				didPanic = true
-			}
-		}()
+	incrementLaunchCount(root, &p1)
+}
 
-		incrementLaunchCount(root, &p1)
-	}()
+// Reproduces the crash pattern seen in production where launch counting first
+// sees a chain rooted in "code" and then a later launched process rooted in
+// "launchd".
+func TestUpdateLaunches_mixedRootsPanics(t *testing.T) {
+	previous := map[int]*Process{}
+	current := map[int]*Process{}
 
-	assert.Equal(t, didPanic, true)
+	codeParent := &Process{Pid: 10331, Command: "code", startTime: time.Now()}
+	codeChild := &Process{Pid: 10340, Command: "Code", parent: codeParent, startTime: time.Now()}
+	current[codeChild.Pid] = codeChild
+
+	root := updateLaunches(nil, previous, current)
+	assert.Equal(t, root.Command, "code")
+
+	previous = current
+	current = map[int]*Process{}
+
+	launchd := &Process{Pid: 1, Command: "launchd", startTime: time.Now()}
+	launchedEditor := &Process{Pid: 10720, Command: "Code", parent: launchd, startTime: time.Now()}
+	current[launchedEditor.Pid] = launchedEditor
+
+	// We expect this line not to panic
+	updateLaunches(root, previous, current)
 }
