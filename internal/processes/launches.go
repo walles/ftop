@@ -1,9 +1,12 @@
 package processes
 
 import (
-	"fmt"
 	"slices"
 )
+
+const launchRootFallbackCommand = "init"
+const launchMissingParentCommand = "..."
+const launchRootPid = 1
 
 // Tracks processes launched while ftop is running. Will be rendered as a tree,
 // with counts per node. Each node in the tree has a command name, a launch
@@ -33,23 +36,53 @@ func updateLaunches(root *LaunchNode, previous, current map[int]*Process) *Launc
 
 func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode {
 	// Compute a parent chain like "init -> sshd -> bash"
-	ancestry := []string{}
+	ancestry := []*Process{}
 	for process := newlyLaunched; process != nil; process = process.parent {
-		ancestry = append([]string{process.Command}, ancestry...)
+		ancestry = append([]*Process{process}, ancestry...)
+	}
+	if len(ancestry) == 0 {
+		return root
+	}
+
+	commands := make([]string, 0, len(ancestry))
+	for _, process := range ancestry {
+		commands = append(commands, process.Command)
+	}
+
+	rootCommand := launchRootFallbackCommand
+	if ancestry[0].Pid == launchRootPid {
+		rootCommand = ancestry[0].Command
+	} else {
+		if root != nil {
+			rootCommand = root.Command
+		}
+
+		prefix := []string{rootCommand, launchMissingParentCommand}
+		commands = append(prefix, commands...)
+	}
+
+	if len(commands) > 0 {
+		commands[0] = rootCommand
 	}
 
 	// Ensure we have a root. If root is nil, create it from ancestry[0].
 	if root == nil {
-		root = &LaunchNode{Command: ancestry[0]}
+		root = &LaunchNode{Command: commands[0]}
+	}
+	if root.Command != commands[0] {
+		if root.Command == launchRootFallbackCommand {
+			root.Command = commands[0]
+		}
+
+		if root.Command != commands[0] {
+			root = &LaunchNode{Command: commands[0], Children: []*LaunchNode{root}}
+		}
 	}
 
 	node := root
-	if ancestry[0] != node.Command {
-		panic(fmt.Errorf("two different init commands reported, had <%s> then got ancestry %#v", node.Command, ancestry))
-	}
 
 	// Skip the root, it just got special treatment above ^
-	for _, cmd := range ancestry[1:] {
+	for _, cmd := range commands[1:] {
 		// find child matching command
 		idx := slices.IndexFunc(node.Children, func(c *LaunchNode) bool {
 			return c.Command == cmd
