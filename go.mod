@@ -9,8 +9,6 @@ require (
 	golang.org/x/sys v0.26.0
 )
 
-replace github.com/walles/moor/v2 => ../moor
-
 require (
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/alecthomas/chroma/v2 v2.22.0 // indirect
