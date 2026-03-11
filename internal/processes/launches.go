@@ -75,7 +75,12 @@ func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode 
 		}
 
 		if root.Command != commands[0] {
-			root = &LaunchNode{Command: commands[0], Children: []*LaunchNode{root}}
+			oldRoot := root
+			root = &LaunchNode{Command: commands[0]}
+			root.Children = append(root.Children, &LaunchNode{
+				Command:  launchMissingParentCommand,
+				Children: []*LaunchNode{oldRoot},
+			})
 		}
 	}
 
