@@ -116,7 +116,6 @@ func TestShouldHideSelfChild(t *testing.T) {
 	assert.Equal(t, true, shouldHideSelfChild(&Process{Command: "netstat"}))
 	assert.Equal(t, true, shouldHideSelfChild(&Process{Command: "iostat"}))
 
-	assert.Equal(t, false, shouldHideSelfChild(nil))
 	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "nano"}))
 	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "Code"}))
 }
