@@ -16,6 +16,14 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
+// We launch these all the time, pretend we are not so to not mess up the
+// launched commands view.
+var hiddenSelfChildCommands = map[string]struct{}{
+	"iostat":  {},
+	"netstat": {},
+	"ps":      {},
+}
+
 // How old children count towards a process' nativity?
 const NATIVITY_MAX_AGE = 60 * time.Second
 
@@ -355,9 +363,14 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 		return
 	}
 
-	// Remove all children from selfProcess
-	toDelete := make([]int, 0)
+	keptChildren := make([]*Process, 0)
+	toDelete := make([]int, 1)
 	for _, child := range selfProcess.children {
+		if !shouldHideSelfChild(child) {
+			keptChildren = append(keptChildren, child)
+			continue
+		}
+
 		child.parent = nil
 		toDelete = append(toDelete, child.Pid)
 	}
@@ -365,7 +378,12 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 		delete(processes, pid)
 	}
 
-	selfProcess.children = []*Process{}
+	selfProcess.children = keptChildren
+}
+
+func shouldHideSelfChild(child *Process) bool {
+	_, shouldHide := hiddenSelfChildCommands[child.Command]
+	return shouldHide
 }
 
 func fillInNativities(processes map[int]*Process) {

@@ -6,7 +6,9 @@ import (
 
 const launchRootFallbackCommand = "init"
 const launchMissingParentCommand = "..."
-const launchRootPid = 1
+
+// The root of the process tree always has PID 1. Because UNIX.
+const initProcessPid = 1
 
 // Tracks processes launched while ftop is running. Will be rendered as a tree,
 // with counts per node. Each node in the tree has a command name, a launch
@@ -50,7 +52,7 @@ func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode 
 	}
 
 	rootCommand := launchRootFallbackCommand
-	if ancestry[0].Pid == launchRootPid {
+	if ancestry[0].Pid == initProcessPid {
 		rootCommand = ancestry[0].Command
 	} else {
 		if root != nil {
