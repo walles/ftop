@@ -16,6 +16,14 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
+// We launch these all the time, pretend we are not so to not mess up the
+// launched commands view.
+var hiddenSelfChildCommands = map[string]struct{}{
+	"iostat":  {},
+	"netstat": {},
+	"ps":      {},
+}
+
 // How old children count towards a process' nativity?
 const NATIVITY_MAX_AGE = 60 * time.Second
 
@@ -81,6 +89,14 @@ func (p *Process) Parent() *Process {
 
 func (p *Process) StartTime() time.Time {
 	return p.startTime
+}
+
+// Command line split into arguments, with path coalescing matching command
+// parsing. Example return value:
+//
+//	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
+func (p *Process) CommandLine() []string {
+	return cmdlineToSlice(p.cmdline, exists)
 }
 
 // Parse a local date from ps into a datetime.datetime object.
@@ -347,9 +363,14 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 		return
 	}
 
-	// Remove all children from selfProcess
-	toDelete := make([]int, 0)
+	keptChildren := make([]*Process, 0)
+	toDelete := make([]int, 1)
 	for _, child := range selfProcess.children {
+		if !shouldHideSelfChild(child) {
+			keptChildren = append(keptChildren, child)
+			continue
+		}
+
 		child.parent = nil
 		toDelete = append(toDelete, child.Pid)
 	}
@@ -357,7 +378,12 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 		delete(processes, pid)
 	}
 
-	selfProcess.children = []*Process{}
+	selfProcess.children = keptChildren
+}
+
+func shouldHideSelfChild(child *Process) bool {
+	_, shouldHide := hiddenSelfChildCommands[child.Command]
+	return shouldHide
 }
 
 func fillInNativities(processes map[int]*Process) {

@@ -1,5 +1,21 @@
 package log
 
+import "sync"
+
+var panicShutdownHook func()
+var panicShutdownHookLock sync.Mutex
+var panicShutdownOnce sync.Once
+
+// Register a callback to trigger on recovered panic.
+//
+// Intended for fail-fast shutdown in case any goroutine panics.
+func SetPanicShutdownHook(hook func()) {
+	panicShutdownHookLock.Lock()
+	defer panicShutdownHookLock.Unlock()
+
+	panicShutdownHook = hook
+}
+
 // goroutineName will be shown in crash reports
 //
 // recoverResult should be the result of a recover() call. This is either nil,
@@ -18,4 +34,15 @@ func PanicHandler(goroutineName string, recoverResult any, stackTrace []byte) {
 	}
 
 	Errorf("Goroutine <%s> crashed: %s\n%s", goroutineName, recoverResult, string(stackTrace))
+
+	panicShutdownOnce.Do(func() {
+		panicShutdownHookLock.Lock()
+		hook := panicShutdownHook
+		panicShutdownHookLock.Unlock()
+		if hook == nil {
+			return
+		}
+
+		hook()
+	})
 }
