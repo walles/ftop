@@ -6,3 +6,11 @@ Log levels are debug, info and error, as described in internal/log/log.go:
 - debug: Will be shown to the user with --debug flag only
 - info: Will be included in the information printed after any crash
 - error: Always shown to the user after exit, should be reported as bugs
+
+In a lot of ways this is a Go rewrite of <https://github.com/walles/px>.
+The `ftop` binary corresponds to `px`'s `ptop` binary. If px is cloned
+right next to ftop, feel free to look at the px source code for
+inspiration!
+
+The `twin` TUI toolkit may also be checked out under `../moor/`. Feel
+free to poke around there for details.
