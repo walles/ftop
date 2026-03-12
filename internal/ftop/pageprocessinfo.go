@@ -1,6 +1,7 @@
 package ftop
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/walles/ftop/internal/processes"
@@ -20,16 +21,49 @@ func pageProcessInfo(proc *processes.Process) error {
 		bottomUpProcs = append(bottomUpProcs, p)
 	}
 	maxDepth := len(bottomUpProcs) - 1
-	treeLines := make([]string, len(bottomUpProcs))
+	type entry struct {
+		line    string
+		process *processes.Process
+	}
+	entries := make([]entry, len(bottomUpProcs))
+	maxWidth := 0
+
 	for i, p := range bottomUpProcs {
 		depth := maxDepth - i
+		var line string
 		if depth == maxDepth {
-			// Arrow replaces the indent; make it the same width so the name aligns
 			arrow := strings.Repeat("-", max(0, 2*maxDepth-2)) + "> "
-			treeLines[depth] = arrow + p.String()
+			line = arrow + p.String()
 		} else {
-			treeLines[depth] = strings.Repeat("  ", depth) + p.String()
+			line = strings.Repeat("  ", depth) + p.String()
 		}
+		entries[depth] = entry{line, p}
+		maxWidth = max(maxWidth, len(line))
+	}
+
+	// Append children of the current process recursively (sorted by command then PID, like px)
+	var appendChildren func(p *processes.Process, depth int)
+	appendChildren = func(p *processes.Process, depth int) {
+		children := p.Children()
+		slices.SortFunc(children, func(a, b *processes.Process) int {
+			if a.Command != b.Command {
+				return strings.Compare(strings.ToLower(a.Command), strings.ToLower(b.Command))
+			}
+			return a.Pid - b.Pid
+		})
+		for _, child := range children {
+			line := strings.Repeat("  ", depth) + child.String()
+			entries = append(entries, entry{line, child})
+			maxWidth = max(maxWidth, len(line))
+			appendChildren(child, depth+1)
+		}
+	}
+	appendChildren(proc, maxDepth+1)
+
+	treeLines := make([]string, len(entries))
+	for i, e := range entries {
+		padding := strings.Repeat(" ", maxWidth-len(e.line))
+		treeLines[i] = e.line + padding + "  " + e.process.Username
 	}
 	lines += "\n\n" + strings.Join(treeLines, "\n")
 

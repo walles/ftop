@@ -87,6 +87,10 @@ func (p *Process) Parent() *Process {
 	return p.parent
 }
 
+func (p *Process) Children() []*Process {
+	return p.children
+}
+
 func (p *Process) StartTime() time.Time {
 	return p.startTime
 }
