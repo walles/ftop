@@ -27,8 +27,9 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	}
 	maxDepth := len(bottomUpProcs) - 1
 	type entry struct {
-		line    string
-		process *processes.Process
+		line      string
+		fancyLine string
+		process   *processes.Process
 	}
 	entries := make([]entry, len(bottomUpProcs))
 	maxWidth := 0
@@ -36,13 +37,16 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	for i, p := range bottomUpProcs {
 		depth := maxDepth - i
 		var line string
+		var fancyLine string
 		if depth == maxDepth {
 			arrow := strings.Repeat("─", max(0, 2*maxDepth-2)) + "▶ "
 			line = arrow + p.String()
+			fancyLine = arrow + u.highlight(p.String())
 		} else {
 			line = strings.Repeat("  ", depth) + p.String()
+			fancyLine = line
 		}
-		entries[depth] = entry{line, p}
+		entries[depth] = entry{line, fancyLine, p}
 		maxWidth = max(maxWidth, utf8.RuneCountInString(line))
 	}
 
@@ -58,7 +62,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 		})
 		for _, child := range children {
 			line := strings.Repeat("  ", depth) + child.String()
-			entries = append(entries, entry{line, child})
+			entries = append(entries, entry{line, line, child})
 			maxWidth = max(maxWidth, utf8.RuneCountInString(line))
 			appendChildren(child, depth+1)
 		}
@@ -68,7 +72,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	treeLines := make([]string, len(entries))
 	for i, e := range entries {
 		padding := strings.Repeat(" ", maxWidth-utf8.RuneCountInString(e.line))
-		treeLines[i] = e.line + padding + "  " + e.process.Username
+		treeLines[i] = e.fancyLine + padding + "  " + e.process.Username
 	}
 	lines += "\n\n" + strings.Join(treeLines, "\n")
 
