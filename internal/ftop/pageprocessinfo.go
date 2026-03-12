@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/util"
@@ -35,13 +36,13 @@ func pageProcessInfo(proc *processes.Process) error {
 		depth := maxDepth - i
 		var line string
 		if depth == maxDepth {
-			arrow := strings.Repeat("-", max(0, 2*maxDepth-2)) + "> "
+			arrow := strings.Repeat("─", max(0, 2*maxDepth-2)) + "▶ "
 			line = arrow + p.String()
 		} else {
 			line = strings.Repeat("  ", depth) + p.String()
 		}
 		entries[depth] = entry{line, p}
-		maxWidth = max(maxWidth, len(line))
+		maxWidth = max(maxWidth, utf8.RuneCountInString(line))
 	}
 
 	// Append children of the current process recursively (sorted by command then PID, like px)
@@ -57,7 +58,7 @@ func pageProcessInfo(proc *processes.Process) error {
 		for _, child := range children {
 			line := strings.Repeat("  ", depth) + child.String()
 			entries = append(entries, entry{line, child})
-			maxWidth = max(maxWidth, len(line))
+			maxWidth = max(maxWidth, utf8.RuneCountInString(line))
 			appendChildren(child, depth+1)
 		}
 	}
@@ -65,7 +66,7 @@ func pageProcessInfo(proc *processes.Process) error {
 
 	treeLines := make([]string, len(entries))
 	for i, e := range entries {
-		padding := strings.Repeat(" ", maxWidth-len(e.line))
+		padding := strings.Repeat(" ", maxWidth-utf8.RuneCountInString(e.line))
 		treeLines[i] = e.line + padding + "  " + e.process.Username
 	}
 	lines += "\n\n" + strings.Join(treeLines, "\n")
