@@ -10,9 +10,10 @@ import (
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/pkg/moor"
+	"github.com/walles/moor/v2/twin"
 )
 
-func pageProcessInfo(proc *processes.Process) error {
+func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	if proc == nil {
 		panic("proc is nil, can't page process info")
 	}
@@ -77,11 +78,22 @@ func pageProcessInfo(proc *processes.Process) error {
 	percentCpu := 100.0 * float64(cpuTime) / float64(age)
 	lines += fmt.Sprintf(
 		"\n\nStarted %s ago at %s. It used %s CPU, or %s.",
-		util.FormatDuration(age),
-		proc.StartTime().Format("2006-01-02 15:04:05"),
-		util.FormatDuration(cpuTime),
-		util.FormatPercent(percentCpu),
+		u.highlight(util.FormatDuration(age)),
+		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05")),
+		u.highlight(util.FormatDuration(cpuTime)),
+		u.highlight(util.FormatPercent(percentCpu)),
 	)
 
 	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
+}
+
+func (u *Ui) highlight(s string) string {
+	colored := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
+	notColored := twin.StyleDefault
+
+	// "24 bit" is fine here, if the terminal doesn't support it, the pager will
+	// just down sample it as needed.
+	prefix := colored.RenderUpdateFrom(notColored, twin.ColorCount24bit)
+	suffix := notColored.RenderUpdateFrom(colored, twin.ColorCount24bit)
+	return prefix + s + suffix
 }

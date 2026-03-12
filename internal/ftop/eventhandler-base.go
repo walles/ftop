@@ -27,7 +27,7 @@ func (h *eventHandlerBase) onRune(r rune) {
 	proc := h.ui.pickedProcess
 	if r == 'i' && proc != nil {
 		err := h.ui.screen.PauseAndCall(func() error {
-			return pageProcessInfo(proc)
+			return h.ui.pageProcessInfo(proc)
 		})
 		if err != nil {
 			log.Infof("Failed to page %s info: %v", proc.String(), err)
