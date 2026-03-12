@@ -1,10 +1,13 @@
 package ftop
 
 import (
+	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/walles/ftop/internal/processes"
+	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/pkg/moor"
 )
 
@@ -66,6 +69,18 @@ func pageProcessInfo(proc *processes.Process) error {
 		treeLines[i] = e.line + padding + "  " + e.process.Username
 	}
 	lines += "\n\n" + strings.Join(treeLines, "\n")
+
+	// Timing and CPU info for the current process, same as the main UI pane
+	age := time.Since(proc.StartTime())
+	cpuTime := proc.CpuTimeOrZero()
+	percentCpu := 100.0 * float64(cpuTime) / float64(age)
+	lines += fmt.Sprintf(
+		"\n\nStarted %s ago at %s. It used %s CPU, or %s.",
+		util.FormatDuration(age),
+		proc.StartTime().Format("2006-01-02 15:04:05"),
+		util.FormatDuration(cpuTime),
+		util.FormatPercent(percentCpu),
+	)
 
 	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
 }
