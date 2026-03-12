@@ -15,25 +15,20 @@ func pageProcessInfo(proc *processes.Process) error {
 	lines := strings.Join(proc.CommandLine(), "\n  ")
 
 	// Build launch hierarchy from root down to current process
-	bottomUpNames := make([]string, 0)
+	bottomUpProcs := make([]*processes.Process, 0)
 	for p := proc; p != nil; p = p.Parent() {
-		bottomUpNames = append(bottomUpNames, p.Command)
+		bottomUpProcs = append(bottomUpProcs, p)
 	}
-	maxDepth := len(bottomUpNames) - 1
-	treeLines := make([]string, len(bottomUpNames))
-	for i, name := range bottomUpNames {
+	maxDepth := len(bottomUpProcs) - 1
+	treeLines := make([]string, len(bottomUpProcs))
+	for i, p := range bottomUpProcs {
 		depth := maxDepth - i
-		indent := strings.Repeat(" ", depth)
-		switch depth {
-		case 0:
-			treeLines[depth] = name
-		case maxDepth:
-			// Current process: nothing branches below, so no downward connector
-			treeLines[depth] = indent + "└── " + name
-		default:
-			// └┬─: up-and-right corner, then down-and-horizontal (┬) so the
-			// next └ below aligns under the ┬ rather than a plain horizontal bar
-			treeLines[depth] = indent + "└┬─ " + name
+		if depth == maxDepth {
+			// Arrow replaces the indent; make it the same width so the name aligns
+			arrow := strings.Repeat("-", max(0, 2*maxDepth-2)) + "> "
+			treeLines[depth] = arrow + p.String()
+		} else {
+			treeLines[depth] = strings.Repeat("  ", depth) + p.String()
 		}
 	}
 	lines += "\n\n" + strings.Join(treeLines, "\n")
