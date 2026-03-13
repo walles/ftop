@@ -14,31 +14,69 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+type pageText struct {
+	text        strings.Builder
+	headerStyle twin.Style
+}
+
+// Appends a line feed at the end of the provided string
+func (pt *pageText) writeLine(line string) {
+	// pt.text.WriteString("  ")
+	pt.text.WriteString(line)
+	pt.text.WriteRune('\n')
+}
+
+func (pt *pageText) writeHeader(header string) {
+	notColored := twin.StyleDefault
+
+	// "24 bit" is fine here, if the terminal doesn't support it, the pager will
+	// just down sample it as needed.
+	prefix := pt.headerStyle.RenderUpdateFrom(notColored, twin.ColorCount24bit)
+	suffix := notColored.RenderUpdateFrom(pt.headerStyle, twin.ColorCount24bit)
+	pt.text.WriteString(prefix + "-- " + header + " --" + suffix + "\n\n")
+}
+
+func (pt *pageText) String() string {
+	return pt.text.String()
+}
+
 func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	if proc == nil {
 		panic("proc is nil, can't page process info")
 	}
 
-	lines := u.commandLineForPaging(proc)
+	pt := pageText{
+		headerStyle: twin.StyleDefault.WithForeground(u.theme.Border()),
+	}
 
-	lines += "\n\n" + u.launchHierarchyForPaging(proc)
+	pt.writeHeader("Command Line")
+	u.commandLineForPaging(proc, &pt)
 
-	// Timing and CPU info for the current process, same as the main UI pane
+	pt.writeLine("")
+	pt.writeLine("")
+
+	pt.writeHeader("Launch Hierarchy")
+	u.launchHierarchyForPaging(proc, &pt)
+
+	pt.writeLine("")
+	pt.writeLine("")
+
+	pt.writeHeader("Timings")
 	age := time.Since(proc.StartTime())
 	cpuTime := proc.CpuTimeOrZero()
 	percentCpu := 100.0 * float64(cpuTime) / float64(age)
-	lines += fmt.Sprintf(
-		"\n\nStarted %s ago at %s. It used %s CPU, or %s.",
+	pt.writeLine(fmt.Sprintf(
+		"Started %s ago at %s. It used %s CPU, or %s.",
 		u.highlight(util.FormatDuration(age)),
 		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05")),
 		u.highlight(util.FormatDuration(cpuTime)),
 		u.highlight(util.FormatPercent(percentCpu)),
-	)
+	))
 
-	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
+	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
 }
 
-func (u *Ui) launchHierarchyForPaging(proc *processes.Process) string {
+func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 	// Build launch hierarchy from root down to current process
 	bottomUpProcs := make([]*processes.Process, 0)
 	for p := proc; p != nil; p = p.Parent() {
@@ -116,10 +154,12 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process) string {
 		treeLines[i] = e.fancyLine + padding + "  " + username
 	}
 
-	return strings.Join(treeLines, "\n")
+	for _, line := range treeLines {
+		pt.writeLine(line)
+	}
 }
 
-func (u *Ui) commandLineForPaging(proc *processes.Process) string {
+func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
 	split := proc.CommandLine()
 	if len(split) == 0 {
 		panic(fmt.Sprintf("process has no command line: %s", proc.String()))
@@ -136,14 +176,11 @@ func (u *Ui) commandLineForPaging(proc *processes.Process) string {
 		firstLine = path + u.highlight(command)
 	}
 
-	var rendered strings.Builder
-	rendered.WriteString(firstLine)
+	pt.writeLine(firstLine)
 
 	noMoreOptions := false
 	lastWasOption := false
 	for _, arg := range split[1:] {
-		rendered.WriteString("\n  ")
-
 		if arg == "--" {
 			noMoreOptions = true
 		}
@@ -162,11 +199,8 @@ func (u *Ui) commandLineForPaging(proc *processes.Process) string {
 			extraIndent = ""
 		}
 
-		rendered.WriteString(extraIndent)
-		rendered.WriteString(arg)
+		pt.writeLine("  " + extraIndent + arg)
 	}
-
-	return rendered.String()
 }
 
 func (u *Ui) highlight(s string) string {
