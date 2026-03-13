@@ -104,11 +104,12 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process) string {
 		padding := strings.Repeat(" ", maxWidth-utf8.RuneCountInString(e.line))
 
 		username := e.process.Username
-		if username == currentUsername {
+		switch username {
+		case currentUsername:
 			// This block intentionally left blank
-		} else if username == "root" {
+		case "root":
 			username = dimPrefix + username + dimSuffix
-		} else {
+		default:
 			username = boldPrefix + username + boldSuffix
 		}
 
