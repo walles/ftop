@@ -21,6 +21,24 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 
 	lines := u.commandLineForPaging(proc)
 
+	lines += "\n\n" + u.launchHierarchyForPaging(proc)
+
+	// Timing and CPU info for the current process, same as the main UI pane
+	age := time.Since(proc.StartTime())
+	cpuTime := proc.CpuTimeOrZero()
+	percentCpu := 100.0 * float64(cpuTime) / float64(age)
+	lines += fmt.Sprintf(
+		"\n\nStarted %s ago at %s. It used %s CPU, or %s.",
+		u.highlight(util.FormatDuration(age)),
+		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05")),
+		u.highlight(util.FormatDuration(cpuTime)),
+		u.highlight(util.FormatPercent(percentCpu)),
+	)
+
+	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
+}
+
+func (u *Ui) launchHierarchyForPaging(proc *processes.Process) string {
 	// Build launch hierarchy from root down to current process
 	bottomUpProcs := make([]*processes.Process, 0)
 	for p := proc; p != nil; p = p.Parent() {
@@ -70,26 +88,34 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	}
 	appendChildren(proc, maxDepth+1)
 
+	currentUsername := util.GetCurrentUsername()
+
 	treeLines := make([]string, len(entries))
+
+	dim := twin.StyleDefault.WithAttr(twin.AttrDim)
+	dimPrefix := dim.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit)
+	dimSuffix := twin.StyleDefault.RenderUpdateFrom(dim, twin.ColorCount24bit)
+
+	bold := twin.StyleDefault.WithAttr(twin.AttrBold)
+	boldPrefix := bold.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit)
+	boldSuffix := twin.StyleDefault.RenderUpdateFrom(bold, twin.ColorCount24bit)
+
 	for i, e := range entries {
 		padding := strings.Repeat(" ", maxWidth-utf8.RuneCountInString(e.line))
-		treeLines[i] = e.fancyLine + padding + "  " + e.process.Username
+
+		username := e.process.Username
+		if username == currentUsername {
+			// This block intentionally left blank
+		} else if username == "root" {
+			username = dimPrefix + username + dimSuffix
+		} else {
+			username = boldPrefix + username + boldSuffix
+		}
+
+		treeLines[i] = e.fancyLine + padding + "  " + username
 	}
-	lines += "\n\n" + strings.Join(treeLines, "\n")
 
-	// Timing and CPU info for the current process, same as the main UI pane
-	age := time.Since(proc.StartTime())
-	cpuTime := proc.CpuTimeOrZero()
-	percentCpu := 100.0 * float64(cpuTime) / float64(age)
-	lines += fmt.Sprintf(
-		"\n\nStarted %s ago at %s. It used %s CPU, or %s.",
-		u.highlight(util.FormatDuration(age)),
-		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05")),
-		u.highlight(util.FormatDuration(cpuTime)),
-		u.highlight(util.FormatPercent(percentCpu)),
-	)
-
-	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
+	return strings.Join(treeLines, "\n")
 }
 
 func (u *Ui) commandLineForPaging(proc *processes.Process) string {
