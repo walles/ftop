@@ -135,11 +135,37 @@ func (u *Ui) commandLineForPaging(proc *processes.Process) string {
 		firstLine = path + u.highlight(command)
 	}
 
-	if len(split) == 1 {
-		return firstLine
+	var rendered strings.Builder
+	rendered.WriteString(firstLine)
+
+	noMoreOptions := false
+	lastWasOption := false
+	for _, arg := range split[1:] {
+		rendered.WriteString("\n  ")
+
+		if arg == "--" {
+			noMoreOptions = true
+		}
+
+		extraIndent := ""
+		if lastWasOption {
+			extraIndent = "  "
+		}
+		if strings.HasPrefix(arg, "-") {
+			lastWasOption = true
+			extraIndent = ""
+		} else {
+			lastWasOption = false
+		}
+		if noMoreOptions {
+			extraIndent = ""
+		}
+
+		rendered.WriteString(extraIndent)
+		rendered.WriteString(arg)
 	}
 
-	return firstLine + "\n  " + strings.Join(split[1:], "\n  ")
+	return rendered.String()
 }
 
 func (u *Ui) highlight(s string) string {
