@@ -2,6 +2,7 @@ package ftop
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 		panic("proc is nil, can't page process info")
 	}
 
-	lines := strings.Join(proc.CommandLine(), "\n  ")
+	lines := u.commandLineForPaging(proc)
 
 	// Build launch hierarchy from root down to current process
 	bottomUpProcs := make([]*processes.Process, 0)
@@ -89,6 +90,30 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	)
 
 	return moor.PageFromString(lines, moor.Options{NoLineNumbers: true})
+}
+
+func (u *Ui) commandLineForPaging(proc *processes.Process) string {
+	split := proc.CommandLine()
+	if len(split) == 0 {
+		panic(fmt.Sprintf("process has no command line: %s", proc.String()))
+	}
+
+	binary := split[0]
+	lastSlashIndex := strings.LastIndex(binary, string(os.PathSeparator))
+	var firstLine string
+	if lastSlashIndex == -1 {
+		firstLine = u.highlight(binary)
+	} else {
+		path := binary[0 : lastSlashIndex+1] // "/bin/"
+		command := binary[lastSlashIndex+1:] // "ls"
+		firstLine = path + u.highlight(command)
+	}
+
+	if len(split) == 1 {
+		return firstLine
+	}
+
+	return firstLine + "\n  " + strings.Join(split[1:], "\n  ")
 }
 
 func (u *Ui) highlight(s string) string {
