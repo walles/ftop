@@ -212,12 +212,31 @@ func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
 func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 	procs := findCloseLaunches(proc)
 
+	zero := proc.StartTime()
 	for _, p := range procs {
-		pt.writeLine(p.String())
+		if p.SameAs(*proc) {
+			continue
+		}
+
+		beforeOrAfter := "after"
+		deltaT := p.StartTime().Sub(zero)
+		if p.StartTime().Before(zero) {
+			beforeOrAfter = "before"
+			deltaT = -deltaT
+		}
+
+		pt.writeLine(fmt.Sprintf("%s was launched %s %s %s",
+			p.String(),
+			util.FormatDuration(deltaT),
+			beforeOrAfter,
+			proc.String(),
+		))
 	}
 }
 
 // Return the top five closest launches, ordered by closeness
+//
+// FIXME: Exclude the process itself from the list
 //
 // FIXME: Always include one process before and one after? Inside of those five
 // or as extras?
