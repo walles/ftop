@@ -73,6 +73,12 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 		u.highlight(util.FormatPercent(percentCpu)),
 	))
 
+	pt.writeLine("")
+	pt.writeLine("")
+
+	pt.writeHeader("Other Processes Launched Close To " + proc.String())
+	u.closeLaunchesForPaging(proc, &pt)
+
 	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
 }
 
@@ -201,6 +207,79 @@ func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
 
 		pt.writeLine("  " + extraIndent + arg)
 	}
+}
+
+func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
+	procs := findCloseLaunches(proc)
+
+	for _, p := range procs {
+		pt.writeLine(p.String())
+	}
+}
+
+// Return the top five closest launches, ordered by closeness
+//
+// FIXME: Always include one process before and one after? Inside of those five
+// or as extras?
+func findCloseLaunches(proc *processes.Process) []*processes.Process {
+	allProcs := getAllProcesses(proc)
+
+	// Sort by launch time closeness
+	zero := proc.StartTime()
+	slices.SortFunc(allProcs, func(a, b *processes.Process) int {
+		diffA := a.StartTime().Sub(zero).Milliseconds()
+		if diffA < 0 {
+			diffA = -diffA
+		}
+
+		diffB := b.StartTime().Sub(zero).Milliseconds()
+		if diffB < 0 {
+			diffB = -diffB
+		}
+
+		if diffA == diffB {
+			return 0
+		}
+		if diffA < diffB {
+			return -1
+		}
+		return 1
+	})
+
+	topList := allProcs[:min(5, len(allProcs))]
+	slices.SortFunc(topList, func(a, b *processes.Process) int {
+		if a.StartTime().Before(b.StartTime()) {
+			return -1
+		}
+		if a.StartTime().After(b.StartTime()) {
+			return 1
+		}
+		return 0
+	})
+
+	return topList
+}
+
+// List all processes in the same tree in no particular order
+func getAllProcesses(proc *processes.Process) []*processes.Process {
+	// Find the root process
+	init := proc
+	for init.Parent() != nil {
+		init = init.Parent()
+	}
+
+	// Flatten the process tree
+	allProcs := []*processes.Process{}
+	var flatten func(p *processes.Process)
+	flatten = func(p *processes.Process) {
+		allProcs = append(allProcs, p)
+		for _, child := range p.Children() {
+			flatten(child)
+		}
+	}
+	flatten(init)
+
+	return allProcs
 }
 
 func (u *Ui) highlight(s string) string {
