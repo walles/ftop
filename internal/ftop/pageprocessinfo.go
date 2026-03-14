@@ -214,10 +214,6 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 
 	zero := proc.StartTime()
 	for _, p := range procs {
-		if p.SameAs(*proc) {
-			continue
-		}
-
 		beforeOrAfter := "after"
 		deltaT := p.StartTime().Sub(zero)
 		if p.StartTime().Before(zero) {
@@ -238,14 +234,13 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 	}
 }
 
-// Return the top five closest launches, ordered by closeness
-//
-// FIXME: Exclude the process itself from the list
+// Return the top five closest launches, ordered by closeness, excluding the
+// process itself.
 //
 // FIXME: Always include one process before and one after? Inside of those five
 // or as extras?
 func findCloseLaunches(proc *processes.Process) []*processes.Process {
-	allProcs := getAllProcesses(proc)
+	allProcs := getAllOtherProcesses(proc)
 
 	// Sort by launch time closeness
 	zero := proc.StartTime()
@@ -283,8 +278,8 @@ func findCloseLaunches(proc *processes.Process) []*processes.Process {
 	return topList
 }
 
-// List all processes in the same tree in no particular order
-func getAllProcesses(proc *processes.Process) []*processes.Process {
+// List all other processes in the same tree in no particular order
+func getAllOtherProcesses(proc *processes.Process) []*processes.Process {
 	// Find the root process
 	init := proc
 	for init.Parent() != nil {
@@ -295,7 +290,9 @@ func getAllProcesses(proc *processes.Process) []*processes.Process {
 	allProcs := []*processes.Process{}
 	var flatten func(p *processes.Process)
 	flatten = func(p *processes.Process) {
-		allProcs = append(allProcs, p)
+		if !p.SameAs(*proc) {
+			allProcs = append(allProcs, p)
+		}
 		for _, child := range p.Children() {
 			flatten(child)
 		}
