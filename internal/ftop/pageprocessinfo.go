@@ -290,7 +290,7 @@ func getAllOtherProcesses(proc *processes.Process) []*processes.Process {
 	allProcs := []*processes.Process{}
 	var flatten func(p *processes.Process)
 	flatten = func(p *processes.Process) {
-		if !p.SameAs(*proc) {
+		if !p.SameAs(proc) {
 			allProcs = append(allProcs, p)
 		}
 		for _, child := range p.Children() {

@@ -188,7 +188,7 @@ func preserveDyingProcessCommands(current []*Process, previous map[int]*Process)
 		}
 
 		// Verify it's the same process using SameAs (checks PID and start time)
-		if !oldProc.SameAs(*proc) {
+		if !oldProc.SameAs(proc) {
 			continue
 		}
 
