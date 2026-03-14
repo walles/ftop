@@ -234,17 +234,16 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 	}
 }
 
-// Return the top five closest launches, ordered by closeness, excluding the
-// process itself.
+// Return the top closest launches, ordered by closeness, excluding the process
+// itself. The answer will be 5-7 processes long.
 //
-// FIXME: Always include one process before and one after? Inside of those five
-// or as extras?
+// Always includes at least one process before and one after.
 func findCloseLaunches(proc *processes.Process) []*processes.Process {
-	allProcs := getAllOtherProcesses(proc)
+	allOtherProcs := getAllOtherProcesses(proc)
 
 	// Sort by launch time closeness
 	zero := proc.StartTime()
-	slices.SortFunc(allProcs, func(a, b *processes.Process) int {
+	slices.SortFunc(allOtherProcs, func(a, b *processes.Process) int {
 		diffA := a.StartTime().Sub(zero).Milliseconds()
 		if diffA < 0 {
 			diffA = -diffA
@@ -264,8 +263,35 @@ func findCloseLaunches(proc *processes.Process) []*processes.Process {
 		return 1
 	})
 
-	topList := allProcs[:min(5, len(allProcs))]
-	slices.SortFunc(topList, func(a, b *processes.Process) int {
+	// Extract the five closest launches. Without cloning, our re-sort (below)
+	// of the allOtherProcs list messes up the contents of topList as well.
+	topList := slices.Clone(allOtherProcs[:min(5, len(allOtherProcs))])
+
+	// Find one before and one after process
+	sortByStartTime(allOtherProcs)
+	var before, after *processes.Process
+	for _, candidate := range allOtherProcs {
+		if candidate.StartTime().Before(zero) {
+			before = candidate
+		} else if candidate.StartTime().After(zero) && after == nil {
+			after = candidate
+			break
+		}
+	}
+	if before != nil && !slices.ContainsFunc(topList, func(p *processes.Process) bool { return p.SameAs(before) }) {
+		topList = append(topList, before)
+	}
+	if after != nil && !slices.ContainsFunc(topList, func(p *processes.Process) bool { return p.SameAs(after) }) {
+		topList = append(topList, after)
+	}
+
+	sortByStartTime(topList)
+
+	return topList
+}
+
+func sortByStartTime(procs []*processes.Process) {
+	slices.SortFunc(procs, func(a, b *processes.Process) int {
 		if a.StartTime().Before(b.StartTime()) {
 			return -1
 		}
@@ -274,8 +300,6 @@ func findCloseLaunches(proc *processes.Process) []*processes.Process {
 		}
 		return 0
 	})
-
-	return topList
 }
 
 // List all other processes in the same tree in no particular order
