@@ -73,6 +73,12 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 		u.highlight(util.FormatPercent(percentCpu)),
 	))
 
+	pt.writeLine("")
+	pt.writeLine("")
+
+	pt.writeHeader("Other Processes Launched Close To " + proc.String())
+	u.closeLaunchesForPaging(proc, &pt)
+
 	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
 }
 
@@ -201,6 +207,123 @@ func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
 
 		pt.writeLine("  " + extraIndent + arg)
 	}
+}
+
+func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
+	procs := findCloseLaunches(proc)
+
+	zero := proc.StartTime()
+	for _, p := range procs {
+		beforeOrAfter := "after"
+		deltaT := p.StartTime().Sub(zero)
+		if p.StartTime().Before(zero) {
+			beforeOrAfter = "before"
+			deltaT = -deltaT
+		}
+
+		deltaString := util.FormatDuration(deltaT) + " " + beforeOrAfter
+		if deltaT.Milliseconds() == 0 {
+			deltaString = "at the same time as"
+		}
+
+		pt.writeLine(fmt.Sprintf("%s was launched %s %s",
+			u.highlight(p.String()),
+			u.highlight(deltaString),
+			proc.String(),
+		))
+	}
+}
+
+// Return the top closest launches, ordered by closeness, excluding the process
+// itself. The answer will be 5-7 processes long.
+//
+// Always includes at least one process before and one after.
+func findCloseLaunches(proc *processes.Process) []*processes.Process {
+	allOtherProcs := getAllOtherProcesses(proc)
+
+	// Sort by launch time closeness
+	zero := proc.StartTime()
+	slices.SortFunc(allOtherProcs, func(a, b *processes.Process) int {
+		diffA := a.StartTime().Sub(zero).Milliseconds()
+		if diffA < 0 {
+			diffA = -diffA
+		}
+
+		diffB := b.StartTime().Sub(zero).Milliseconds()
+		if diffB < 0 {
+			diffB = -diffB
+		}
+
+		if diffA == diffB {
+			return 0
+		}
+		if diffA < diffB {
+			return -1
+		}
+		return 1
+	})
+
+	// Extract the five closest launches. Without cloning, our re-sort (below)
+	// of the allOtherProcs list messes up the contents of topList as well.
+	topList := slices.Clone(allOtherProcs[:min(5, len(allOtherProcs))])
+
+	// Find one before and one after process
+	sortByStartTime(allOtherProcs)
+	var before, after *processes.Process
+	for _, candidate := range allOtherProcs {
+		if candidate.StartTime().Before(zero) {
+			before = candidate
+		} else if candidate.StartTime().After(zero) && after == nil {
+			after = candidate
+			break
+		}
+	}
+	if before != nil && !slices.ContainsFunc(topList, func(p *processes.Process) bool { return p.SameAs(before) }) {
+		topList = append(topList, before)
+	}
+	if after != nil && !slices.ContainsFunc(topList, func(p *processes.Process) bool { return p.SameAs(after) }) {
+		topList = append(topList, after)
+	}
+
+	sortByStartTime(topList)
+
+	return topList
+}
+
+func sortByStartTime(procs []*processes.Process) {
+	slices.SortFunc(procs, func(a, b *processes.Process) int {
+		if a.StartTime().Before(b.StartTime()) {
+			return -1
+		}
+		if a.StartTime().After(b.StartTime()) {
+			return 1
+		}
+		return 0
+	})
+}
+
+// List all other processes in the same tree in no particular order
+func getAllOtherProcesses(proc *processes.Process) []*processes.Process {
+	// Find the root process
+	init := proc
+	for init.Parent() != nil {
+		init = init.Parent()
+	}
+
+	// Flatten the process tree
+	allProcs := []*processes.Process{}
+	var flatten func(p *processes.Process)
+	flatten = func(p *processes.Process) {
+		if !p.SameAs(proc) {
+			allProcs = append(allProcs, p)
+		}
+		for _, child := range p.Children() {
+			flatten(child)
+		}
+	}
+	flatten(init)
+
+	return allProcs
 }
 
 func (u *Ui) highlight(s string) string {

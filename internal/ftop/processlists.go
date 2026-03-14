@@ -82,7 +82,7 @@ func (ui *Ui) fixPickedProcess(procs []processes.Process) []processes.Process {
 	// Find the current index
 	currentIndex := -1
 	for i, proc := range procs {
-		if proc.SameAs(*ui.pickedProcess) {
+		if proc.SameAs(ui.pickedProcess) {
 			currentIndex = i
 			break
 		}
