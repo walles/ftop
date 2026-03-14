@@ -231,8 +231,8 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 		}
 
 		pt.writeLine(fmt.Sprintf("%s was launched %s %s",
-			p.String(),
-			deltaString,
+			u.highlight(p.String()),
+			u.highlight(deltaString),
 			proc.String(),
 		))
 	}
