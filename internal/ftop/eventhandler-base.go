@@ -84,4 +84,14 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 			h.ui.pickedProcess = nil
 		}
 	}
+
+	proc := h.ui.pickedProcess
+	if keyCode == twin.KeyEnter && proc != nil {
+		err := h.ui.screen.PauseAndCall(func() error {
+			return h.ui.pageProcessInfo(proc)
+		})
+		if err != nil {
+			log.Infof("Failed to page %s info: %v", proc.String(), err)
+		}
+	}
 }
