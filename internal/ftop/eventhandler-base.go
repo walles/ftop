@@ -44,6 +44,12 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 			return
 		}
 
+		if h.ui.filter != "" {
+			// Clear the filter
+			h.ui.filter = ""
+			return
+		}
+
 		h.ui.done = true
 		return
 	}
