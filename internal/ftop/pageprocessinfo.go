@@ -225,10 +225,14 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 			deltaT = -deltaT
 		}
 
-		pt.writeLine(fmt.Sprintf("%s was launched %s %s %s",
+		deltaString := util.FormatDuration(deltaT) + " " + beforeOrAfter
+		if deltaT.Milliseconds() == 0 {
+			deltaString = "at the same time as"
+		}
+
+		pt.writeLine(fmt.Sprintf("%s was launched %s %s",
 			p.String(),
-			util.FormatDuration(deltaT),
-			beforeOrAfter,
+			deltaString,
 			proc.String(),
 		))
 	}

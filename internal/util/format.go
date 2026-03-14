@@ -7,6 +7,7 @@ import (
 
 func FormatDuration(duration time.Duration) string {
 	totalMilliseconds := int(duration.Milliseconds())
+	// Times above 99ms will be rendered as fractional seconds, "0.23s" for example
 	if totalMilliseconds < 100 {
 		return fmt.Sprintf("%dms", totalMilliseconds)
 	}
