@@ -16,7 +16,8 @@ import (
 
 type pageText struct {
 	text        strings.Builder
-	headerStyle twin.Style
+	titleStyle  twin.Style
+	borderStyle twin.Style
 }
 
 // Appends a line feed at the end of the provided string
@@ -26,14 +27,22 @@ func (pt *pageText) writeLine(line string) {
 	pt.text.WriteRune('\n')
 }
 
-func (pt *pageText) writeHeader(header string) {
-	notColored := twin.StyleDefault
+func (pt *pageText) writeTitle(title string) {
+	const width = 80
+	trailerLength := max(2, width-2-utf8.RuneCountInString(title))
+	trailer := strings.Repeat("─", trailerLength)
 
 	// "24 bit" is fine here, if the terminal doesn't support it, the pager will
 	// just down sample it as needed.
-	prefix := pt.headerStyle.RenderUpdateFrom(notColored, twin.ColorCount24bit)
-	suffix := notColored.RenderUpdateFrom(pt.headerStyle, twin.ColorCount24bit)
-	pt.text.WriteString(prefix + "-- " + header + " --" + suffix + "\n\n")
+	pt.text.WriteString(pt.borderStyle.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit))
+	pt.text.WriteString("──")
+	pt.text.WriteString(pt.titleStyle.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit))
+	pt.text.WriteString(title)
+	pt.text.WriteString(pt.borderStyle.RenderUpdateFrom(pt.titleStyle, twin.ColorCount24bit))
+	pt.text.WriteString(trailer)
+	pt.text.WriteString(twin.StyleDefault.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit))
+	pt.text.WriteString("\n")
+	pt.text.WriteString("\n")
 }
 
 func (pt *pageText) String() string {
@@ -46,22 +55,23 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	}
 
 	pt := pageText{
-		headerStyle: twin.StyleDefault.WithForeground(u.theme.Border()),
+		borderStyle: twin.StyleDefault.WithForeground(u.theme.Border()),
+		titleStyle:  twin.StyleDefault.WithForeground(u.theme.BorderTitle()),
 	}
 
-	pt.writeHeader("Command Line")
+	pt.writeTitle("Command Line")
 	u.commandLineForPaging(proc, &pt)
 
 	pt.writeLine("")
 	pt.writeLine("")
 
-	pt.writeHeader("Launch Hierarchy")
+	pt.writeTitle("Launch Hierarchy")
 	u.launchHierarchyForPaging(proc, &pt)
 
 	pt.writeLine("")
 	pt.writeLine("")
 
-	pt.writeHeader("Timings")
+	pt.writeTitle("Timings")
 	age := time.Since(proc.StartTime())
 	cpuTime := proc.CpuTimeOrZero()
 	percentCpu := 100.0 * float64(cpuTime) / float64(age)
@@ -76,7 +86,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	pt.writeLine("")
 	pt.writeLine("")
 
-	pt.writeHeader("Other Processes Launched Close To " + proc.String())
+	pt.writeTitle("Other Processes Launched Close To " + proc.String())
 	u.closeLaunchesForPaging(proc, &pt)
 
 	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
