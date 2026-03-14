@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/walles/ftop/internal/processes"
+	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/pkg/moor"
 	"github.com/walles/moor/v2/twin"
@@ -221,8 +222,34 @@ func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
 
 func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 	procs := findCloseLaunches(proc)
-
 	zero := proc.StartTime()
+
+	delta := func(p *processes.Process) time.Duration {
+		if p.StartTime().Before(zero) {
+			return zero.Sub(p.StartTime())
+		}
+		return p.StartTime().Sub(zero)
+	}
+
+	maxDelta := delta(procs[0])
+	minDelta := delta(procs[0])
+	for _, p := range procs {
+		d := delta(p)
+		if d > maxDelta {
+			maxDelta = d
+		}
+		if d < minDelta {
+			minDelta = d
+		}
+	}
+
+	ramp := ui.NewColorRamp(
+		float64(minDelta.Milliseconds()),
+		float64(maxDelta.Milliseconds()),
+		u.theme.Foreground(),
+		u.theme.FadedForeground(),
+	)
+
 	for _, p := range procs {
 		beforeOrAfter := "after"
 		deltaT := p.StartTime().Sub(zero)
@@ -236,9 +263,14 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 			deltaString = "at the same time as"
 		}
 
-		pt.writeLine(fmt.Sprintf("%s was launched %s %s",
-			u.highlight(p.String()),
-			u.highlight(deltaString),
+		style := twin.StyleDefault.WithForeground(ramp.AtValue(float64(deltaT.Milliseconds())))
+		highlighted := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
+		pt.writeLine(fmt.Sprintf("%s%s launched %s%s%s %s",
+			style.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit),
+			p.String(),
+			highlighted.RenderUpdateFrom(style, twin.ColorCount24bit),
+			deltaString,
+			twin.StyleDefault.RenderUpdateFrom(highlighted, twin.ColorCount24bit),
 			proc.String(),
 		))
 	}
