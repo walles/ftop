@@ -6,6 +6,11 @@ import (
 )
 
 func FormatDuration(duration time.Duration) string {
+	totalMilliseconds := int(duration.Milliseconds())
+	if totalMilliseconds < 100 {
+		return fmt.Sprintf("%dms", totalMilliseconds)
+	}
+
 	totalSeconds := int(duration.Seconds())
 	if totalSeconds < 10 {
 		// FIXME: Don't show decimals here unless we know we're getting
