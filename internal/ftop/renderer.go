@@ -19,7 +19,7 @@ const minHeight = 11
 type stats struct {
 	name     string
 	cpuTime  time.Duration
-	nativity uint
+	nativity int
 	rssKb    int
 }
 
@@ -59,7 +59,7 @@ func (u *Ui) Render(processesRaw []processes.Process, ioStats []io.Stat, launche
 		bottomSectionHeight = getLaunchedCommandsHeight(launches) + 2 // + 2 for borders
 	} else {
 		// We are hovering a proces
-		bottomSectionHeight = 5 // 4 = 3 for process info, 2 for borders
+		bottomSectionHeight = 7 // Includes 2 for borders
 	}
 	if bottomSectionHeight > maxBottomSectionHeight {
 		bottomSectionHeight = maxBottomSectionHeight

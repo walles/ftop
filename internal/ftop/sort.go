@@ -18,7 +18,7 @@ func SortByScore[T any](unordered []T, asStats func(t T) stats) []T {
 
 	maxCpuTime := time.Duration(0)
 	maxRssKb := 0
-	var maxNativity uint = 0
+	maxNativity := 0
 	for _, u := range unordered {
 		stat := asStats(u)
 		if stat.cpuTime > maxCpuTime {

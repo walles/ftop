@@ -158,7 +158,6 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## TODO
 
-- When hovering a process, show its nativity somewhere
 - Implement the rest of the `px` process info features
 - When hovering a process, replace the two rightmost panes with info about that
   process, note that in the Output section above
@@ -232,3 +231,4 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
   - process start time and age
 - When process naming fails, it must be possible to access the full command
   line for error reporting. Consider it might be really long.
+- When hovering a process, show its nativity somewhere

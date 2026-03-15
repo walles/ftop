@@ -52,7 +52,7 @@ type Process struct {
 	CpuTime    *time.Duration
 
 	// Count of children younger than NATIVITY_MAX_AGE
-	Nativity uint
+	Nativity int
 
 	// Birth timestamps for all now-dead children, used for nativity calculation
 	// FIXME: Make sure we populate this field!
@@ -394,7 +394,7 @@ func fillInNativities(processes map[int]*Process) {
 	now := time.Now()
 
 	for _, proc := range processes {
-		var nativity uint = 0
+		nativity := 0
 
 		// Living children
 		for _, child := range proc.children {

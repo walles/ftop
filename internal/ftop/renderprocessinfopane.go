@@ -1,8 +1,10 @@
 package ftop
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
@@ -64,6 +66,8 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 		u.screen.SetCell(x, y, styledRune)
 	}
 
+	// Render timing info
+
 	y += 2
 	x := 1
 	x += drawText(u.screen, x, y, x1, "Started ", plain)
@@ -79,6 +83,28 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	percentCpu := 100.0 * float64(u.pickedProcess.CpuTimeOrZero()) / float64(time.Since(u.pickedProcess.StartTime()))
 	x += drawText(u.screen, x, y, x1, util.FormatPercent(percentCpu), highlighted)
+	drawText(u.screen, x, y, x1, ".", plain)
+
+	// Render nativity info
+
+	style := plain
+	if u.pickedProcess.Nativity > 0 {
+		style = highlighted
+	}
+	description := "spawned no child processes"
+	if u.pickedProcess.Nativity > 1 {
+		description = fmt.Sprintf("spawned %d child processes", u.pickedProcess.Nativity)
+	} else if u.pickedProcess.Nativity == 1 {
+		description = "spawned 1 child process"
+	}
+
+	y += 2
+	x = 1
+	x += drawText(u.screen, x, y, x1, u.pickedProcess.String(), plain)
+	x += drawText(u.screen, x, y, x1, " ", plain)
+	x += drawText(u.screen, x, y, x1, description, style)
+	x += drawText(u.screen, x, y, x1, " in the last ", plain)
+	x += drawText(u.screen, x, y, x1, util.FormatDuration(processes.NATIVITY_MAX_AGE), plain)
 	drawText(u.screen, x, y, x1, ".", plain)
 }
 

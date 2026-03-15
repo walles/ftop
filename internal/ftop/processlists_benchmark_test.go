@@ -22,7 +22,7 @@ func makeBenchmarkProcesses(count int) []processes.Process {
 			Username: "bench-user",
 			RssKb:    ((i * 73) % 900000) + 512,
 			CpuTime:  &cpuTime,
-			Nativity: uint((i * 19) % 200),
+			Nativity: (i * 19) % 200,
 		}
 
 		processesRaw = append(processesRaw, process)
