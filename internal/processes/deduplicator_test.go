@@ -169,3 +169,133 @@ func TestPointerComparison(t *testing.T) {
 		t.Errorf("Expected empty disambiguator for same Firefox process (third pointer), got %q", result)
 	}
 }
+
+func TestRegister_CanonicalizesOneSecondStartTimeDrift(t *testing.T) {
+	d := deduplicator{}
+
+	startTime := time.Date(2026, 2, 7, 18, 56, 40, 0, time.UTC)
+	driftedStartTime := startTime.Add(1 * time.Second)
+
+	proc1 := &Process{
+		Pid:       12345,
+		startTime: startTime,
+		Command:   "Firefox",
+	}
+	d.register(proc1)
+
+	proc2 := &Process{
+		Pid:       12345,
+		startTime: driftedStartTime,
+		Command:   "Firefox",
+	}
+	d.register(proc2)
+
+	if !proc1.startTime.Equal(proc2.startTime) {
+		t.Fatalf("expected canonicalized start times to match, got %s and %s", proc1.startTime, proc2.startTime)
+	}
+
+	result := d.disambiguator(proc2)
+	if result != "" {
+		t.Errorf("Expected empty disambiguator for same Firefox process with one-second drift, got %q", result)
+	}
+
+	if len(d.seenByPid[proc1.Pid]) != 1 {
+		t.Fatalf("expected exactly one canonical process for PID %d, got %d", proc1.Pid, len(d.seenByPid[proc1.Pid]))
+	}
+	if len(d.byName[proc1.Command]) != 1 {
+		t.Fatalf("expected exactly one command entry for %q, got %d", proc1.Command, len(d.byName[proc1.Command]))
+	}
+}
+
+func TestRegister_CanonicalizesOneSecondDriftAcrossCommandChange(t *testing.T) {
+	d := deduplicator{}
+
+	startTime := time.Date(2026, 2, 7, 18, 56, 40, 0, time.UTC)
+	driftedStartTime := startTime.Add(1 * time.Second)
+
+	proc1 := &Process{
+		Pid:       47070,
+		startTime: startTime,
+		Command:   "foo",
+	}
+	d.register(proc1)
+
+	otherGit1 := &Process{
+		Pid:       99998,
+		startTime: time.Date(2026, 2, 7, 18, 56, 39, 0, time.UTC),
+		Command:   "git",
+	}
+	d.register(otherGit1)
+
+	otherGit2 := &Process{
+		Pid:       99999,
+		startTime: time.Date(2026, 2, 7, 18, 56, 38, 0, time.UTC),
+		Command:   "git",
+	}
+	d.register(otherGit2)
+
+	proc2 := &Process{
+		Pid:       47070,
+		startTime: driftedStartTime,
+		Command:   "git",
+	}
+	d.register(proc2)
+
+	if !proc1.startTime.Equal(proc2.startTime) {
+		t.Fatalf("expected command-changed process to reuse canonical start time, got %s and %s", proc1.startTime, proc2.startTime)
+	}
+
+	result := d.disambiguator(proc2)
+	if result != "3" {
+		t.Errorf("Expected disambiguator '3' for canonicalized git process, got %q", result)
+	}
+
+	if len(d.seenByPid[proc1.Pid]) != 1 {
+		t.Fatalf("expected one canonical entry for PID %d after command change, got %d", proc1.Pid, len(d.seenByPid[proc1.Pid]))
+	}
+	if len(d.byName["git"]) != 3 {
+		t.Fatalf("expected three git entries after command change, got %d", len(d.byName["git"]))
+	}
+}
+
+func TestRegister_CreatesNewIdentityWhenStartTimesDifferByMoreThanOneSecond(t *testing.T) {
+	d := deduplicator{}
+
+	startTime := time.Date(2026, 2, 7, 18, 56, 40, 0, time.UTC)
+	fartherStartTime := startTime.Add(2 * time.Second)
+
+	proc1 := &Process{
+		Pid:       12345,
+		startTime: startTime,
+		Command:   "Firefox",
+	}
+	d.register(proc1)
+
+	proc2 := &Process{
+		Pid:       12345,
+		startTime: fartherStartTime,
+		Command:   "Firefox",
+	}
+	d.register(proc2)
+
+	if proc1.startTime.Equal(proc2.startTime) {
+		t.Fatalf("expected start times to remain distinct outside tolerance, got %s and %s", proc1.startTime, proc2.startTime)
+	}
+
+	if len(d.seenByPid[proc1.Pid]) != 2 {
+		t.Fatalf("expected two canonical entries for PID %d outside tolerance, got %d", proc1.Pid, len(d.seenByPid[proc1.Pid]))
+	}
+	if len(d.byName[proc1.Command]) != 2 {
+		t.Fatalf("expected two command entries for %q outside tolerance, got %d", proc1.Command, len(d.byName[proc1.Command]))
+	}
+
+	result1 := d.disambiguator(proc1)
+	if result1 != "1" {
+		t.Errorf("Expected disambiguator '1' for older Firefox process, got %q", result1)
+	}
+
+	result2 := d.disambiguator(proc2)
+	if result2 != "2" {
+		t.Errorf("Expected disambiguator '2' for newer Firefox process, got %q", result2)
+	}
+}

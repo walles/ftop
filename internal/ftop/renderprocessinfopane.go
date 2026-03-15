@@ -74,7 +74,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 	x += drawText(u.screen, x, y, x1, util.FormatDuration(time.Since(u.pickedProcess.StartTime())), highlighted)
 	x += drawText(u.screen, x, y, x1, " ago at ", plain)
 
-	startString := u.pickedProcess.StartTime().Format("2006-01-02 15:04:05")
+	startString := u.pickedProcess.StartTime().Format("2006-01-02 15:04:05MST")
 	x += drawText(u.screen, x, y, x1, startString, highlighted)
 
 	x += drawText(u.screen, x, y, x1, ". It used ", plain)

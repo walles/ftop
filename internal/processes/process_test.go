@@ -121,15 +121,16 @@ func TestShouldHideSelfChild(t *testing.T) {
 }
 
 func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
-	line := " 974 973 588 Sun Mar 15 09:55:27 2026 501 0.0 0:00.00 0.0 /bin/sleep"
+	line := " 974 973 588 00:00 501 0.0 0:00.00 0.0 /bin/sleep"
+	snapshotTime := time.Date(2026, time.March, 15, 9, 55, 27, 0, time.Local)
 
-	proc, err := psLineToProcess(line)
+	proc, err := psLineToProcess(line, snapshotTime)
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, proc.Pid, 974)
 	assert.Equal(t, proc.ppid, 973)
 	assert.Equal(t, proc.RssKb, 588)
-	assert.Equal(t, proc.startTime, time.Date(2026, time.March, 15, 9, 55, 27, 0, time.Local))
+	assert.Equal(t, proc.startTime, snapshotTime)
 	assert.Equal(t, proc.Username, uidToUsername(501))
 	assert.Equal(t, proc.Command, "sleep")
 	assert.Equal(t, proc.cmdline, "/bin/sleep")
@@ -146,26 +147,57 @@ func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
 }
 
 func TestPsLineToProcess_HappyPathLinux(t *testing.T) {
-	line := "    1     0  3144 Sun Mar 15 08:51:33 2026     0  0.0 00:00:00  0.0 bash"
+	line := "    1     0  3196       00:21     0  0.1 00:00:00  0.0 bash"
+	snapshotTime := time.Date(2026, time.March, 15, 8, 51, 54, 0, time.Local)
 
-	proc, err := psLineToProcess(line)
+	proc, err := psLineToProcess(line, snapshotTime)
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, proc.Pid, 1)
 	assert.Equal(t, proc.ppid, 0)
-	assert.Equal(t, proc.RssKb, 3144)
-	assert.Equal(t, proc.startTime, time.Date(2026, time.March, 15, 8, 51, 33, 0, time.Local))
+	assert.Equal(t, proc.RssKb, 3196)
+	assert.Equal(t, proc.startTime, snapshotTime.Add(-21*time.Second))
 	assert.Equal(t, proc.Username, uidToUsername(0))
 	assert.Equal(t, proc.Command, "bash")
 	assert.Equal(t, proc.cmdline, "bash")
 	assert.Equal(t, proc.lowercaseCommand, "bash")
 
 	assert.Equal(t, true, proc.cpuPercent != nil)
-	assert.Equal(t, *proc.cpuPercent, 0.0)
+	assert.Equal(t, *proc.cpuPercent, 0.1)
 
 	assert.Equal(t, true, proc.CpuTime != nil)
 	assert.Equal(t, *proc.CpuTime, time.Duration(0))
 
 	assert.Equal(t, true, proc.memoryPercent != nil)
 	assert.Equal(t, *proc.memoryPercent, 0.0)
+}
+
+func TestPsLineToProcess_StableAcrossEtimeRefreshes(t *testing.T) {
+	lineA := "    1     0  3196       00:21     0  0.1 00:00:00  0.0 bash"
+	lineB := "    1     0  3196       00:22     0  0.1 00:00:00  0.0 bash"
+
+	snapshotA := time.Date(2026, time.March, 15, 8, 51, 54, 900000000, time.Local)
+	snapshotB := time.Date(2026, time.March, 15, 8, 51, 55, 100000000, time.Local)
+
+	procA, err := psLineToProcess(lineA, snapshotA)
+	assert.Equal(t, err, nil)
+
+	procB, err := psLineToProcess(lineB, snapshotB)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, procA.startTime, procB.startTime)
+	assert.Equal(t, procA.SameAs(procB), true)
+}
+
+func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {
+	base := time.Date(2026, time.March, 15, 8, 51, 33, 0, time.Local)
+
+	proc := &Process{Pid: 1234, startTime: base}
+	withinTolerance := &Process{Pid: 1234, startTime: base.Add(1 * time.Second)}
+	tooFarAway := &Process{Pid: 1234, startTime: base.Add(2 * time.Second)}
+	otherPid := &Process{Pid: 1235, startTime: base.Add(1 * time.Second)}
+
+	assert.Equal(t, proc.SameAs(withinTolerance), true)
+	assert.Equal(t, proc.SameAs(tooFarAway), false)
+	assert.Equal(t, proc.SameAs(otherPid), false)
 }

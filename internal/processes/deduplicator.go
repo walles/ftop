@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 )
 
 // Keeps track of all known processes, alive or now dead, and their names.
@@ -11,11 +12,44 @@ import (
 // If multiple process share the same name, the deduplicator can suggest a
 // disambiguator string to disambiguate them.
 type deduplicator struct {
-	// Map from unique process identifier (PID-startTime) to process
-	seen map[string]*Process
+	// Candidate canonical processes by PID. There can be multiple entries if a
+	// PID has been reused over time.
+	seenByPid map[int][]*Process
 
 	// Map from command name to list of processes with that name
 	byName map[string][]*Process
+}
+
+func startTimeDistance(a, b time.Time) time.Duration {
+	delta := a.Sub(b)
+	if delta < 0 {
+		return -delta
+	}
+
+	return delta
+}
+
+func (d *deduplicator) canonicalProcess(proc *Process) *Process {
+	candidates := d.seenByPid[proc.Pid]
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	var closest *Process
+	var closestDistance time.Duration
+	for _, candidate := range candidates {
+		if !candidate.SameAs(proc) {
+			continue
+		}
+
+		distance := startTimeDistance(candidate.startTime, proc.startTime)
+		if closest == nil || distance < closestDistance {
+			closest = candidate
+			closestDistance = distance
+		}
+	}
+
+	return closest
 }
 
 // Register a process as known. If it was alread known, the registration is a
@@ -25,20 +59,19 @@ type deduplicator struct {
 // start time.
 func (d *deduplicator) register(proc *Process) {
 	// Lazy initialization
-	if d.seen == nil {
-		d.seen = make(map[string]*Process)
+	if d.seenByPid == nil {
+		d.seenByPid = make(map[int][]*Process)
 		d.byName = make(map[string][]*Process)
 	}
 
-	// Create unique key from PID and start time
-	key := fmt.Sprintf("%d-%d", proc.Pid, proc.startTime.Unix())
+	canonical := d.canonicalProcess(proc)
+	if canonical != nil {
+		proc.startTime = canonical.startTime
 
-	// Check if already registered
-	if _, exists := d.seen[key]; exists {
 		// Known process. But does it have the same name as before?
 
 		for _, p := range d.byName[proc.Command] {
-			if p.Pid == proc.Pid && p.startTime.Equal(proc.startTime) {
+			if p.SameAs(proc) {
 				// Yup, same name as before, registration done
 				return
 			}
@@ -52,7 +85,7 @@ func (d *deduplicator) register(proc *Process) {
 	}
 
 	// Register the process
-	d.seen[key] = proc
+	d.seenByPid[proc.Pid] = append(d.seenByPid[proc.Pid], proc)
 	d.byName[proc.Command] = append(d.byName[proc.Command], proc)
 }
 
@@ -76,7 +109,7 @@ func (d *deduplicator) disambiguator(proc *Process) string {
 
 	// Find this process's position in the sorted list
 	for i, p := range sorted {
-		if p.Pid == proc.Pid && p.startTime.Equal(proc.startTime) {
+		if p.SameAs(proc) {
 			return strconv.Itoa(i + 1)
 		}
 	}

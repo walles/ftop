@@ -126,9 +126,9 @@ func (tracker *Tracker) Processes() []Process {
 			// times relative to our start time.
 			baseProc, ok := tracker.baseline[proc.Pid]
 
-			// The start time check protects against reused PIDs. If the start
-			// times are different, then they are different processes.
-			if ok && proc.startTime.Equal(baseProc.startTime) && proc.CpuTime != nil && baseProc.CpuTime != nil {
+			// SameAs() protects against reused PIDs while tolerating etime's
+			// one-second start time precision.
+			if ok && proc.SameAs(baseProc) && proc.CpuTime != nil && baseProc.CpuTime != nil {
 				adjusted := *proc.CpuTime - *baseProc.CpuTime
 				proc.CpuTime = &adjusted
 			}

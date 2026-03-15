@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/user"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -59,13 +58,16 @@ type Process struct {
 	deadChildrenBirthTimes []time.Time
 }
 
-// Match + group: " 7708 1 Mon Mar  7 09:33:11 2016  netbios 0.1 0:00.08  0.0 /usr/sbin/netbiosd hj"
+// Match + group: " 7708 1 00:21 501 0.1 0:00.08 0.0 /usr/bin/sleep"
 var PS_LINE = regexp.MustCompile(
-	" *([0-9]+) +([0-9]+) +([0-9]+) +([A-Za-z0-9: ]+) +([^ ]+) +([0-9.]+) +([-0-9.:]+) +([0-9.]+) +(.*)",
+	" *([0-9]+) +([0-9]+) +([0-9]+) +([^ ]+) +([^ ]+) +([0-9.]+) +([-0-9.:]+) +([0-9.]+) +(.*)",
 )
 
 // Match + group: "1:02.03"
 var CPU_DURATION_OSX = regexp.MustCompile(`^([0-9]+):([0-9][0-9]\.[0-9]+)$`)
+
+// Match + group: "00:21"
+var ELAPSED_DURATION_MINUTES = regexp.MustCompile(`^([0-9]+):([0-9][0-9])$`)
 
 // Match + group: "01:23:45"
 var CPU_DURATION_LINUX = regexp.MustCompile(`^([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
@@ -101,48 +103,6 @@ func (p *Process) StartTime() time.Time {
 //	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
 func (p *Process) CommandLine() []string {
 	return cmdlineToSlice(p.cmdline, exists)
-}
-
-// Parse a local date from ps into a datetime.datetime object.
-//
-// Example inputs:
-//
-//	Wed Dec 16 12:41:43 2020
-//	Sat Jan  9 14:20:34 2021
-func parseTime(time_string string) (time.Time, error) {
-	monthLetters := time_string[4:7]
-	monthNames := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
-	monthIndex := slices.Index(monthNames, monthLetters) // Zero based
-	if monthIndex == -1 {
-		return time.Time{}, fmt.Errorf("failed to parse month <%s> from time string <%s>", monthLetters, time_string)
-	}
-
-	dayOfMonth, err := strconv.Atoi(strings.TrimSpace(time_string[8:10]))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse day of month <%s> from time string <%s>: %v", time_string[8:10], time_string, err)
-	}
-
-	hour, err := strconv.Atoi(strings.TrimSpace(time_string[11:13]))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse hour <%s> from time string <%s>: %v", time_string[11:13], time_string, err)
-	}
-
-	minute, err := strconv.Atoi(strings.TrimSpace(time_string[14:16]))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse minute <%s> from time string <%s>: %v", time_string[14:16], time_string, err)
-	}
-
-	second, err := strconv.Atoi(strings.TrimSpace(time_string[17:19]))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse second <%s> from time string <%s>: %v", time_string[17:19], time_string, err)
-	}
-
-	year, err := strconv.Atoi(strings.TrimSpace(time_string[20:24]))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse year <%s> from time string <%s>: %v", time_string[20:24], time_string, err)
-	}
-
-	return time.Date(year, time.Month(monthIndex+1), dayOfMonth, hour, minute, second, 0, time.Local), nil
 }
 
 func uidToUsername(uid int) string {
@@ -227,7 +187,75 @@ func parseDuration(durationString string) (time.Duration, error) {
 	return 0, fmt.Errorf("failed to parse duration string <%s>", durationString)
 }
 
-func psLineToProcess(line string) (*Process, error) {
+func parseElapsedDuration(durationString string) (time.Duration, error) {
+	if match := ELAPSED_DURATION_MINUTES.FindStringSubmatch(durationString); match != nil {
+		minutes, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		seconds, err := strconv.Atoi(match[2])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		totalSeconds := (minutes * 60) + seconds
+		return time.Duration(totalSeconds) * time.Second, nil
+	}
+
+	if match := CPU_DURATION_LINUX.FindStringSubmatch(durationString); match != nil {
+		hours, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse hours <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		minutes, err := strconv.Atoi(match[2])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		seconds, err := strconv.Atoi(match[3])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[3], durationString, err)
+		}
+
+		totalSeconds := (hours * 3600) + (minutes * 60) + seconds
+		return time.Duration(totalSeconds) * time.Second, nil
+	}
+
+	if match := CPU_DURATION_LINUX_DAYS.FindStringSubmatch(durationString); match != nil {
+		days, err := strconv.Atoi(match[1])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse days <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+		}
+
+		hours, err := strconv.Atoi(match[2])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse hours <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
+		}
+
+		minutes, err := strconv.Atoi(match[3])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[3], durationString, err)
+		}
+
+		seconds, err := strconv.Atoi(match[4])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[4], durationString, err)
+		}
+
+		totalSeconds := (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
+		return time.Duration(totalSeconds) * time.Second, nil
+	}
+
+	return 0, fmt.Errorf("failed to parse elapsed duration string <%s>", durationString)
+}
+
+func normalizeEtimeSnapshot(snapshotTime time.Time) time.Time {
+	return time.Unix(snapshotTime.Unix(), 0).In(snapshotTime.Location())
+}
+
+func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	match := PS_LINE.FindStringSubmatch(line)
 	if match == nil {
 		return nil, fmt.Errorf("failed to match ps line <%q>", line)
@@ -248,11 +276,12 @@ func psLineToProcess(line string) (*Process, error) {
 		return nil, fmt.Errorf("failed to parse rss_kb <%s> from line <%s>: %v", match[3], line, err)
 	}
 
-	start_time_string := match[4]
-	start_time, err := parseTime(start_time_string)
+	elapsedString := match[4]
+	elapsed, err := parseElapsedDuration(elapsedString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse start_time <%s> from line <%s>: %v", match[4], line, err)
+		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", match[4], line, err)
 	}
+	startTime := normalizeEtimeSnapshot(snapshotTime).Add(-elapsed)
 
 	uid, err := strconv.Atoi(match[5])
 	if err != nil {
@@ -282,7 +311,7 @@ func psLineToProcess(line string) (*Process, error) {
 		Pid:              pid,
 		ppid:             ppid,
 		RssKb:            rss_kb,
-		startTime:        start_time,
+		startTime:        startTime,
 		Username:         username,
 		cpuPercent:       &cpu_percent,
 		CpuTime:          &cpu_time,
@@ -295,15 +324,16 @@ func psLineToProcess(line string) (*Process, error) {
 
 func GetAll() ([]*Process, error) {
 	processes := make(map[int]*Process, 0)
+	snapshotTime := time.Now()
 
 	command := []string{
 		"/bin/ps",
 		"-ax",
 		"-o",
-		"pid=,ppid=,rss=,lstart=,uid=,pcpu=,time=,%mem=,command=",
+		"pid=,ppid=,rss=,etime=,uid=,pcpu=,time=,%mem=,command=",
 	}
 	err := util.Exec(command, func(line string) error {
-		proc, err := psLineToProcess(line)
+		proc, err := psLineToProcess(line, snapshotTime)
 		if err != nil {
 			return err
 		}
@@ -459,7 +489,16 @@ func (p *Process) CpuTimeOrZero() time.Duration {
 }
 
 func (p *Process) SameAs(other *Process) bool {
-	return p.Pid == other.Pid && p.startTime.Equal(other.startTime)
+	if p.Pid != other.Pid {
+		return false
+	}
+
+	delta := p.startTime.Sub(other.startTime)
+	if delta < 0 {
+		delta = -delta
+	}
+
+	return delta <= time.Second
 }
 
 func (p *Process) IsAlive() bool {

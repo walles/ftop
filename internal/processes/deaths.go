@@ -12,7 +12,7 @@ func preserveDeadChildren(baseline, current map[int]*Process) {
 	now := time.Now()
 	for pid, oldProc := range baseline {
 		newProc := current[pid]
-		if newProc == nil || !newProc.startTime.Equal(oldProc.startTime) {
+		if newProc == nil || !oldProc.SameAs(newProc) {
 			// Process died or PID was reused
 			continue
 		}
@@ -34,7 +34,7 @@ func preserveDeadChildren(baseline, current map[int]*Process) {
 func trackDeaths(baseline, current map[int]*Process) {
 	for pid, oldProc := range baseline {
 		newProc := current[pid]
-		if newProc != nil && newProc.startTime.Equal(oldProc.startTime) {
+		if newProc != nil && oldProc.SameAs(newProc) {
 			// Same PID, same start time => same process is still alive
 			continue
 		}

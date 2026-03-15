@@ -23,7 +23,7 @@ type LaunchNode struct {
 func updateLaunches(root *LaunchNode, previous, current map[int]*Process) *LaunchNode {
 	for _, proc := range current {
 		if samePidBefore, existed := previous[proc.Pid]; existed {
-			if samePidBefore.startTime.Equal(proc.startTime) {
+			if samePidBefore.SameAs(proc) {
 				// Same PID, same start time, same process as before, nothing to do
 				continue
 			}

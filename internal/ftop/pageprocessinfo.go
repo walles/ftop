@@ -79,7 +79,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	pt.writeLine(fmt.Sprintf(
 		"Started %s ago at %s. It used %s CPU, or %s.",
 		u.highlight(util.FormatDuration(age)),
-		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05")),
+		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05MST")),
 		u.highlight(util.FormatDuration(cpuTime)),
 		u.highlight(util.FormatPercent(percentCpu)),
 	))
