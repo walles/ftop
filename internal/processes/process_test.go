@@ -189,6 +189,19 @@ func TestPsLineToProcess_StableAcrossEtimeRefreshes(t *testing.T) {
 	assert.Equal(t, procA.SameAs(procB), true)
 }
 
+// Real world example from macOS ps
+func TestPsLineToProcess_MalformedElapsedTime(t *testing.T) {
+	line := "24381 48334   1024       00:-1   501   0.0   0:00.00  0.0 netstat -ib"
+	snapshotTime := time.Date(2026, time.March, 15, 11, 22, 0, 0, time.Local)
+
+	proc, err := psLineToProcess(line, snapshotTime)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, proc.Pid, 24381)
+	assert.Equal(t, proc.Command, "netstat")
+	assert.Equal(t, proc.startTime, snapshotTime)
+}
+
 func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {
 	base := time.Date(2026, time.March, 15, 8, 51, 33, 0, time.Local)
 
