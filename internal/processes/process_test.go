@@ -119,3 +119,53 @@ func TestShouldHideSelfChild(t *testing.T) {
 	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "nano"}))
 	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "Code"}))
 }
+
+func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
+	line := " 974 973 588 Sun Mar 15 09:55:27 2026 501 0.0 0:00.00 0.0 /bin/sleep"
+
+	proc, err := psLineToProcess(line)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, proc.Pid, 974)
+	assert.Equal(t, proc.ppid, 973)
+	assert.Equal(t, proc.RssKb, 588)
+	assert.Equal(t, proc.startTime, time.Date(2026, time.March, 15, 9, 55, 27, 0, time.Local))
+	assert.Equal(t, proc.Username, uidToUsername(501))
+	assert.Equal(t, proc.Command, "sleep")
+	assert.Equal(t, proc.cmdline, "/bin/sleep")
+	assert.Equal(t, proc.lowercaseCommand, "sleep")
+
+	assert.Equal(t, true, proc.cpuPercent != nil)
+	assert.Equal(t, *proc.cpuPercent, 0.0)
+
+	assert.Equal(t, true, proc.CpuTime != nil)
+	assert.Equal(t, *proc.CpuTime, time.Duration(0))
+
+	assert.Equal(t, true, proc.memoryPercent != nil)
+	assert.Equal(t, *proc.memoryPercent, 0.0)
+}
+
+func TestPsLineToProcess_HappyPathLinux(t *testing.T) {
+	line := "    1     0  3144 Sun Mar 15 08:51:33 2026     0  0.0 00:00:00  0.0 bash"
+
+	proc, err := psLineToProcess(line)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, proc.Pid, 1)
+	assert.Equal(t, proc.ppid, 0)
+	assert.Equal(t, proc.RssKb, 3144)
+	assert.Equal(t, proc.startTime, time.Date(2026, time.March, 15, 8, 51, 33, 0, time.Local))
+	assert.Equal(t, proc.Username, uidToUsername(0))
+	assert.Equal(t, proc.Command, "bash")
+	assert.Equal(t, proc.cmdline, "bash")
+	assert.Equal(t, proc.lowercaseCommand, "bash")
+
+	assert.Equal(t, true, proc.cpuPercent != nil)
+	assert.Equal(t, *proc.cpuPercent, 0.0)
+
+	assert.Equal(t, true, proc.CpuTime != nil)
+	assert.Equal(t, *proc.CpuTime, time.Duration(0))
+
+	assert.Equal(t, true, proc.memoryPercent != nil)
+	assert.Equal(t, *proc.memoryPercent, 0.0)
+}
