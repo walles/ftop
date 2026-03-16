@@ -26,6 +26,11 @@ var hiddenSelfChildCommands = map[string]struct{}{
 // How old children count towards a process' nativity?
 const NATIVITY_MAX_AGE = 60 * time.Second
 
+// Slowest I have seen on my system was around 180ms with race detector enabled.
+// Let's give it some headroom. Also, since we do this every second, if it
+// starts taking too close to a second that will be a real problem.
+const MAX_PS_DURATION = 500 * time.Millisecond
+
 type Process struct {
 	Pid      int
 	ppid     int // The init process can have 0 here, meaning it has no parent
@@ -54,7 +59,6 @@ type Process struct {
 	Nativity int
 
 	// Birth timestamps for all now-dead children, used for nativity calculation
-	// FIXME: Make sure we populate this field!
 	deadChildrenBirthTimes []time.Time
 }
 
@@ -327,27 +331,56 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 }
 
 func GetAll() ([]*Process, error) {
-	processes := make(map[int]*Process, 0)
-	snapshotTime := time.Now()
-
 	command := []string{
 		"/bin/ps",
 		"-ax",
 		"-o",
 		"pid=,ppid=,rss=,etime=,uid=,pcpu=,time=,%mem=,command=",
 	}
-	err := util.Exec(command, func(line string) error {
-		proc, err := psLineToProcess(line, snapshotTime)
+
+	var processes map[int]*Process
+	attempt := 0
+	for {
+		attempt += 1
+		processes = make(map[int]*Process, 0)
+
+		startedAt := time.Now()
+		err := util.Exec(command, func(line string) error {
+			proc, err := psLineToProcess(line, startedAt)
+			if err != nil {
+				return err
+			}
+
+			processes[proc.Pid] = proc
+			return nil
+		})
+
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("failed to get process list: %v", err)
 		}
 
-		processes[proc.Pid] = proc
-		return nil
-	})
+		duration := time.Since(startedAt)
+		if duration <= MAX_PS_DURATION {
+			break
+		}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to get process list: %v", err)
+		// We can get here if the system has been hibernated and resumed,
+		// causing the clock to jump forward while ps is running.
+
+		if attempt >= 5 {
+			return nil, fmt.Errorf(
+				"ps command took too long (%s > %s) even at attempt %d",
+				util.FormatDuration(duration),
+				util.FormatDuration(MAX_PS_DURATION),
+				attempt,
+			)
+		}
+
+		log.Infof(
+			"/bin/ps run took %s (> %s) wall clock time, retrying",
+			util.FormatDuration(duration),
+			util.FormatDuration(MAX_PS_DURATION),
+		)
 	}
 
 	// Resolve parent-child relationships
@@ -497,10 +530,7 @@ func (p *Process) SameAs(other *Process) bool {
 		return false
 	}
 
-	delta := p.startTime.Sub(other.startTime)
-	if delta < 0 {
-		delta = -delta
-	}
+	delta := p.startTime.Sub(other.startTime).Abs()
 
 	return delta <= time.Second
 }

@@ -252,10 +252,9 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 
 	for _, p := range procs {
 		beforeOrAfter := "after"
-		deltaT := p.StartTime().Sub(zero)
+		deltaT := p.StartTime().Sub(zero).Abs()
 		if p.StartTime().Before(zero) {
 			beforeOrAfter = "before"
-			deltaT = -deltaT
 		}
 
 		deltaString := util.FormatDuration(deltaT) + " " + beforeOrAfter
@@ -286,15 +285,8 @@ func findCloseLaunches(proc *processes.Process) []*processes.Process {
 	// Sort by launch time closeness
 	zero := proc.StartTime()
 	slices.SortFunc(allOtherProcs, func(a, b *processes.Process) int {
-		diffA := a.StartTime().Sub(zero).Milliseconds()
-		if diffA < 0 {
-			diffA = -diffA
-		}
-
-		diffB := b.StartTime().Sub(zero).Milliseconds()
-		if diffB < 0 {
-			diffB = -diffB
-		}
+		diffA := a.StartTime().Sub(zero).Abs().Milliseconds()
+		diffB := b.StartTime().Sub(zero).Abs().Milliseconds()
 
 		if diffA == diffB {
 			return 0
