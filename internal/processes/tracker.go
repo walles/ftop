@@ -48,8 +48,18 @@ func (tracker *Tracker) update() {
 		return
 	}
 
+	procsMap := make(map[int]*Process)
+	for _, p := range procs {
+		procsMap[p.Pid] = p
+	}
+
+	var matches ProcessMatching
+	if tracker.current != nil {
+		matches = buildProcessMatches(tracker.current, procsMap)
+	}
+
 	// Restore original commands for dying processes
-	preserveDyingProcessCommands(procs, tracker.current)
+	preserveDyingProcessCommands(matches)
 
 	for _, proc := range procs {
 		tracker.deduplicator.register(proc)
@@ -71,11 +81,6 @@ func (tracker *Tracker) update() {
 		}
 	}
 
-	procsMap := make(map[int]*Process)
-	for _, p := range procs {
-		procsMap[p.Pid] = p
-	}
-
 	tracker.mutex.Lock()
 
 	if longestCommandLength > tracker.longestCommandLength {
@@ -85,12 +90,12 @@ func (tracker *Tracker) update() {
 
 	if tracker.current != nil {
 		// Keep track of dead children from previous frame
-		preserveDeadChildren(tracker.current, procsMap)
+		preserveDeadChildren(matches)
 
 		// Update launch counts tree
-		tracker.launches = updateLaunches(tracker.launches, tracker.current, procsMap)
+		tracker.launches = updateLaunches(tracker.launches, matches)
 
-		trackDeaths(tracker.current, procsMap)
+		trackDeaths(matches)
 	}
 
 	fillInNativities(procsMap)
@@ -169,32 +174,26 @@ func (tracker *Tracker) Launches() *LaunchNode {
 
 // preserveDyingProcessCommands restores the original command names for processes
 // that are dying (shown with parenthesized names like "(bash)").
-func preserveDyingProcessCommands(current []*Process, previous map[int]*Process) {
-	if previous == nil {
+func preserveDyingProcessCommands(matching ProcessMatching) {
+	if matching.Matched == nil {
 		return
 	}
 
-	for _, proc := range current {
+	for _, proc := range matching.CurrentByPid {
 		// Check if this is a dying process (parenthesized command)
 		isParenthesized := strings.HasPrefix(proc.cmdline, "(") && strings.HasSuffix(proc.cmdline, ")")
 		if proc.cmdline != "<defunct>" && proc.cmdline != "<exiting>" && !isParenthesized {
 			continue
 		}
 
-		// Look up the previous state of this process
-		oldProc, found := previous[proc.Pid]
+		match, found := matching.Matched[proc.Pid]
 		if !found {
 			continue
 		}
 
-		// Verify it's the same process using SameAs (checks PID and start time)
-		if !oldProc.SameAs(proc) {
-			continue
-		}
-
 		// Restore the original command information
-		proc.cmdline = oldProc.cmdline
-		proc.Command = oldProc.Command
-		proc.lowercaseCommand = oldProc.lowercaseCommand
+		proc.cmdline = match.Old.cmdline
+		proc.Command = match.Old.Command
+		proc.lowercaseCommand = match.Old.lowercaseCommand
 	}
 }

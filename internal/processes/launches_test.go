@@ -233,7 +233,7 @@ func TestUpdateLaunches_mixedRootsDoesNotPanic(t *testing.T) {
 	codeChild := &Process{Pid: 10340, Command: "Code", parent: codeParent, startTime: time.Now()}
 	current[codeChild.Pid] = codeChild
 
-	root := updateLaunches(nil, previous, current)
+	root := updateLaunches(nil, buildProcessMatches(previous, current))
 	assertAncestry(t, root, ancestry{
 		Command:     "init",
 		LaunchCount: 0,
@@ -262,7 +262,7 @@ func TestUpdateLaunches_mixedRootsDoesNotPanic(t *testing.T) {
 	current[launchedEditor.Pid] = launchedEditor
 
 	// This call used to panic
-	root = updateLaunches(root, previous, current)
+	root = updateLaunches(root, buildProcessMatches(previous, current))
 	assertAncestry(t, root, ancestry{
 		Command:     "launchd",
 		LaunchCount: 0,

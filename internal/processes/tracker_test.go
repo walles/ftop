@@ -35,8 +35,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
 		assert.Equal(t, "bash hello.sh", current[0].cmdline)
@@ -68,8 +71,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
 		assert.Equal(t, current[0].cmdline, "bash hello.sh")
@@ -101,8 +107,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
 		assert.Equal(t, current[0].cmdline, "bash hello.sh")
@@ -133,8 +142,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify command was NOT preserved (different process)
 		assert.Equal(t, "(python)", current[0].cmdline)
@@ -165,8 +177,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify command was NOT modified (not dying, so no preservation)
 		assert.Equal(t, "bash goodbye.sh", current[0].cmdline)
@@ -175,9 +190,6 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 	})
 
 	t.Run("handles nil previous map", func(t *testing.T) {
-		// No previous frame
-		var previous map[int]*Process = nil
-
 		// Current frame: dying process
 		current := []*Process{
 			{
@@ -190,7 +202,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		// Should not panic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(ProcessMatching{})
 
 		// Verify nothing changed
 		assert.Equal(t, "(bash)", current[0].cmdline)
@@ -219,8 +231,11 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
+		currentByPid := map[int]*Process{current[0].Pid: current[0]}
+		matches := buildProcessMatches(previous, currentByPid)
+
 		// Apply preservation logic
-		preserveDyingProcessCommands(current, previous)
+		preserveDyingProcessCommands(matches)
 
 		// Verify nothing changed (process wasn't in previous frame)
 		assert.Equal(t, "(bash)", current[0].cmdline)

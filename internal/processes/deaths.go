@@ -8,69 +8,35 @@ import (
 
 // Copy over deadChildrenBirthTimes from the previous frame to the current frame,
 // filtering out entries that are too old.
-func preserveDeadChildren(baseline, current map[int]*Process) {
+func preserveDeadChildren(matching ProcessMatching) {
 	now := time.Now()
-	for pid, oldProc := range baseline {
-		newProc := current[pid]
-		if newProc == nil || !oldProc.SameAs(newProc) {
-			// Process died or PID was reused
-			continue
-		}
-
+	for _, match := range matching.Matched {
 		// Copy over dead children that are still young enough
-		for _, birthTime := range oldProc.deadChildrenBirthTimes {
+		for _, birthTime := range match.Old.deadChildrenBirthTimes {
 			age := now.Sub(birthTime)
 			if age > NATIVITY_MAX_AGE {
 				continue
 			}
 
-			newProc.deadChildrenBirthTimes = append(newProc.deadChildrenBirthTimes, birthTime)
+			match.New.deadChildrenBirthTimes = append(match.New.deadChildrenBirthTimes, birthTime)
 		}
 	}
 }
 
 // Track which processes died between baseline and current, and remember their
 // launch times.
-func trackDeaths(baseline, current map[int]*Process) {
-	for pid, oldProc := range baseline {
-		newProc := current[pid]
-		if newProc != nil && oldProc.SameAs(newProc) {
-			// Same PID, same start time => same process is still alive
+func trackDeaths(matching ProcessMatching) {
+	for _, deadProc := range matching.Gone {
+		if deadProc.parent == nil {
+			log.Infof("Parent-less process died: %s", deadProc.String())
 			continue
 		}
 
-		// This process died (or the PID still exists but SameAs() disagrees on
-		// start time)
-
-		if newProc != nil {
-			// PID still exists but start times don't match — SameAs() returned
-			// false. Log details at debug level to help diagnose whether this
-			// is a real start-time calculation artifact or an actual SameAs()
-			// bug.
-			//
-			// Reusing PIDs should be rare, let's log on info level. If they
-			// turn out to be common, let's re-evaluate how we log this.
-			log.Infof(
-				"SameAs() mismatch old=%s new=%s old startTime=%s new startTime=%s delta=%s",
-				oldProc.String(),
-				newProc.String(),
-				oldProc.startTime.Format(time.RFC3339Nano),
-				newProc.startTime.Format(time.RFC3339Nano),
-				newProc.startTime.Sub(oldProc.startTime).Abs(),
-			)
-		}
-
-		if oldProc.parent == nil {
-			log.Infof("Parent-less process died: %s", oldProc.String())
+		currentParent, found := matching.CurrentByPid[deadProc.parent.Pid]
+		if !found {
 			continue
 		}
 
-		// Find the parent in the current process map
-		currentParent := current[oldProc.parent.Pid]
-		if currentParent == nil {
-			continue
-		}
-
-		currentParent.deadChildrenBirthTimes = append(currentParent.deadChildrenBirthTimes, oldProc.startTime)
+		currentParent.deadChildrenBirthTimes = append(currentParent.deadChildrenBirthTimes, deadProc.startTime)
 	}
 }
