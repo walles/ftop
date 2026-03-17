@@ -90,6 +90,11 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	pt.writeTitle("Other Processes Launched Close To " + proc.String())
 	u.closeLaunchesForPaging(proc, &pt)
 
+	pt.writeLine("")
+
+	// End with a separator
+	pt.writeTitle("")
+
 	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
 }
 
