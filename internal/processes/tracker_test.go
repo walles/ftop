@@ -10,7 +10,7 @@ import (
 func TestPreserveDyingProcessCommands(t *testing.T) {
 	// Create a start time for our test processes
 	startTime := time.Date(2026, 2, 18, 10, 0, 0, 0, time.UTC)
-	differentStartTime := time.Date(2026, 2, 18, 10, 0, 2, 0, time.UTC)
+	differentStartTime := startTime.Add(SAME_PROCESS_STARTTIME_TOLERANCE + time.Millisecond)
 
 	t.Run("preserves command when process is dying", func(t *testing.T) {
 		// Previous frame: healthy bash process running hello.sh
@@ -131,11 +131,12 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			},
 		}
 
-		// Current frame: different process with same PID but different start time
+		// Current frame: different process with same PID but start time outside
+		// SameAs tolerance
 		current := []*Process{
 			{
 				Pid:              1234,
-				startTime:        differentStartTime, // More than one second apart = different process
+				startTime:        differentStartTime,
 				cmdline:          "(python)",
 				Command:          "(python)",
 				lowercaseCommand: "(python)",

@@ -26,10 +26,16 @@ var hiddenSelfChildCommands = map[string]struct{}{
 // How old children count towards a process' nativity?
 const NATIVITY_MAX_AGE = 60 * time.Second
 
-// Slowest I have seen on my system was around 180ms with race detector enabled.
-// Let's give it some headroom. Also, since we do this every second, if it
-// starts taking too close to a second that will be a real problem.
-const MAX_PS_DURATION = 500 * time.Millisecond
+// At least on macOS, ps' elapsed-time metric (etime) comes without decimals
+const ETIME_PRECISION = time.Second
+
+// Slowest I have seen on my system was around 900ms with race detector enabled
+// and the system "sleeping".
+const MAX_PS_DURATION = 1_000 * time.Millisecond
+
+// Tolerance for matching same-PID processes across snapshots. If PIDs match and
+// start times match within this tolerance, we consider it the same process.
+const SAME_PROCESS_STARTTIME_TOLERANCE = ETIME_PRECISION + MAX_PS_DURATION
 
 type Process struct {
 	Pid      int
@@ -259,10 +265,6 @@ func parseElapsedDuration(durationString string) (time.Duration, error) {
 	return 0, fmt.Errorf("failed to parse elapsed duration string <%s>", durationString)
 }
 
-func normalizeEtimeSnapshot(snapshotTime time.Time) time.Time {
-	return time.Unix(snapshotTime.Unix(), 0).In(snapshotTime.Location())
-}
-
 func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	match := PS_LINE.FindStringSubmatch(line)
 	if match == nil {
@@ -289,7 +291,7 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", match[4], line, err)
 	}
-	startTime := normalizeEtimeSnapshot(snapshotTime).Add(-elapsed)
+	startTime := snapshotTime.Add(-elapsed)
 
 	uid, err := strconv.Atoi(match[5])
 	if err != nil {
@@ -532,7 +534,7 @@ func (p *Process) SameAs(other *Process) bool {
 
 	delta := p.startTime.Sub(other.startTime).Abs()
 
-	return delta <= time.Second
+	return delta <= SAME_PROCESS_STARTTIME_TOLERANCE
 }
 
 func (p *Process) IsAlive() bool {

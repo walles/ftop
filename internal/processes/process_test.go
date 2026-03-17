@@ -185,7 +185,8 @@ func TestPsLineToProcess_StableAcrossEtimeRefreshes(t *testing.T) {
 	procB, err := psLineToProcess(lineB, snapshotB)
 	assert.Equal(t, err, nil)
 
-	assert.Equal(t, procA.startTime, procB.startTime)
+	delta := procA.startTime.Sub(procB.startTime).Abs()
+	assert.Equal(t, delta <= SAME_PROCESS_STARTTIME_TOLERANCE, true)
 	assert.Equal(t, procA.SameAs(procB), true)
 }
 
@@ -206,8 +207,8 @@ func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {
 	base := time.Date(2026, time.March, 15, 8, 51, 33, 0, time.Local)
 
 	proc := &Process{Pid: 1234, startTime: base}
-	withinTolerance := &Process{Pid: 1234, startTime: base.Add(1 * time.Second)}
-	tooFarAway := &Process{Pid: 1234, startTime: base.Add(2 * time.Second)}
+	withinTolerance := &Process{Pid: 1234, startTime: base.Add(SAME_PROCESS_STARTTIME_TOLERANCE)}
+	tooFarAway := &Process{Pid: 1234, startTime: base.Add(SAME_PROCESS_STARTTIME_TOLERANCE + time.Millisecond)}
 	otherPid := &Process{Pid: 1235, startTime: base.Add(1 * time.Second)}
 
 	assert.Equal(t, proc.SameAs(withinTolerance), true)

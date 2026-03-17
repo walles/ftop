@@ -262,7 +262,7 @@ func TestRegister_CreatesNewIdentityWhenStartTimesDifferByMoreThanOneSecond(t *t
 	d := deduplicator{}
 
 	startTime := time.Date(2026, 2, 7, 18, 56, 40, 0, time.UTC)
-	fartherStartTime := startTime.Add(2 * time.Second)
+	fartherStartTime := startTime.Add(SAME_PROCESS_STARTTIME_TOLERANCE + time.Millisecond)
 
 	proc1 := &Process{
 		Pid:       12345,
