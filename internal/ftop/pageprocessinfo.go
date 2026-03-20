@@ -15,6 +15,8 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
+
 type pageText struct {
 	text        strings.Builder
 	titleStyle  twin.Style
@@ -79,7 +81,7 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) error {
 	pt.writeLine(fmt.Sprintf(
 		"Started %s ago at %s. It used %s CPU, or %s.",
 		u.highlight(util.FormatDuration(age)),
-		u.highlight(proc.StartTime().Format("2006-01-02 15:04:05MST")),
+		u.highlight(proc.StartTime().Format(DISPLAY_TIME_FORMAT)),
 		u.highlight(util.FormatDuration(cpuTime)),
 		u.highlight(util.FormatPercent(percentCpu)),
 	))
