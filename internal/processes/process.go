@@ -291,7 +291,10 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", match[4], line, err)
 	}
-	startTime := snapshotTime.Add(-elapsed)
+
+	// startTime comes from ps wall-clock data, so strip any monotonic component
+	// inherited from time.Now() to avoid monotonic-based Sub() deltas.
+	startTime := snapshotTime.Round(0).Add(-elapsed)
 
 	uid, err := strconv.Atoi(match[5])
 	if err != nil {
