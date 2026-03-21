@@ -344,9 +344,8 @@ func GetAll() ([]*Process, error) {
 	}
 
 	var processes map[int]*Process
-	attempt := 0
-	for {
-		attempt += 1
+	var slowDurations []string
+	for attempt := 1; ; attempt++ {
 		processes = make(map[int]*Process, 0)
 
 		startedAt := time.Now()
@@ -372,20 +371,16 @@ func GetAll() ([]*Process, error) {
 		// We can get here if the system has been hibernated and resumed,
 		// causing the clock to jump forward while ps is running.
 
+		slowDurations = append(slowDurations, util.FormatDuration(duration))
+
 		if attempt >= 5 {
 			return nil, fmt.Errorf(
-				"ps command took too long (%s > %s) even at attempt %d",
-				util.FormatDuration(duration),
+				"ps command exceeded limit of %s on all %d attempts (durations: %s)",
 				util.FormatDuration(MAX_PS_DURATION),
 				attempt,
+				strings.Join(slowDurations, ", "),
 			)
 		}
-
-		log.Infof(
-			"/bin/ps run took %s (> %s) wall clock time, retrying",
-			util.FormatDuration(duration),
-			util.FormatDuration(MAX_PS_DURATION),
-		)
 	}
 
 	// Resolve parent-child relationships
