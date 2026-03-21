@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
@@ -52,11 +53,23 @@ func (pt *pageText) String() string {
 	return pt.text.String()
 }
 
-func (u *Ui) pageProcessInfo(proc *processes.Process) error {
+func (u *Ui) pageProcessInfo(proc *processes.Process) {
 	if proc == nil {
 		panic("proc is nil, can't page process info")
 	}
 
+	log.Infof("Paging info for %s", proc.String())
+	err := u.screen.PauseAndCall(func() error {
+		return u.buildAndPageProcessInfo(proc)
+	})
+	if err != nil {
+		log.Infof("Failed to page %s info: %v", proc.String(), err)
+	} else {
+		log.Infof("Done paging info for %s", proc.String())
+	}
+}
+
+func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 	pt := pageText{
 		borderStyle: twin.StyleDefault.WithForeground(u.theme.Border()),
 		titleStyle:  twin.StyleDefault.WithForeground(u.theme.BorderTitle()),

@@ -1,7 +1,6 @@
 package ftop
 
 import (
-	"github.com/walles/ftop/internal/log"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -26,12 +25,7 @@ func (h *eventHandlerBase) onRune(r rune) {
 
 	proc := h.ui.pickedProcess
 	if r == 'i' && proc != nil {
-		err := h.ui.screen.PauseAndCall(func() error {
-			return h.ui.pageProcessInfo(proc)
-		})
-		if err != nil {
-			log.Infof("Failed to page %s info: %v", proc.String(), err)
-		}
+		h.ui.pageProcessInfo(proc)
 	}
 }
 
@@ -87,11 +81,6 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 
 	proc := h.ui.pickedProcess
 	if keyCode == twin.KeyEnter && proc != nil {
-		err := h.ui.screen.PauseAndCall(func() error {
-			return h.ui.pageProcessInfo(proc)
-		})
-		if err != nil {
-			log.Infof("Failed to page %s info: %v", proc.String(), err)
-		}
+		h.ui.pageProcessInfo(proc)
 	}
 }
