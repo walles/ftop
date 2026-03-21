@@ -14,3 +14,9 @@ inspiration!
 
 The `twin` TUI toolkit may also be checked out under `../moor/`. Feel
 free to poke around there for details.
+
+Release notes are written as git annotated tag messages. The first line
+should be a short release title, the second line should be blank, and
+subsequent lines are the release description. Keep them terse and
+hand-written in tone, and avoid commit-dump style release notes unless
+explicitly asked.
