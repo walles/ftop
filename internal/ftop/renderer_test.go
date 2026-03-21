@@ -12,7 +12,7 @@ import (
 
 func TestRender_ShowsProcessInfoPaneImmediatelyFromPickedLine(t *testing.T) {
 	screen := twin.NewFakeScreen(80, 24)
-	ui := NewUi(screen, themes.NewTheme("auto", nil))
+	ui := NewUi(screen, themes.NewTheme("auto", nil), "")
 
 	pickedLine := 0
 	ui.pickedLine = &pickedLine

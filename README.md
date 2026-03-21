@@ -56,7 +56,8 @@ go install github.com/walles/ftop/cmd/ftop@latest
 
 ## Usage
 
-Just type `ftop`, that's a good start!
+Just type `ftop`, that's a good start! If you already know what you're looking
+for, `ftop firefox` starts with `firefox` as the active filter.
 
 To exit `ftop`, press `q`.
 

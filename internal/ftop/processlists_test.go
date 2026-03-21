@@ -23,7 +23,7 @@ func makeProcess(pid int, command string) processes.Process {
 // Helper to create a Ui with a mock screen
 func makeTestUi() *Ui {
 	screen := twin.NewFakeScreen(80, 24)
-	return NewUi(screen, themes.NewTheme("auto", nil))
+	return NewUi(screen, themes.NewTheme("auto", nil), "")
 }
 
 func TestFixPickedProcess_MoveEarlier(t *testing.T) {

@@ -37,10 +37,11 @@ type Ui struct {
 	minThreePanesScreenWidth int
 }
 
-func NewUi(screen twin.Screen, theme themes.Theme) *Ui {
+func NewUi(screen twin.Screen, theme themes.Theme, initialFilter string) *Ui {
 	ui := &Ui{
 		theme:  theme,
 		screen: screen,
+		filter: initialFilter,
 
 		// With race detection enabled (makes everything slow) and holding the down
 		// arrow key, I saw event queues of at most 3. 10 will give us some headroom

@@ -10,7 +10,6 @@ import (
 
 	detectrace "github.com/jbenet/go-detect-race"
 
-	"github.com/alecthomas/kong"
 	"github.com/walles/ftop/internal/ftop"
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/themes"
@@ -38,10 +37,7 @@ func (t *twinLoggerAdapter) Error(message string) {
 func main() {
 	twin.SetLogger(&twinLoggerAdapter{})
 
-	argsParser, err := kong.New(
-		&CLI,
-		kong.Description("Shows a top list of running processes.\n\nhttps://github.com/walles/ftop"),
-	)
+	argsParser, err := newArgsParser()
 	if err != nil {
 		panic(err)
 	}
@@ -161,7 +157,7 @@ func mainLoop(pleasePanic bool) int {
 
 	theme := themes.NewTheme(CLI.Theme.String(), screen.TerminalBackground())
 
-	ui := ftop.NewUi(screen, theme)
+	ui := ftop.NewUi(screen, theme, CLI.InitialFilter)
 	ui.MainLoop()
 
 	return 0
