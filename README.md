@@ -153,9 +153,9 @@ Scale your terminal to 90x30, `go run ./cmd/ftop` and screenshot that.
 
 ## Releasing a new Version
 
-````
+```
 ./release.sh
-````
+```
 
 ## TODO
 
