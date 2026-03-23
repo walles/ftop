@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/walles/ftop/internal/log"
+	"github.com/walles/ftop/internal/loginhistory"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
@@ -17,6 +18,8 @@ import (
 )
 
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
+
+var getLoggedInUsersAt = loginhistory.GetUsersAt
 
 type pageText struct {
 	text        strings.Builder
@@ -104,6 +107,11 @@ func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 
 	pt.writeTitle("Other Processes Launched Close To " + proc.String())
 	u.closeLaunchesForPaging(proc, &pt)
+
+	pt.writeLine("")
+	pt.writeLine("")
+
+	u.usersLoggedInWhenProcessStartedForPaging(proc, &pt)
 
 	pt.writeLine("")
 
@@ -292,6 +300,25 @@ func (u *Ui) closeLaunchesForPaging(proc *processes.Process, pt *pageText) {
 			twin.StyleDefault.RenderUpdateFrom(highlighted, twin.ColorCount24bit),
 			proc.String(),
 		))
+	}
+}
+
+func (u *Ui) usersLoggedInWhenProcessStartedForPaging(proc *processes.Process, pt *pageText) {
+	pt.writeTitle("Users logged in when " + proc.String() + " started")
+
+	users, err := getLoggedInUsersAt(proc.StartTime())
+	if err != nil {
+		pt.writeLine("<Unable to inspect login history: " + err.Error() + ">")
+		return
+	}
+
+	if len(users) == 0 {
+		pt.writeLine("<Nobody found, either nobody was logged in or the wtmp logs have been rotated>")
+		return
+	}
+
+	for _, user := range users {
+		pt.writeLine(user)
 	}
 }
 
