@@ -57,8 +57,15 @@ func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y
 	usersBottomBorder := y0 + 1 + usersHeight
 	commandsTopRow := usersBottomBorder + 1
 
+	pickedUsername := ""
+	pickedCommand := ""
+	if u.pickedProcess != nil {
+		pickedUsername = u.pickedProcess.Username
+		pickedCommand = u.pickedProcess.Command
+	}
+
 	u.renderProcesses(0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
-	renderPerUser(u.screen, u.theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users)
+	renderPerUser(u.screen, u.theme, leftPerUserBorderColumn, y0, width-1, usersBottomBorder, table, widths, users, pickedUsername)
 
 	// Skip the per-user rows. If usersHeight is 0:
 	// 0: post-users separator line
@@ -67,7 +74,7 @@ func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y
 	//
 	// So for usersHeight = 0, we should start at index 2
 	table = table[usersHeight+2:]
-	renderPerCommand(u.screen, u.theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands)
+	renderPerCommand(u.screen, u.theme, leftPerUserBorderColumn, commandsTopRow, width-1, y1, table, widths, commands, pickedCommand)
 }
 
 func isWideEnough(table [][]string, widths []int) bool {

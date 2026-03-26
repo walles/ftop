@@ -8,7 +8,7 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats) {
+func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, commands []commandStats, pickedCommand string) {
 	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
@@ -61,14 +61,19 @@ func renderPerCommand(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int
 
 		y := y0 + 1 + rowIndex // screen row
 
+		command := row[0]
+		isPicked := pickedCommand != "" && command == pickedCommand
+
 		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
+		if isPicked {
+			rowStyle = twin.StyleDefault.WithAttr(twin.AttrReverse)
+		}
 
 		x := x0 + 1 // screen column
 		for _, char := range line {
-			style := rowStyle
-			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
+			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: rowStyle})
 
-			if rowIndex < len(commands) {
+			if !isPicked && rowIndex < len(commands) {
 				command := commands[rowIndex]
 				cpuFraction := 0.0
 				if maxCpuSecondsPerCommand > 0.0 {
