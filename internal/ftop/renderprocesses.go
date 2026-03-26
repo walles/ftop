@@ -349,8 +349,18 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		y := y0 + 1 + rowIndex // screen row
 
 		var commandCells []twin.StyledRune
+		isCommandHighlighted := false
 		if process != nil {
 			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+
+			isPicked := u.pickedLine != nil && *u.pickedLine == rowIndex-1
+			isSameCommand := u.pickedProcess != nil && process.Command == u.pickedProcess.Command
+			isCommandHighlighted = !isPicked && isSameCommand
+			if isCommandHighlighted {
+				for i := range commandCells {
+					commandCells[i].Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
+				}
+			}
 		} else {
 			// Cover the command column with empty cells
 			commandCells = make([]twin.StyledRune, 0, widths[1])
@@ -398,6 +408,12 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 			if u.pickedLine != nil && *u.pickedLine == rowIndex-1 {
 				// Picked process line, don't draw any load bars since they will
 				// mess up the highlighting.
+				x += char.Width()
+				continue
+			}
+
+			if isCommandHighlighted && x >= commandColumn0 && x <= commandColumnN {
+				// Same-command highlight: don't draw load bars over the command name.
 				x += char.Width()
 				continue
 			}
