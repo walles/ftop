@@ -9,7 +9,7 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
-func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats) {
+func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats, pickedUsername string) {
 	widths = widths[6:] // Skip the per-process columns
 
 	// Formats are "%5.5s" or "%-5.5s", where "5.5" means "pad and truncate to
@@ -68,11 +68,15 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 		rowStyle := twin.StyleDefault.WithForeground(topBottomRamp.AtInt(y))
 
+		username := row[0]
+		isPicked := pickedUsername != "" && username == pickedUsername
+
 		x := x0 + 1 // screen column
 		for _, char := range line {
 			style := rowStyle
-			if x >= usernameColumn0 && x <= usernameColumnN {
-				username := row[0]
+			if isPicked {
+				style = twin.StyleDefault.WithAttr(twin.AttrReverse)
+			} else if x >= usernameColumn0 && x <= usernameColumnN {
 				if username == currentUsername {
 					style = style.WithAttr(twin.AttrBold)
 				}
@@ -80,7 +84,7 @@ func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, t
 
 			screen.SetCell(x, y, twin.StyledRune{Rune: char, Style: style})
 
-			if rowIndex < len(users) {
+			if !isPicked && rowIndex < len(users) {
 				user := users[rowIndex]
 				cpuFraction := 0.0
 				if maxCpuSecondsPerUser > 0.0 {
