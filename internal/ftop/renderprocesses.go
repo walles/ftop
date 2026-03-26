@@ -350,12 +350,15 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 
 		var commandCells []twin.StyledRune
 		isCommandHighlighted := false
+		isUserHighlighted := false
 		if process != nil {
 			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
 
 			isPicked := u.pickedLine != nil && *u.pickedLine == rowIndex-1
 			isSameCommand := u.pickedProcess != nil && process.Command == u.pickedProcess.Command
+			isSameUser := u.pickedProcess != nil && process.Username == u.pickedProcess.Username
 			isCommandHighlighted = !isPicked && isSameCommand
+			isUserHighlighted = !isPicked && isSameUser && u.pickedProcess.Username != currentUsername
 			if isCommandHighlighted {
 				for i := range commandCells {
 					commandCells[i].Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
@@ -391,7 +394,9 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 			} else if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
 				// User column
 				username := row[2]
-				if username == "root" && currentUsername != "root" {
+				if isUserHighlighted {
+					char.Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
+				} else if username == "root" && currentUsername != "root" {
 					char.Style = char.Style.WithAttr(twin.AttrDim)
 				} else if username != currentUsername {
 					char.Style = char.Style.WithAttr(twin.AttrBold)
@@ -414,6 +419,12 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 
 			if isCommandHighlighted && x >= commandColumn0 && x <= commandColumnN {
 				// Same-command highlight: don't draw load bars over the command name.
+				x += char.Width()
+				continue
+			}
+
+			if isUserHighlighted && x >= userColumn0 && x <= userColumnN {
+				// Same-user highlight: don't draw load bars over the username.
 				x += char.Width()
 				continue
 			}
