@@ -143,7 +143,7 @@ func exists(path string) *bool {
 
 	if !os.IsNotExist(err) {
 		// Unexpected error
-		log.Infof("Failed to check file existence: %v", err)
+		log.Debugf("Failed to check file existence: %v", err)
 
 		// Who knows what to return here? False is the safe option that prevents
 		// coalescing.
