@@ -29,9 +29,11 @@ const NATIVITY_MAX_AGE = 60 * time.Second
 // At least on macOS, ps' elapsed-time metric (etime) comes without decimals
 const ETIME_PRECISION = time.Second
 
-// Slowest I have seen on my system was around 900ms with race detector enabled
-// and the system "sleeping".
-const MAX_PS_DURATION = 1_000 * time.Millisecond
+// Slowest I have seen on my system was around 1.2s with race detector enabled
+// and the system "sleeping". But then, deltas of up to a bit over 3s have been
+// reported as "SameAs() mismatch"es, indicating that running ps (including our
+// parsing) could take over 2s. Go with a higher number than that to be safe.
+const MAX_PS_DURATION = 5 * time.Second
 
 // Tolerance for matching same-PID processes across snapshots. If PIDs match and
 // start times match within this tolerance, we consider it the same process.
