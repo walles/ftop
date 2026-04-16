@@ -326,6 +326,8 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		}
 	}
 
+	veryCommonUsername := getOverHalfUsername(procs)
+
 	// Pretend the load bar starts at x0, even though it really starts at x0+1.
 	// This way, even the leftmost cell (at x0+1) will get a non-background
 	// color. The effect is especially visible for processes with low PIDs and
@@ -349,23 +351,23 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		y := y0 + 1 + rowIndex // screen row
 
 		var commandCells []twin.StyledRune
-		isCommandHighlighted := false
-		isUserHighlighted := false
+		shouldHighlightCommand := false
+		shouldHighlightUser := false
 		if process != nil {
 			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
 
-			isPicked := u.pickedLine != nil && *u.pickedLine == rowIndex-1
-			isSameCommand := u.pickedProcess != nil && process.Command == u.pickedProcess.Command
-			isSameUser := u.pickedProcess != nil && process.Username == u.pickedProcess.Username
-			isCommandHighlighted = !isPicked && isSameCommand
-			isUserHighlighted = !isPicked && isSameUser && u.pickedProcess.Username != currentUsername
-			if isCommandHighlighted {
+			thisIsThePickedProcess := u.pickedLine != nil && *u.pickedLine == rowIndex-1
+			commandIsSameAsPicked := u.pickedProcess != nil && process.Command == u.pickedProcess.Command
+			userIsSameAsPicked := u.pickedProcess != nil && process.Username == u.pickedProcess.Username
+			shouldHighlightCommand = !thisIsThePickedProcess && commandIsSameAsPicked
+			shouldHighlightUser = !thisIsThePickedProcess && userIsSameAsPicked && u.pickedProcess.Username != veryCommonUsername
+			if shouldHighlightCommand {
 				for i := range commandCells {
 					commandCells[i].Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
 				}
 			}
 		} else {
-			// Cover the command column with empty cells
+			// No process on this line, cover the command column with empty cells
 			commandCells = make([]twin.StyledRune, 0, widths[1])
 			space := twin.StyledRune{Rune: ' ', Style: twin.StyleDefault.WithForeground(userRamp.AtInt(y))}
 			for len(commandCells) < widths[1] {
@@ -394,7 +396,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 			} else if rowIndex > 0 && x >= userColumn0 && x <= userColumnN {
 				// User column
 				username := row[2]
-				if isUserHighlighted {
+				if shouldHighlightUser {
 					char.Style = twin.StyleDefault.WithAttr(twin.AttrReverse)
 				} else if username == "root" && currentUsername != "root" {
 					char.Style = char.Style.WithAttr(twin.AttrDim)
@@ -417,13 +419,13 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 				continue
 			}
 
-			if isCommandHighlighted && x >= commandColumn0 && x <= commandColumnN {
+			if shouldHighlightCommand && x >= commandColumn0 && x <= commandColumnN {
 				// Same-command highlight: don't draw load bars over the command name.
 				x += char.Width()
 				continue
 			}
 
-			if isUserHighlighted && x >= userColumn0 && x <= userColumnN {
+			if shouldHighlightUser && x >= userColumn0 && x <= userColumnN {
 				// Same-user highlight: don't draw load bars over the username.
 				x += char.Width()
 				continue
@@ -465,6 +467,24 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 	u.renderHeaderHints(x0+2+len(byProcess)+3, y0, x1-2, pickDownArrow, pickUpArrow)
 
 	renderLegend(u.screen, u.theme, y1, x1)
+}
+
+// If some user name is very common (over half of the processes), return it.
+// Otherwise return the empty string.
+func getOverHalfUsername(procs []processes.Process) string {
+	userCounts := make(map[string]int)
+	for _, p := range procs {
+		userCounts[p.Username] += 1
+	}
+
+	totalProcesses := len(procs)
+	for user, count := range userCounts {
+		if count > totalProcesses/2 {
+			return user
+		}
+	}
+
+	return ""
 }
 
 // Towards the right, draw "CPU" with a CPU load bar behind it, and "RAM" with a
