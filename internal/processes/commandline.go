@@ -31,8 +31,7 @@ const (
 	existenceFalse existence = iota
 	existenceTrue
 	existenceNotYet
-	existencePermissionDenied
-	existenceUnknownError // The error should be logged before returning this
+	existenceError // Can't tell whether this exists or not
 )
 
 // Extract a potential file path from the end of a string.
@@ -108,7 +107,7 @@ func coalesceCount(parts []string, exists func(string) existence) int {
 			continue
 		}
 
-		if should == existenceFalse || should == existencePermissionDenied {
+		if should == existenceFalse || should == existenceError {
 			return 1
 		}
 
@@ -144,13 +143,9 @@ func exists(path string) existence {
 	}
 
 	if !os.IsNotExist(err) {
-		if os.IsPermission(err) {
-			return existencePermissionDenied
-		}
-
-		// Unexpected error
+		// FIXME: Maybe not log permission errors? Or log those as debug but other errors as info?
 		log.Debugf("Failed to check file existence: %v", err)
-		return existenceUnknownError
+		return existenceError
 	}
 
 	// File does not exist, but could it if we got more parts?
@@ -163,14 +158,15 @@ func exists(path string) existence {
 	case existenceFalse:
 		// Parent does not exist, this is not it
 		return existenceFalse
-	case existencePermissionDenied:
+	case existenceError:
 		// Cannot check parent, propagate the error
-		return existencePermissionDenied
-	case existenceUnknownError:
-		// Unexpected error checking parent, propagate it
-		return existenceUnknownError
+		return existenceError
 	case existenceNotYet:
-		// Parent check was inconclusive; be conservative and don't coalesce
+		// How would we get here? The log could tell us, if it ever happens.
+		log.Infof(
+			"coalesce parent inconclusive, treating as non-existent: path=%q parent=%q parentState=%v",
+			path, parent, parentExists,
+		)
 		return existenceFalse
 	default:
 		panic(fmt.Errorf("unsupported parent existence state: %v", parentExists))
