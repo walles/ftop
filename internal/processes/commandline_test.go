@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -26,20 +25,26 @@ func TestGetTrailingAbsolutePath(t *testing.T) {
 		"/A/IntelliJ")
 }
 
-func existsFromSlice(list ...string) func(string) *bool {
-	return func(path string) *bool {
-		if slices.Contains(list, path) {
-			res := true
-			return &res
+func existsFromMap(outcomes map[string]existence) func(string) existence {
+	return func(path string) existence {
+		if outcome, ok := outcomes[path]; ok {
+			return outcome
 		}
 
-		// Go on, add more parts and try again
-		return nil
+		// Default: path doesn't exist, but might if we add more parts.
+		// We use this for testing because it lets us write simpler test cases
+		// without having to map every single parent path. The production code
+		// path (the real exists() function) is correct.
+		return existenceNotYet
 	}
 }
 
 func TestCoalesceCount(t *testing.T) {
-	exists := existsFromSlice("/", "/a b c", "/a b c/")
+	exists := existsFromMap(map[string]existence{
+		"/":       existenceTrue,
+		"/a b c":  existenceTrue,
+		"/a b c/": existenceTrue,
+	})
 
 	assert.Equal(t, coalesceCount([]string{"/a", "b", "c"}, exists), 3)
 	assert.Equal(t, coalesceCount([]string{"/a", "b", "c/"}, exists), 3)
@@ -76,19 +81,19 @@ func TestExists(t *testing.T) {
 	err := os.WriteFile(existingFile, []byte(""), 0o644)
 	assert.Equal(t, err, nil)
 
-	assert.Equal(t, *exists(existingFile), true)
-	assert.Equal(t, exists(filepath.Join(dir, "existi")), nil)
+	assert.Equal(t, exists(existingFile), existenceTrue)
+	assert.Equal(t, exists(filepath.Join(dir, "existi")), existenceNotYet)
 
 	tooLong := strings.Repeat("a", 1234)
-	assert.Equal(t, *exists(filepath.Join(dir, tooLong)), false)
+	assert.Equal(t, exists(filepath.Join(dir, tooLong)), existenceFalse)
 }
 
 func TestToSliceSpaced1(t *testing.T) {
-	exists := existsFromSlice(
-		"/Applications",
-		"/Applications/IntelliJ IDEA.app",
-		"/Applications/IntelliJ IDEA.app/Contents",
-	)
+	exists := existsFromMap(map[string]existence{
+		"/Applications":                            existenceTrue,
+		"/Applications/IntelliJ IDEA.app":          existenceTrue,
+		"/Applications/IntelliJ IDEA.app/Contents": existenceTrue,
+	})
 
 	result := cmdlineToSlice(
 		"java -Dhello=/Applications/IntelliJ IDEA.app/Contents",
@@ -102,13 +107,13 @@ func TestToSliceSpaced1(t *testing.T) {
 }
 
 func TestToSliceSpaced2(t *testing.T) {
-	exists := existsFromSlice(
-		"/Applications",
-		"/Applications/IntelliJ IDEA.app/Contents/Info.plist",
-		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-model/lib/maven-model.jar",
-		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-server/lib/maven-server.jar",
-		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3-server-common.jar",
-	)
+	exists := existsFromMap(map[string]existence{
+		"/Applications": existenceTrue,
+		"/Applications/IntelliJ IDEA.app/Contents/Info.plist":                                 existenceTrue,
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-model/lib/maven-model.jar":    existenceTrue,
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven-server/lib/maven-server.jar":  existenceTrue,
+		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3-server-common.jar": existenceTrue,
+	})
 
 	result := cmdlineToSlice(strings.Join([]string{
 		"java",
@@ -131,13 +136,13 @@ func TestToSliceSpaced2(t *testing.T) {
 }
 
 func TestToSliceSpaced3(t *testing.T) {
-	exists := existsFromSlice(
-		"/Applications",
-		"/Applications/IntelliJ IDEA CE.app/Contents/Info.plist",
-		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-model/lib/maven-model.jar",
-		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-server/lib/maven-server.jar",
-		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven/lib/maven3-server-common.jar",
-	)
+	exists := existsFromMap(map[string]existence{
+		"/Applications": existenceTrue,
+		"/Applications/IntelliJ IDEA CE.app/Contents/Info.plist":                                 existenceTrue,
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-model/lib/maven-model.jar":    existenceTrue,
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven-server/lib/maven-server.jar":  existenceTrue,
+		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven/lib/maven3-server-common.jar": existenceTrue,
+	})
 
 	result := cmdlineToSlice(strings.Join([]string{
 		"java",
@@ -178,17 +183,17 @@ func TestToSliceMsEdge(t *testing.T) {
 		"Microsoft Edge Helper (GPU)",
 	}, "/")
 
-	existsList := []string{}
+	outcomes := make(map[string]existence)
 	partial := complete
 	for {
-		existsList = append(existsList, partial)
+		outcomes[partial] = existenceTrue
 		partial = path.Dir(partial)
 		if partial == "/" {
 			break
 		}
 	}
 
-	exists := existsFromSlice(existsList...)
+	exists := existsFromMap(outcomes)
 
 	result := cmdlineToSlice(complete+" --type=gpu-process", exists)
 

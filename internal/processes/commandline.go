@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,6 +24,16 @@ var PERL_BIN = regexp.MustCompile(`^perl[.0-9]*$`)
 
 // From command line to command name
 var commandCache = make(map[string]string)
+
+type existence byte
+
+const (
+	existenceFalse existence = iota
+	existenceTrue
+	existenceNotYet
+	existencePermissionDenied
+	existenceUnknownError // The error should be logged before returning this
+)
 
 // Extract a potential file path from the end of a string.
 //
@@ -69,41 +80,39 @@ func getTrailingAbsolutePath(partialCmdline string) *string {
 //   - true: Coalesce, done
 //   - false: Do not coalesce, done
 //   - nil: Undecided, add another part and try again
-func shouldCoalesce(parts []string, exists func(string) *bool) *bool {
+func shouldCoalesce(parts []string, exists func(string) existence) existence {
 	last := parts[len(parts)-1]
 	if strings.HasPrefix(last, "-") || strings.HasPrefix(last, "/") {
 		// Last part starts a command line option or a new absolute path, don't
 		// coalesce.
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	coalesced := strings.Join(parts, " ")
 	candidatePtr := getTrailingAbsolutePath(coalesced)
 	if candidatePtr == nil {
 		// This is not a candidate for coalescing
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	return exists(*candidatePtr)
 }
 
 // How many parts should be coalesced?
-func coalesceCount(parts []string, exists func(string) *bool) int {
+func coalesceCount(parts []string, exists func(string) existence) int {
 	for coalesceCount := 2; coalesceCount <= len(parts); coalesceCount++ {
 		should := shouldCoalesce(parts[0:coalesceCount], exists)
 
-		if should == nil {
+		if should == existenceNotYet {
 			// Undecided, keep looking
 			continue
 		}
 
-		if !*should {
+		if should == existenceFalse || should == existencePermissionDenied {
 			return 1
 		}
 
-		// should == true
+		// should == existenceTrue
 		return coalesceCount
 	}
 
@@ -120,48 +129,52 @@ func isFileNameTooLong(err error) bool {
 	return pathErr.Err == syscall.ENAMETOOLONG
 }
 
-// Helper function for keeping cmdlineToSlice testable.
-//
-// Return values:
-// - true: File exists
-// - nil: File does not exist, but if you add more parts it might show up
-// - false: File does not exist, and adding more parts will not help
-func exists(path string) *bool {
+// Helper function for keeping cmdlineToSlice testable
+func exists(path string) existence {
 	_, err := os.Stat(path)
 	if err == nil {
-		res := true
-		return &res
+		return existenceTrue
 	}
 
 	// Not there, at least not yet
 
 	if isFileNameTooLong(err) {
 		// Not a valid file name, back off!
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	if !os.IsNotExist(err) {
+		if os.IsPermission(err) {
+			return existencePermissionDenied
+		}
+
 		// Unexpected error
 		log.Debugf("Failed to check file existence: %v", err)
-
-		// Who knows what to return here? False is the safe option that prevents
-		// coalescing.
-		res := false
-		return &res
+		return existenceUnknownError
 	}
 
 	// File does not exist, but could it if we got more parts?
 	parent := filepath.Dir(path)
 	parentExists := exists(parent)
-	if parentExists != nil && *parentExists {
+	switch parentExists {
+	case existenceTrue:
 		// Parent exists, maybe the file will show up if we add more parts
-		return nil
+		return existenceNotYet
+	case existenceFalse:
+		// Parent does not exist, this is not it
+		return existenceFalse
+	case existencePermissionDenied:
+		// Cannot check parent, propagate the error
+		return existencePermissionDenied
+	case existenceUnknownError:
+		// Unexpected error checking parent, propagate it
+		return existenceUnknownError
+	case existenceNotYet:
+		// Parent check was inconclusive; be conservative and don't coalesce
+		return existenceFalse
+	default:
+		panic(fmt.Errorf("unsupported parent existence state: %v", parentExists))
 	}
-
-	// Parent does not exist, this is not it
-	res := false
-	return &res
 }
 
 // Convert "ls dir/" into ["ls", "dir/"]. Also handle spaces, so it can convert
@@ -169,7 +182,7 @@ func exists(path string) *bool {
 //
 // The exists function is called to check if a path exists on the filesystem. It
 // is a parameter of its own for testability reasons.
-func cmdlineToSlice(cmdline string, exists func(string) *bool) []string {
+func cmdlineToSlice(cmdline string, exists func(string) existence) []string {
 	baseSplit := strings.Split(cmdline, " ")
 	if len(baseSplit) == 1 {
 		return baseSplit
