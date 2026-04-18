@@ -162,11 +162,7 @@ func exists(path string) existence {
 		// Cannot check parent, propagate the error
 		return existenceError
 	case existenceNotYet:
-		// How would we get here? The log could tell us, if it ever happens.
-		log.Infof(
-			"coalesce parent inconclusive, treating as non-existent: path=%q parent=%q parentState=%v",
-			path, parent, parentExists,
-		)
+		// The parent did not exist
 		return existenceFalse
 	default:
 		panic(fmt.Errorf("unsupported parent existence state: %v", parentExists))
