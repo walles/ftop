@@ -13,7 +13,7 @@ import (
 func makeProcess(pid int, command string) processes.Process {
 	return processes.Process{
 		Pid:      pid,
-		Command:  command,
+		Cmdline:  command,
 		Username: "testuser",
 		RssKb:    1000,
 		CpuTime:  toDuration(100),

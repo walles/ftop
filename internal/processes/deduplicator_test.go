@@ -19,7 +19,7 @@ func TestCommandNameChange(t *testing.T) {
 	proc1 := &Process{
 		Pid:       47070,
 		startTime: startTime,
-		Command:   "foo",
+		Cmdline:   "foo",
 	}
 	d.register(proc1)
 
@@ -28,14 +28,14 @@ func TestCommandNameChange(t *testing.T) {
 	otherGit1 := &Process{
 		Pid:       99998,
 		startTime: otherStartTime,
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(otherGit1)
 
 	otherGit2 := &Process{
 		Pid:       99999,
 		startTime: time.Date(2026, 2, 7, 18, 56, 38, 0, time.UTC),
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(otherGit2)
 
@@ -50,7 +50,7 @@ func TestCommandNameChange(t *testing.T) {
 	proc2 := &Process{
 		Pid:       47070,
 		startTime: startTime,
-		Command:   "git", // Different command name
+		Cmdline:   "git", // Different command name
 	}
 	d.register(proc2)
 
@@ -80,12 +80,12 @@ func TestCommandNameChangeWithMultipleProcesses(t *testing.T) {
 	proc1 := &Process{
 		Pid:       47070,
 		startTime: startTime1,
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	proc2 := &Process{
 		Pid:       47071,
 		startTime: startTime2,
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(proc1)
 	d.register(proc2)
@@ -104,7 +104,7 @@ func TestCommandNameChangeWithMultipleProcesses(t *testing.T) {
 	proc1Updated := &Process{
 		Pid:       47070,
 		startTime: startTime1,
-		Command:   "ssh",
+		Cmdline:   "ssh",
 	}
 	d.register(proc1Updated)
 
@@ -131,7 +131,7 @@ func TestPointerComparison(t *testing.T) {
 	firefox1 := &Process{
 		Pid:       12345,
 		startTime: startTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(firefox1)
 
@@ -146,7 +146,7 @@ func TestPointerComparison(t *testing.T) {
 	firefox2 := &Process{
 		Pid:       12345,
 		startTime: startTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(firefox2)
 
@@ -160,7 +160,7 @@ func TestPointerComparison(t *testing.T) {
 	firefox3 := &Process{
 		Pid:       12345,
 		startTime: startTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(firefox3)
 
@@ -179,14 +179,14 @@ func TestRegister_CanonicalizesOneSecondStartTimeDrift(t *testing.T) {
 	proc1 := &Process{
 		Pid:       12345,
 		startTime: startTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(proc1)
 
 	proc2 := &Process{
 		Pid:       12345,
 		startTime: driftedStartTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(proc2)
 
@@ -202,8 +202,8 @@ func TestRegister_CanonicalizesOneSecondStartTimeDrift(t *testing.T) {
 	if len(d.seenByPid[proc1.Pid]) != 1 {
 		t.Fatalf("expected exactly one canonical process for PID %d, got %d", proc1.Pid, len(d.seenByPid[proc1.Pid]))
 	}
-	if len(d.byName[proc1.Command]) != 1 {
-		t.Fatalf("expected exactly one command entry for %q, got %d", proc1.Command, len(d.byName[proc1.Command]))
+	if len(d.byName[proc1.Command()]) != 1 {
+		t.Fatalf("expected exactly one command entry for %q, got %d", proc1.Command(), len(d.byName[proc1.Command()]))
 	}
 }
 
@@ -216,28 +216,28 @@ func TestRegister_CanonicalizesOneSecondDriftAcrossCommandChange(t *testing.T) {
 	proc1 := &Process{
 		Pid:       47070,
 		startTime: startTime,
-		Command:   "foo",
+		Cmdline:   "foo",
 	}
 	d.register(proc1)
 
 	otherGit1 := &Process{
 		Pid:       99998,
 		startTime: time.Date(2026, 2, 7, 18, 56, 39, 0, time.UTC),
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(otherGit1)
 
 	otherGit2 := &Process{
 		Pid:       99999,
 		startTime: time.Date(2026, 2, 7, 18, 56, 38, 0, time.UTC),
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(otherGit2)
 
 	proc2 := &Process{
 		Pid:       47070,
 		startTime: driftedStartTime,
-		Command:   "git",
+		Cmdline:   "git",
 	}
 	d.register(proc2)
 
@@ -267,14 +267,14 @@ func TestRegister_CreatesNewIdentityWhenStartTimesDifferByMoreThanOneSecond(t *t
 	proc1 := &Process{
 		Pid:       12345,
 		startTime: startTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(proc1)
 
 	proc2 := &Process{
 		Pid:       12345,
 		startTime: fartherStartTime,
-		Command:   "Firefox",
+		Cmdline:   "Firefox",
 	}
 	d.register(proc2)
 
@@ -285,8 +285,8 @@ func TestRegister_CreatesNewIdentityWhenStartTimesDifferByMoreThanOneSecond(t *t
 	if len(d.seenByPid[proc1.Pid]) != 2 {
 		t.Fatalf("expected two canonical entries for PID %d outside tolerance, got %d", proc1.Pid, len(d.seenByPid[proc1.Pid]))
 	}
-	if len(d.byName[proc1.Command]) != 2 {
-		t.Fatalf("expected two command entries for %q outside tolerance, got %d", proc1.Command, len(d.byName[proc1.Command]))
+	if len(d.byName[proc1.Command()]) != 2 {
+		t.Fatalf("expected two command entries for %q outside tolerance, got %d", proc1.Command(), len(d.byName[proc1.Command()]))
 	}
 
 	result1 := d.disambiguator(proc1)

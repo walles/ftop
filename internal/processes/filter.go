@@ -20,15 +20,15 @@ func Filter(processes []Process, filter string) []Process {
 }
 
 func (p *Process) Matches(filter string) bool {
-	if strings.Contains(p.cmdline, filter) {
+	if strings.Contains(p.Cmdline, filter) {
 		return true
 	}
 
 	lowerCaseFilter := strings.ToLower(filter)
-	if strings.Contains(strings.ToLower(p.cmdline), lowerCaseFilter) {
+	if strings.Contains(strings.ToLower(p.Cmdline), lowerCaseFilter) {
 		return true
 	}
-	if strings.Contains(strings.ToLower(p.Command), lowerCaseFilter) {
+	if strings.Contains(strings.ToLower(p.Command()), lowerCaseFilter) {
 		return true
 	}
 

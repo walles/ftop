@@ -24,7 +24,7 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	bottomUpNames := make([]string, 0)
 	for p := u.pickedProcess; p != nil; p = p.Parent() {
-		bottomUpNames = append(bottomUpNames, p.Command)
+		bottomUpNames = append(bottomUpNames, p.Command())
 	}
 
 	// Always show the current process as highlighted. Before that, go from faded to almost-foreground.

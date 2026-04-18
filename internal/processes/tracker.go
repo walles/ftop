@@ -75,9 +75,10 @@ func (tracker *Tracker) update() {
 	longestCommandLength := 0
 	longestCommand := ""
 	for _, p := range procs {
-		if len(p.Command)+len(p.DeduplicationSuffix) > longestCommandLength {
-			longestCommandLength = len(p.Command) + len(p.DeduplicationSuffix)
-			longestCommand = p.Command + p.DeduplicationSuffix
+		command := p.Command()
+		if len(command)+len(p.DeduplicationSuffix) > longestCommandLength {
+			longestCommandLength = len(command) + len(p.DeduplicationSuffix)
+			longestCommand = command + p.DeduplicationSuffix
 		}
 	}
 
@@ -181,8 +182,8 @@ func preserveDyingProcessCommands(matching ProcessMatching) {
 
 	for _, proc := range matching.CurrentByPid {
 		// Check if this is a dying process (parenthesized command)
-		isParenthesized := strings.HasPrefix(proc.cmdline, "(") && strings.HasSuffix(proc.cmdline, ")")
-		if proc.cmdline != "<defunct>" && proc.cmdline != "<exiting>" && !isParenthesized {
+		isParenthesized := strings.HasPrefix(proc.Cmdline, "(") && strings.HasSuffix(proc.Cmdline, ")")
+		if proc.Cmdline != "<defunct>" && proc.Cmdline != "<exiting>" && !isParenthesized {
 			continue
 		}
 
@@ -192,8 +193,7 @@ func preserveDyingProcessCommands(matching ProcessMatching) {
 		}
 
 		// Restore the original command information
-		proc.cmdline = match.Old.cmdline
-		proc.Command = match.Old.Command
+		proc.Cmdline = match.Old.Cmdline
 		proc.lowercaseCommand = match.Old.lowercaseCommand
 	}
 }

@@ -208,19 +208,14 @@ func cmdlineToCommand(cmdline string) string {
 		return cached
 	}
 
-	result := cmdlineToCommandInternal(cmdline)
+	result := cmdlineToCommandInternal(cmdline, nil)
 	commandCache[cmdline] = result
 	return result
 }
 
-// Extracts the command from the command line.
-//
-// This function most often returns the first component of the command line with
-// the path stripped away.
-//
-// For some language runtimes, this function may return the name of the program
-// that the runtime is executing.
-func cmdlineToCommandInternal(cmdline string) string {
+// If cmdline slicing fails and pid is non-nil, we fall back to ps -o comm= for
+// that PID. If pid is nil, slicing errors are treated as fatal (panic).
+func cmdlineToCommandInternal(cmdline string, pid *int) string {
 	if LINUX_KERNEL_PROC.MatchString(cmdline) {
 		return cmdline
 	}
@@ -230,11 +225,22 @@ func cmdlineToCommandInternal(cmdline string) string {
 	}
 
 	argv, err := cmdlineToSlice(cmdline, exists)
-	if err != nil {
+	if err == nil {
+		return argvToCommand(argv)
+	}
+
+	if pid == nil {
 		panic(fmt.Errorf("failed to slice command line for command parsing: %w", err))
 	}
 
-	return argvToCommand(argv)
+	log.Infof("Failed to slice command line for command parsing for process %d, falling back to comm=: %v", *pid, err)
+
+	executable, executableErr := getExecutableForPid(*pid)
+	if executableErr != nil {
+		panic(fmt.Errorf("failed to slice command line for command parsing for process %d and failed to get comm=: %w", *pid, executableErr))
+	}
+
+	return argvToCommand([]string{executable})
 }
 
 // Convert "sh -c cd /some/dir && echo hello" to just "echo hello".

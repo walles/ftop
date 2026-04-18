@@ -45,8 +45,7 @@ type Process struct {
 	children []*Process
 	parent   *Process
 
-	cmdline string // "git clone git@github.com:walles/ftop.git"
-	Command string // "git"
+	Cmdline string // "git clone git@github.com:walles/ftop.git"
 
 	// "[2]", for disambiguating multiple processes with the same Command, or "" if the command is already unique
 	DeduplicationSuffix string
@@ -94,7 +93,7 @@ var uidToUsernameCache = map[int]string{}
 //
 //	bash(1234)
 func (p *Process) String() string {
-	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
+	return fmt.Sprintf("%s(%d)", p.Command(), p.Pid)
 }
 
 func (p *Process) Parent() *Process {
@@ -109,12 +108,20 @@ func (p *Process) StartTime() time.Time {
 	return p.startTime
 }
 
+func (p *Process) Command() string {
+	if p.Pid <= 0 {
+		return cmdlineToCommand(p.Cmdline)
+	}
+
+	return cmdlineToCommandInternal(p.Cmdline, &p.Pid)
+}
+
 // Command line split into arguments, with path coalescing matching command
 // parsing. Example return value:
 //
 //	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
 func (p *Process) CommandLine() []string {
-	commandLine, err := cmdlineToSlice(p.cmdline, exists)
+	commandLine, err := cmdlineToSlice(p.Cmdline, exists)
 	if err != nil {
 		log.Infof("Failed to slice command line for process %d, falling back to comm=: %v", p.Pid, err)
 
@@ -368,7 +375,7 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}
 
 	cmdline := match[9]
-	command := cmdlineToCommand(cmdline)
+	command := cmdlineToCommandInternal(cmdline, &pid)
 
 	return &Process{
 		Pid:              pid,
@@ -379,8 +386,7 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 		cpuPercent:       &cpu_percent,
 		CpuTime:          &cpu_time,
 		memoryPercent:    &memory_percent,
-		cmdline:          cmdline,
-		Command:          command,
+		Cmdline:          cmdline,
 		lowercaseCommand: strings.ToLower(command),
 	}, nil
 }
@@ -503,7 +509,7 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 }
 
 func shouldHideSelfChild(child *Process) bool {
-	_, shouldHide := hiddenSelfChildCommands[child.Command]
+	_, shouldHide := hiddenSelfChildCommands[child.Command()]
 	return shouldHide
 }
 

@@ -18,8 +18,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			1234: {
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -29,8 +28,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "(bash)",
-				Command:          "(bash)",
+				Cmdline:          "(bash)",
 				lowercaseCommand: "(bash)",
 			},
 		}
@@ -42,8 +40,8 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
-		assert.Equal(t, "bash hello.sh", current[0].cmdline)
-		assert.Equal(t, "hello.sh", current[0].Command)
+		assert.Equal(t, "bash hello.sh", current[0].Cmdline)
+		assert.Equal(t, "hello.sh", current[0].Command())
 		assert.Equal(t, "hello.sh", current[0].lowercaseCommand)
 	})
 
@@ -54,8 +52,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			1234: {
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -65,8 +62,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "<defunct>",
-				Command:          "<defunct>",
+				Cmdline:          "<defunct>",
 				lowercaseCommand: "<defunct>",
 			},
 		}
@@ -78,8 +74,8 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
-		assert.Equal(t, current[0].cmdline, "bash hello.sh")
-		assert.Equal(t, current[0].Command, "hello.sh")
+		assert.Equal(t, current[0].Cmdline, "bash hello.sh")
+		assert.Equal(t, current[0].Command(), "hello.sh")
 		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
 	})
 
@@ -90,8 +86,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			1234: {
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -101,8 +96,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "<exiting>",
-				Command:          "<exiting>",
+				Cmdline:          "<exiting>",
 				lowercaseCommand: "<exiting>",
 			},
 		}
@@ -114,8 +108,8 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify command was preserved
-		assert.Equal(t, current[0].cmdline, "bash hello.sh")
-		assert.Equal(t, current[0].Command, "hello.sh")
+		assert.Equal(t, current[0].Cmdline, "bash hello.sh")
+		assert.Equal(t, current[0].Command(), "hello.sh")
 		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
 	})
 
@@ -125,8 +119,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			1234: {
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -137,8 +130,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        differentStartTime,
-				cmdline:          "(python)",
-				Command:          "(python)",
+				Cmdline:          "(python)",
 				lowercaseCommand: "(python)",
 			},
 		}
@@ -150,8 +142,8 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify command was NOT preserved (different process)
-		assert.Equal(t, "(python)", current[0].cmdline)
-		assert.Equal(t, "(python)", current[0].Command)
+		assert.Equal(t, "(python)", current[0].Cmdline)
+		assert.Equal(t, "(python)", current[0].Command())
 		assert.Equal(t, "(python)", current[0].lowercaseCommand)
 	})
 
@@ -161,8 +153,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			1234: {
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -172,8 +163,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "bash goodbye.sh", // Changed its command
-				Command:          "goodbye.sh",
+				Cmdline:          "bash goodbye.sh", // Changed its command
 				lowercaseCommand: "goodbye.sh",
 			},
 		}
@@ -185,8 +175,8 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify command was NOT modified (not dying, so no preservation)
-		assert.Equal(t, "bash goodbye.sh", current[0].cmdline)
-		assert.Equal(t, "goodbye.sh", current[0].Command)
+		assert.Equal(t, "bash goodbye.sh", current[0].Cmdline)
+		assert.Equal(t, "goodbye.sh", current[0].Command())
 		assert.Equal(t, "goodbye.sh", current[0].lowercaseCommand)
 	})
 
@@ -196,8 +186,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "(bash)",
-				Command:          "(bash)",
+				Cmdline:          "(bash)",
 				lowercaseCommand: "(bash)",
 			},
 		}
@@ -206,7 +195,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(ProcessMatching{})
 
 		// Verify nothing changed
-		assert.Equal(t, "(bash)", current[0].cmdline)
+		assert.Equal(t, "(bash)", current[0].Cmdline)
 	})
 
 	t.Run("handles process not in previous frame", func(t *testing.T) {
@@ -215,8 +204,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			5678: {
 				Pid:              5678,
 				startTime:        startTime,
-				cmdline:          "bash hello.sh",
-				Command:          "hello.sh",
+				Cmdline:          "bash hello.sh",
 				lowercaseCommand: "hello.sh",
 			},
 		}
@@ -226,8 +214,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 			{
 				Pid:              1234,
 				startTime:        startTime,
-				cmdline:          "(bash)",
-				Command:          "(bash)",
+				Cmdline:          "(bash)",
 				lowercaseCommand: "(bash)",
 			},
 		}
@@ -239,6 +226,6 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		preserveDyingProcessCommands(matches)
 
 		// Verify nothing changed (process wasn't in previous frame)
-		assert.Equal(t, "(bash)", current[0].cmdline)
+		assert.Equal(t, "(bash)", current[0].Cmdline)
 	})
 }
