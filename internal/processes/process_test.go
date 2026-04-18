@@ -254,3 +254,23 @@ func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {
 	assert.Equal(t, proc.SameAs(tooFarAway), false)
 	assert.Equal(t, proc.SameAs(otherPid), false)
 }
+
+func TestGetExecutableForPid_Self(t *testing.T) {
+	executable, err := getExecutableForPid(os.Getpid())
+	assert.Equal(t, err, nil)
+	assert.Equal(t, strings.TrimSpace(executable) != "", true)
+}
+
+func TestProcessCommandLine_FallsBackToExecutable(t *testing.T) {
+	pid := os.Getpid()
+	executable, err := getExecutableForPid(pid)
+	assert.Equal(t, err, nil)
+
+	process := &Process{
+		Pid:     pid,
+		cmdline: "/tmp/\x00 broken",
+	}
+
+	commandLine := process.CommandLine()
+	assert.SlicesEqual(t, commandLine, []string{executable})
+}

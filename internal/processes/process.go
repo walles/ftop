@@ -116,10 +116,53 @@ func (p *Process) StartTime() time.Time {
 func (p *Process) CommandLine() []string {
 	commandLine, err := cmdlineToSlice(p.cmdline, exists)
 	if err != nil {
-		panic(fmt.Errorf("failed to slice command line for process %d: %w", p.Pid, err))
+		log.Infof("Failed to slice command line for process %d, falling back to comm=: %v", p.Pid, err)
+
+		comm, commErr := getExecutableForPid(p.Pid)
+		if commErr != nil {
+			panic(fmt.Errorf("failed to slice command line for process %d and failed to get comm=: %w", p.Pid, commErr))
+		}
+
+		return []string{comm}
 	}
 
 	return commandLine
+}
+
+// The executable name may or may not include a path, which may or may not
+// include spaces.
+func getExecutableForPid(pid int) (string, error) {
+	command := []string{
+		"/bin/ps",
+		"-p",
+		strconv.Itoa(pid),
+		"-o",
+		"comm=",
+	}
+
+	comm := ""
+	err := util.Exec(command, func(line string) error {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			return nil
+		}
+
+		if comm == "" {
+			comm = trimmed
+			return nil
+		}
+
+		return fmt.Errorf("expected one comm line, got additional line <%s>", line)
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get comm for pid %d: %w", pid, err)
+	}
+
+	if comm == "" {
+		return "", fmt.Errorf("no comm value found for pid %d", pid)
+	}
+
+	return comm, nil
 }
 
 func uidToUsername(uid int) string {
