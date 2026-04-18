@@ -202,13 +202,17 @@ func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, er
 	return merged, nil
 }
 
-func cmdlineToCommand(cmdline string) string {
+// Convert a command line string into a command name. Examples:
+//   - "ls dir/" -> "ls"
+//   - "java -jar myapp.jar" -> "myapp.jar"
+//   - "sh -c cd /some/dir && echo hello" -> "echo"
+func cmdlineToCommand(cmdline string, pid *int) string {
 	cached, found := commandCache[cmdline]
 	if found {
 		return cached
 	}
 
-	result := cmdlineToCommandInternal(cmdline, nil)
+	result := cmdlineToCommandInternal(cmdline, pid)
 	commandCache[cmdline] = result
 	return result
 }

@@ -63,11 +63,13 @@ func TestProcessesByScore_mixed(t *testing.T) {
 // list, since that's what I would expect from top.
 func TestProcessesByScore_TieBreak_CPUOverMem(t *testing.T) {
 	muchCpuLittleMem := processes.Process{
+		Pid:     101,
 		Cmdline: "mostCPU",
 		RssKb:   100,
 		CpuTime: toDurationPointer(300 * time.Second),
 	}
 	muchMemAboveAverageCpu := processes.Process{
+		Pid:     102,
 		Cmdline: "mostMem",
 		RssKb:   300,
 		CpuTime: toDurationPointer(200 * time.Second),

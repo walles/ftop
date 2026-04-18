@@ -126,12 +126,12 @@ func TestRemoveSelfChildren_HidesHelpersButKeepsInteractiveChildren(t *testing.T
 }
 
 func TestShouldHideSelfChild(t *testing.T) {
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Cmdline: "ps"}))
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Cmdline: "netstat"}))
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Cmdline: "iostat"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 101, Cmdline: "ps"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 102, Cmdline: "netstat"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 103, Cmdline: "iostat"}))
 
-	assert.Equal(t, false, shouldHideSelfChild(&Process{Cmdline: "nano"}))
-	assert.Equal(t, false, shouldHideSelfChild(&Process{Cmdline: "Code"}))
+	assert.Equal(t, false, shouldHideSelfChild(&Process{Pid: 104, Cmdline: "nano"}))
+	assert.Equal(t, false, shouldHideSelfChild(&Process{Pid: 105, Cmdline: "Code"}))
 }
 
 func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {

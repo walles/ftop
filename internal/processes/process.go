@@ -109,11 +109,7 @@ func (p *Process) StartTime() time.Time {
 }
 
 func (p *Process) Command() string {
-	if p.Pid <= 0 {
-		return cmdlineToCommand(p.Cmdline)
-	}
-
-	return cmdlineToCommandInternal(p.Cmdline, &p.Pid)
+	return cmdlineToCommand(p.Cmdline, &p.Pid)
 }
 
 // Command line split into arguments, with path coalescing matching command
@@ -375,7 +371,7 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}
 
 	cmdline := match[9]
-	command := cmdlineToCommandInternal(cmdline, &pid)
+	command := cmdlineToCommand(cmdline, &pid)
 
 	return &Process{
 		Pid:              pid,

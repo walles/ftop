@@ -23,7 +23,7 @@ func TestIncrementLaunchCount_fromScratch(t *testing.T) {
 
 func TestIncrementLaunchCount_oneDown(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "init"}
-	p1 := Process{Cmdline: "sshd", parent: &p0}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &p0}
 
 	root := &LaunchNode{Command: "init"}
 	newRoot := incrementLaunchCount(root, &p1)
@@ -39,8 +39,8 @@ func TestIncrementLaunchCount_oneDown(t *testing.T) {
 
 func TestIncrementLaunchCount_twoChildren(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "init"}
-	p1 := Process{Cmdline: "sshd", parent: &p0}
-	p2 := Process{Cmdline: "telnetd", parent: &p0}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &p0}
+	p2 := Process{Pid: 3, Cmdline: "telnetd", parent: &p0}
 
 	root := &LaunchNode{Command: "init"}
 	newRoot := incrementLaunchCount(root, &p1)
@@ -59,7 +59,7 @@ func TestIncrementLaunchCount_twoChildren(t *testing.T) {
 
 func TestIncrementLaunchCount_sameChildTwice(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "init"}
-	p1 := Process{Cmdline: "sshd", parent: &p0}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &p0}
 
 	root := &LaunchNode{Command: "init"}
 	newRoot := incrementLaunchCount(root, &p1)
@@ -77,8 +77,8 @@ func TestIncrementLaunchCount_sameChildTwice(t *testing.T) {
 
 func TestIncrementLaunchCount_twoStepsToLeaf(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "init"}
-	p1 := Process{Cmdline: "sshd", parent: &p0}
-	p2 := Process{Cmdline: "bash", parent: &p1}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &p0}
+	p2 := Process{Pid: 3, Cmdline: "bash", parent: &p1}
 
 	root := &LaunchNode{Command: "init"}
 	newRoot := incrementLaunchCount(root, &p2)
@@ -104,6 +104,7 @@ func TestIncrementLaunchCount_noState(t *testing.T) {
 		Cmdline: "init",
 	})
 	root1 := incrementLaunchCount(nil, &Process{
+		Pid:     2,
 		Cmdline: "sshd",
 		parent:  &Process{Pid: 1, Cmdline: "init"},
 	})
@@ -116,7 +117,7 @@ func TestIncrementLaunchCount_noState(t *testing.T) {
 // should have launch count 0, the bottom one 1.
 func TestIncrementLaunchCount_initWithAnotherInitChild(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "init"}
-	p1 := Process{Cmdline: "init", parent: &p0}
+	p1 := Process{Pid: 2, Cmdline: "init", parent: &p0}
 
 	root := incrementLaunchCount(nil, &p1)
 	assertAncestry(t, root, ancestry{
@@ -138,7 +139,7 @@ func TestIncrementLaunchCount_initWithAnotherInitChild(t *testing.T) {
 }
 
 func TestIncrementLaunchCount_parentlessNonInitGoesUnderVirtualParent(t *testing.T) {
-	p0 := Process{Cmdline: "sshd"}
+	p0 := Process{Pid: 2, Cmdline: "sshd"}
 
 	root := incrementLaunchCount(nil, &p0)
 	assertAncestry(t, root, ancestry{
@@ -189,7 +190,7 @@ func assertAncestry(t *testing.T, node *LaunchNode, expected ancestry) {
 
 func TestIncrementLaunchCount_mismatchedRootDoesNotPanic(t *testing.T) {
 	init := Process{Pid: 1, Cmdline: "launchd"}
-	p1 := Process{Cmdline: "sshd", parent: &init}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &init}
 
 	// Create a bad root different from ancestry[0]
 	badRoot := &LaunchNode{Command: "bad root"}
@@ -210,7 +211,7 @@ func TestIncrementLaunchCount_mismatchedRootDoesNotPanic(t *testing.T) {
 
 func TestIncrementLaunchCount_pid1CommandIsDisplayed(t *testing.T) {
 	p0 := Process{Pid: 1, Cmdline: "launchd"}
-	p1 := Process{Cmdline: "sshd", parent: &p0}
+	p1 := Process{Pid: 2, Cmdline: "sshd", parent: &p0}
 
 	root := incrementLaunchCount(nil, &p1)
 	assertAncestry(t, root, ancestry{
