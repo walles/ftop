@@ -98,7 +98,7 @@ func shouldCoalesce(parts []string, exists func(string) existence) existence {
 }
 
 // How many parts should be coalesced?
-func coalesceCount(parts []string, exists func(string) existence) int {
+func coalesceCount(parts []string, exists func(string) existence) (int, error) {
 	for coalesceCount := 2; coalesceCount <= len(parts); coalesceCount++ {
 		should := shouldCoalesce(parts[0:coalesceCount], exists)
 
@@ -107,16 +107,23 @@ func coalesceCount(parts []string, exists func(string) existence) int {
 			continue
 		}
 
-		if should == existenceFalse || should == existenceError {
-			return 1
+		if should == existenceError {
+			return 0, fmt.Errorf("failed to check path existence while slicing command line")
 		}
 
-		// should == existenceTrue
-		return coalesceCount
+		if should == existenceFalse {
+			return 1, nil
+		}
+
+		if should != existenceTrue {
+			panic(fmt.Errorf("unsupported coalescing state: %v", should))
+		}
+
+		return coalesceCount, nil
 	}
 
 	// Undecided until the end, this means no coalescing should be done
-	return 1
+	return 1, nil
 }
 
 func isFileNameTooLong(err error) bool {
@@ -174,20 +181,25 @@ func exists(path string) existence {
 //
 // The exists function is called to check if a path exists on the filesystem. It
 // is a parameter of its own for testability reasons.
-func cmdlineToSlice(cmdline string, exists func(string) existence) []string {
+func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, error) {
 	baseSplit := strings.Split(cmdline, " ")
 	if len(baseSplit) == 1 {
-		return baseSplit
+		return baseSplit, nil
 	}
 
 	merged := make([]string, 0, len(baseSplit))
 	for i := 0; i < len(baseSplit); {
-		cc := coalesceCount(baseSplit[i:], exists)
+		cc, err := coalesceCount(baseSplit[i:], exists)
+		if err != nil {
+			// FIXME: Check all callers that they handle this error well
+			return nil, err
+		}
+
 		merged = append(merged, strings.Join(baseSplit[i:i+cc], " "))
 		i += cc
 	}
 
-	return merged
+	return merged, nil
 }
 
 func cmdlineToCommand(cmdline string) string {
@@ -217,7 +229,11 @@ func cmdlineToCommandInternal(cmdline string) string {
 		return cmdline
 	}
 
-	argv := cmdlineToSlice(cmdline, exists)
+	argv, err := cmdlineToSlice(cmdline, exists)
+	if err != nil {
+		panic(fmt.Errorf("failed to slice command line for command parsing: %w", err))
+	}
+
 	return argvToCommand(argv)
 }
 

@@ -39,6 +39,28 @@ func existsFromMap(outcomes map[string]existence) func(string) existence {
 	}
 }
 
+func mustCoalesceCount(t *testing.T, parts []string, exists func(string) existence) int {
+	t.Helper()
+
+	count, err := coalesceCount(parts, exists)
+	if err != nil {
+		t.Fatalf("coalesceCount() failed for %#v: %v", parts, err)
+	}
+
+	return count
+}
+
+func mustCmdlineToSlice(t *testing.T, cmdline string, exists func(string) existence) []string {
+	t.Helper()
+
+	result, err := cmdlineToSlice(cmdline, exists)
+	if err != nil {
+		t.Fatalf("cmdlineToSlice() failed for <%s>: %v", cmdline, err)
+	}
+
+	return result
+}
+
 func TestCoalesceCount(t *testing.T) {
 	exists := existsFromMap(map[string]existence{
 		"/":       existenceTrue,
@@ -46,25 +68,25 @@ func TestCoalesceCount(t *testing.T) {
 		"/a b c/": existenceTrue,
 	})
 
-	assert.Equal(t, coalesceCount([]string{"/a", "b", "c"}, exists), 3)
-	assert.Equal(t, coalesceCount([]string{"/a", "b", "c/"}, exists), 3)
-	assert.Equal(t, coalesceCount([]string{"/a", "b", "c", "d"}, exists), 3)
+	assert.Equal(t, mustCoalesceCount(t, []string{"/a", "b", "c"}, exists), 3)
+	assert.Equal(t, mustCoalesceCount(t, []string{"/a", "b", "c/"}, exists), 3)
+	assert.Equal(t, mustCoalesceCount(t, []string{"/a", "b", "c", "d"}, exists), 3)
 
 	assert.Equal(t,
-		coalesceCount([]string{"/a", "b", "c:/a", "b", "c"}, exists),
+		mustCoalesceCount(t, []string{"/a", "b", "c:/a", "b", "c"}, exists),
 		5,
 	)
 	assert.Equal(t,
-		coalesceCount([]string{"/a", "b", "c/:/a", "b", "c/"}, exists),
+		mustCoalesceCount(t, []string{"/a", "b", "c/:/a", "b", "c/"}, exists),
 		5,
 	)
 
 	assert.Equal(t,
-		coalesceCount([]string{"/a", "b", "c:/a", "b", "c", "d"}, exists),
+		mustCoalesceCount(t, []string{"/a", "b", "c:/a", "b", "c", "d"}, exists),
 		5,
 	)
 	assert.Equal(t,
-		coalesceCount([]string{"/a", "b", "c/:/a", "b", "c/", "d/"}, exists),
+		mustCoalesceCount(t, []string{"/a", "b", "c/:/a", "b", "c/", "d/"}, exists),
 		5,
 	)
 }
@@ -95,7 +117,7 @@ func TestToSliceSpaced1(t *testing.T) {
 		"/Applications/IntelliJ IDEA.app/Contents": existenceTrue,
 	})
 
-	result := cmdlineToSlice(
+	result := mustCmdlineToSlice(t,
 		"java -Dhello=/Applications/IntelliJ IDEA.app/Contents",
 		exists,
 	)
@@ -115,7 +137,7 @@ func TestToSliceSpaced2(t *testing.T) {
 		"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3-server-common.jar": existenceTrue,
 	})
 
-	result := cmdlineToSlice(strings.Join([]string{
+	result := mustCmdlineToSlice(t, strings.Join([]string{
 		"java",
 		"-Dhello=/Applications/IntelliJ IDEA.app/Contents/Info.plist",
 		"-classpath",
@@ -144,7 +166,7 @@ func TestToSliceSpaced3(t *testing.T) {
 		"/Applications/IntelliJ IDEA CE.app/Contents/plugins/maven/lib/maven3-server-common.jar": existenceTrue,
 	})
 
-	result := cmdlineToSlice(strings.Join([]string{
+	result := mustCmdlineToSlice(t, strings.Join([]string{
 		"java",
 		"-Dhello=/Applications/IntelliJ IDEA CE.app/Contents/Info.plist",
 		"-classpath",
@@ -195,7 +217,7 @@ func TestToSliceMsEdge(t *testing.T) {
 
 	exists := existsFromMap(outcomes)
 
-	result := cmdlineToSlice(complete+" --type=gpu-process", exists)
+	result := mustCmdlineToSlice(t, complete+" --type=gpu-process", exists)
 
 	assert.SlicesEqual(t, result, []string{complete, "--type=gpu-process"})
 }

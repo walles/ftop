@@ -114,7 +114,12 @@ func (p *Process) StartTime() time.Time {
 //
 //	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
 func (p *Process) CommandLine() []string {
-	return cmdlineToSlice(p.cmdline, exists)
+	commandLine, err := cmdlineToSlice(p.cmdline, exists)
+	if err != nil {
+		panic(fmt.Errorf("failed to slice command line for process %d: %w", p.Pid, err))
+	}
+
+	return commandLine
 }
 
 func uidToUsername(uid int) string {
