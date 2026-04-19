@@ -76,9 +76,10 @@ func getTrailingAbsolutePath(partialCmdline string) *string {
 //
 // Return values:
 //
-//   - true: Coalesce, done
-//   - false: Do not coalesce, done
-//   - nil: Undecided, add another part and try again
+//   - existenceTrue: Coalesce, done
+//   - existenceFalse: Do not coalesce, done
+//   - existenceNotYet: Undecided, add another part and try again
+//   - existenceError: Cannot determine, propagate up
 func shouldCoalesce(parts []string, exists func(string) existence) existence {
 	last := parts[len(parts)-1]
 	if strings.HasPrefix(last, "-") || strings.HasPrefix(last, "/") {
