@@ -194,6 +194,5 @@ func preserveDyingProcessCommands(matching ProcessMatching) {
 
 		// Restore the original command information
 		proc.Cmdline = match.Old.Cmdline
-		proc.lowercaseCommand = match.Old.lowercaseCommand
 	}
 }

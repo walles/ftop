@@ -50,8 +50,6 @@ type Process struct {
 	// "[2]", for disambiguating multiple processes with the same Command, or "" if the command is already unique
 	DeduplicationSuffix string
 
-	lowercaseCommand string // "git"
-
 	startTime time.Time
 
 	Username string
@@ -372,19 +370,17 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}
 
 	cmdline := match[9]
-	command := cmdlineToCommand(cmdline, &pid)
 
 	return &Process{
-		Pid:              pid,
-		ppid:             ppid,
-		RssKb:            rss_kb,
-		startTime:        startTime,
-		Username:         username,
-		cpuPercent:       &cpu_percent,
-		CpuTime:          &cpu_time,
-		memoryPercent:    &memory_percent,
-		Cmdline:          cmdline,
-		lowercaseCommand: strings.ToLower(command),
+		Pid:           pid,
+		ppid:          ppid,
+		RssKb:         rss_kb,
+		startTime:     startTime,
+		Username:      username,
+		cpuPercent:    &cpu_percent,
+		CpuTime:       &cpu_time,
+		memoryPercent: &memory_percent,
+		Cmdline:       cmdline,
 	}, nil
 }
 

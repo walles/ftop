@@ -47,7 +47,6 @@ func TestGetAll(t *testing.T) {
 	assert.Equal(t, os.Getppid(), self.ppid)
 
 	assert.Equal(t, true, self.Command() == "processes.test" || strings.Contains(self.Command(), "debug"))
-	assert.Equal(t, self.lowercaseCommand, strings.ToLower(self.Command()))
 
 	// Validate Username field
 	assert.Equal(t, self.Username, util.GetCurrentUsername())
@@ -148,7 +147,6 @@ func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
 	assert.Equal(t, proc.Username, uidToUsername(501))
 	assert.Equal(t, proc.Command(), "sleep")
 	assert.Equal(t, proc.Cmdline, "/bin/sleep")
-	assert.Equal(t, proc.lowercaseCommand, "sleep")
 
 	assert.Equal(t, true, proc.cpuPercent != nil)
 	assert.Equal(t, *proc.cpuPercent, 0.0)
@@ -174,7 +172,6 @@ func TestPsLineToProcess_HappyPathLinux(t *testing.T) {
 	assert.Equal(t, proc.Username, uidToUsername(0))
 	assert.Equal(t, proc.Command(), "bash")
 	assert.Equal(t, proc.Cmdline, "bash")
-	assert.Equal(t, proc.lowercaseCommand, "bash")
 
 	assert.Equal(t, true, proc.cpuPercent != nil)
 	assert.Equal(t, *proc.cpuPercent, 0.1)
@@ -261,16 +258,12 @@ func TestGetExecutableForPid_Self(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(executable) != "", true)
 }
 
-func TestProcessCommandLine_FallsBackToExecutable(t *testing.T) {
-	pid := os.Getpid()
-	executable, err := getExecutableForPid(pid)
-	assert.Equal(t, err, nil)
-
+func TestProcessCommandLine_PreservesArgsOnInvalidCoalescingInput(t *testing.T) {
 	process := &Process{
-		Pid:     pid,
+		Pid:     os.Getpid(),
 		Cmdline: "/tmp/\x00 broken",
 	}
 
 	commandLine := process.DisplayCommandLine()
-	assert.SlicesEqual(t, commandLine, []string{executable})
+	assert.SlicesEqual(t, commandLine, []string{"/tmp/\x00", "broken"})
 }

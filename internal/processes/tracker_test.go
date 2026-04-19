@@ -16,20 +16,18 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Previous frame: healthy bash process running hello.sh
 		previous := map[int]*Process{
 			1234: {
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
 		// Current frame: same process but now dying (parenthesized)
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "(bash)",
-				lowercaseCommand: "(bash)",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "(bash)",
 			},
 		}
 
@@ -42,7 +40,6 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Verify command was preserved
 		assert.Equal(t, "bash hello.sh", current[0].Cmdline)
 		assert.Equal(t, "hello.sh", current[0].Command())
-		assert.Equal(t, "hello.sh", current[0].lowercaseCommand)
 	})
 
 	// From "man ps" on macOS
@@ -50,20 +47,18 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Previous frame: healthy bash process running hello.sh
 		previous := map[int]*Process{
 			1234: {
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
 		// Current frame: same process but now defunct
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "<defunct>",
-				lowercaseCommand: "<defunct>",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "<defunct>",
 			},
 		}
 
@@ -76,7 +71,6 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Verify command was preserved
 		assert.Equal(t, current[0].Cmdline, "bash hello.sh")
 		assert.Equal(t, current[0].Command(), "hello.sh")
-		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
 	})
 
 	// From "man ps" on macOS
@@ -84,20 +78,18 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Previous frame: healthy bash process running hello.sh
 		previous := map[int]*Process{
 			1234: {
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
 		// Current frame: same process but now exiting
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "<exiting>",
-				lowercaseCommand: "<exiting>",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "<exiting>",
 			},
 		}
 
@@ -110,17 +102,15 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Verify command was preserved
 		assert.Equal(t, current[0].Cmdline, "bash hello.sh")
 		assert.Equal(t, current[0].Command(), "hello.sh")
-		assert.Equal(t, current[0].lowercaseCommand, "hello.sh")
 	})
 
 	t.Run("does not preserve when PID is reused with different start time", func(t *testing.T) {
 		// Previous frame: bash process
 		previous := map[int]*Process{
 			1234: {
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
@@ -128,10 +118,9 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// SameAs tolerance
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        differentStartTime,
-				Cmdline:          "(python)",
-				lowercaseCommand: "(python)",
+				Pid:       1234,
+				startTime: differentStartTime,
+				Cmdline:   "(python)",
 			},
 		}
 
@@ -144,27 +133,24 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Verify command was NOT preserved (different process)
 		assert.Equal(t, "(python)", current[0].Cmdline)
 		assert.Equal(t, "(python)", current[0].Command())
-		assert.Equal(t, "(python)", current[0].lowercaseCommand)
 	})
 
 	t.Run("does not modify non-parenthesized processes", func(t *testing.T) {
 		// Previous frame
 		previous := map[int]*Process{
 			1234: {
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
 		// Current frame: process still alive (not parenthesized)
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "bash goodbye.sh", // Changed its command
-				lowercaseCommand: "goodbye.sh",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "bash goodbye.sh", // Changed its command
 			},
 		}
 
@@ -177,17 +163,15 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Verify command was NOT modified (not dying, so no preservation)
 		assert.Equal(t, "bash goodbye.sh", current[0].Cmdline)
 		assert.Equal(t, "goodbye.sh", current[0].Command())
-		assert.Equal(t, "goodbye.sh", current[0].lowercaseCommand)
 	})
 
 	t.Run("handles nil previous map", func(t *testing.T) {
 		// Current frame: dying process
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "(bash)",
-				lowercaseCommand: "(bash)",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "(bash)",
 			},
 		}
 
@@ -202,20 +186,18 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		// Previous frame: different process
 		previous := map[int]*Process{
 			5678: {
-				Pid:              5678,
-				startTime:        startTime,
-				Cmdline:          "bash hello.sh",
-				lowercaseCommand: "hello.sh",
+				Pid:       5678,
+				startTime: startTime,
+				Cmdline:   "bash hello.sh",
 			},
 		}
 
 		// Current frame: new dying process not in previous
 		current := []*Process{
 			{
-				Pid:              1234,
-				startTime:        startTime,
-				Cmdline:          "(bash)",
-				lowercaseCommand: "(bash)",
+				Pid:       1234,
+				startTime: startTime,
+				Cmdline:   "(bash)",
 			},
 		}
 
