@@ -657,6 +657,10 @@ func TestGetCommandFlutter(t *testing.T) {
 	)
 }
 
+func TestArgvToCommand_EmptyArgv(t *testing.T) {
+	assert.Equal(t, argvToCommand(nil), "")
+}
+
 func TestGetCommandGuile(t *testing.T) {
 	// Plain guile
 	assert.Equal(t, cmdlineToCommand("guile", nil), "guile")

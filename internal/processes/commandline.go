@@ -241,7 +241,9 @@ func cmdlineToCommandInternal(cmdline string, pid *int) string {
 
 	executable, executableErr := getExecutableForPid(*pid)
 	if executableErr != nil {
-		panic(fmt.Errorf("failed to slice command line for command parsing for process %d and failed to get comm=: %w", *pid, executableErr))
+		log.Infof("Failed to get comm= for process %d, falling back to space split command parsing: %v", *pid, executableErr)
+
+		return argvToCommand(strings.Fields(cmdline))
 	}
 
 	return argvToCommand([]string{executable})
@@ -268,6 +270,10 @@ func stripShellPrefix(argv []string) []string {
 }
 
 func argvToCommand(argv []string) string {
+	if len(argv) == 0 {
+		return ""
+	}
+
 	argv = stripShellPrefix(argv)
 	command := filepath.Base(argv[0])
 
