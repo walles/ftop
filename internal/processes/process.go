@@ -116,17 +116,18 @@ func (p *Process) Command() string {
 // parsing. Example return value:
 //
 //	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
-func (p *Process) CommandLine() []string {
+//
+// If path coalescing fails, falls back to a plain space split of the raw
+// command line string. This preserves all arguments for display purposes,
+// unlike Command() which falls back to the executable name only.
+func (p *Process) DisplayCommandLine() []string {
 	commandLine, err := cmdlineToSlice(p.Cmdline, exists)
 	if err != nil {
-		log.Infof("Failed to slice command line for process %d, falling back to comm=: %v", p.Pid, err)
-
-		comm, commErr := getExecutableForPid(p.Pid)
-		if commErr != nil {
-			panic(fmt.Errorf("failed to slice command line for process %d and failed to get comm=: %w", p.Pid, commErr))
-		}
-
-		return []string{comm}
+		// Fall back to plain space split rather than discarding arguments.
+		// Command() uses a different fallback (comm= from ps) because it needs
+		// a usable command name; here we prefer showing all args over accuracy.
+		log.Debugf("Failed to slice command line for process %d, falling back to space split: %v", p.Pid, err)
+		return strings.Fields(p.Cmdline)
 	}
 
 	return commandLine

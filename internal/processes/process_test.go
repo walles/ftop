@@ -271,6 +271,6 @@ func TestProcessCommandLine_FallsBackToExecutable(t *testing.T) {
 		Cmdline: "/tmp/\x00 broken",
 	}
 
-	commandLine := process.CommandLine()
+	commandLine := process.DisplayCommandLine()
 	assert.SlicesEqual(t, commandLine, []string{executable})
 }

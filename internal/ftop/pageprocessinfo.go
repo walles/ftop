@@ -205,7 +205,7 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 }
 
 func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
-	split := proc.CommandLine()
+	split := proc.DisplayCommandLine()
 	if len(split) == 0 {
 		panic(fmt.Sprintf("process has no command line: %s", proc.String()))
 	}
