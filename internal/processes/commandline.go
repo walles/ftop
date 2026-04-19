@@ -150,8 +150,6 @@ func exists(path string) existence {
 	}
 
 	if !os.IsNotExist(err) {
-		// FIXME: Maybe not log permission errors? Or log those as debug but other errors as info?
-		log.Debugf("Failed to check file existence: %v", err)
 		return existenceError
 	}
 
