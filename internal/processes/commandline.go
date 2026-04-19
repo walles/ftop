@@ -206,7 +206,7 @@ func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, er
 //   - "ls dir/" -> "ls"
 //   - "java -jar myapp.jar" -> "myapp.jar"
 //   - "sh -c cd /some/dir && echo hello" -> "echo"
-func cmdlineToCommand(cmdline string, pid *int) string {
+func cmdlineToCommand(cmdline string, pid int) string {
 	cached, found := commandCache[cmdline]
 	if found {
 		return cached
@@ -217,9 +217,9 @@ func cmdlineToCommand(cmdline string, pid *int) string {
 	return result
 }
 
-// If cmdline slicing fails and pid is non-nil, we fall back to ps -o comm= for
-// that PID. If pid is nil, slicing errors are treated as fatal (panic).
-func cmdlineToCommandInternal(cmdline string, pid *int) string {
+// If cmdline slicing fails, we fall back to ps -o comm= for that PID. And if
+// that fails, we fall back to whitespace splitting.
+func cmdlineToCommandInternal(cmdline string, pid int) string {
 	if LINUX_KERNEL_PROC.MatchString(cmdline) {
 		return cmdline
 	}
@@ -233,20 +233,16 @@ func cmdlineToCommandInternal(cmdline string, pid *int) string {
 		return argvToCommand(argv)
 	}
 
-	if pid == nil {
-		panic(fmt.Errorf("failed to slice command line for command parsing: %w", err))
+	log.Infof("Failed to slice command line for command parsing for process %d, falling back to comm=: %v", pid, err)
+
+	executable, executableErr := getExecutableForPid(pid)
+	if executableErr == nil {
+		return argvToCommand([]string{executable})
 	}
 
-	log.Infof("Failed to slice command line for command parsing for process %d, falling back to comm=: %v", *pid, err)
+	log.Infof("Failed to get comm= for process %d, falling back to space split command parsing: %v, cmdline=<%s>", pid, executableErr, cmdline)
 
-	executable, executableErr := getExecutableForPid(*pid)
-	if executableErr != nil {
-		log.Infof("Failed to get comm= for process %d, falling back to space split command parsing: %v", *pid, executableErr)
-
-		return argvToCommand(strings.Fields(cmdline))
-	}
-
-	return argvToCommand([]string{executable})
+	return argvToCommand(strings.Fields(cmdline))
 }
 
 // Convert "sh -c cd /some/dir && echo hello" to just "echo hello".

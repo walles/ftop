@@ -10,6 +10,8 @@ import (
 	"github.com/walles/ftop/internal/assert"
 )
 
+const somePid = 12345
+
 func TestGetTrailingAbsolutePath(t *testing.T) {
 	assert.Equal(t, *getTrailingAbsolutePath("/hello"), "/hello")
 	assert.Equal(t, *getTrailingAbsolutePath("/hello:/baloo"), "/baloo")
@@ -225,125 +227,125 @@ func TestToSliceMsEdge(t *testing.T) {
 func TestDotnetCommandline(t *testing.T) {
 	// Unclear whether "fable" is a builtin or a separate tool, go with "dotnet fable".
 	assert.Equal(t,
-		cmdlineToCommand("libexec/dotnet fable core/Core.Test.fsproj", nil),
+		cmdlineToCommand("libexec/dotnet fable core/Core.Test.fsproj", somePid),
 		"dotnet fable",
 	)
 
 	// The DLL has a path, so it can't be a builtin. Go with just "fable.dll"
 	assert.Equal(t,
-		cmdlineToCommand("libexec/dotnet any/fable.dll core/Core.Test.fsproj", nil),
+		cmdlineToCommand("libexec/dotnet any/fable.dll core/Core.Test.fsproj", somePid),
 		"fable.dll",
 	)
 }
 
 func TestNodeMaxOldSpace(t *testing.T) {
 	assert.Equal(t,
-		cmdlineToCommand("node --max_old_space_size=4096 scripts/start.js", nil),
+		cmdlineToCommand("node --max_old_space_size=4096 scripts/start.js", somePid),
 		"start.js",
 	)
 }
 
 func TestGetBashBrewShCommandline(t *testing.T) {
 	assert.Equal(t,
-		cmdlineToCommand("/bin/bash -p /usr/local/Homebrew/Library/Homebrew/brew.sh upgrade", nil),
+		cmdlineToCommand("/bin/bash -p /usr/local/Homebrew/Library/Homebrew/brew.sh upgrade", somePid),
 		"brew.sh upgrade",
 	)
 }
 
 func TestGetCommandInterpreters(t *testing.T) {
 	// ruby
-	assert.Equal(t, cmdlineToCommand("ruby", nil), "ruby")
-	assert.Equal(t, cmdlineToCommand("ruby /some/path/apa.rb", nil), "apa.rb")
-	assert.Equal(t, cmdlineToCommand("ruby -option /some/path/apa.rb", nil), "ruby")
+	assert.Equal(t, cmdlineToCommand("ruby", somePid), "ruby")
+	assert.Equal(t, cmdlineToCommand("ruby /some/path/apa.rb", somePid), "apa.rb")
+	assert.Equal(t, cmdlineToCommand("ruby -option /some/path/apa.rb", somePid), "ruby")
 
 	// sh
-	assert.Equal(t, cmdlineToCommand("sh", nil), "sh")
-	assert.Equal(t, cmdlineToCommand("sh /some/path/apa.sh", nil), "apa.sh")
-	assert.Equal(t, cmdlineToCommand("sh -option /some/path/apa.sh", nil), "sh")
+	assert.Equal(t, cmdlineToCommand("sh", somePid), "sh")
+	assert.Equal(t, cmdlineToCommand("sh /some/path/apa.sh", somePid), "apa.sh")
+	assert.Equal(t, cmdlineToCommand("sh -option /some/path/apa.sh", somePid), "sh")
 
 	// bash
-	assert.Equal(t, cmdlineToCommand("bash", nil), "bash")
-	assert.Equal(t, cmdlineToCommand("bash /some/path/apa.sh", nil), "apa.sh")
-	assert.Equal(t, cmdlineToCommand("bash -option /some/path/apa.sh", nil), "bash")
+	assert.Equal(t, cmdlineToCommand("bash", somePid), "bash")
+	assert.Equal(t, cmdlineToCommand("bash /some/path/apa.sh", somePid), "apa.sh")
+	assert.Equal(t, cmdlineToCommand("bash -option /some/path/apa.sh", somePid), "bash")
 
 	// perl
-	assert.Equal(t, cmdlineToCommand("perl", nil), "perl")
-	assert.Equal(t, cmdlineToCommand("perl /some/path/apa.pl", nil), "apa.pl")
-	assert.Equal(t, cmdlineToCommand("perl -option /some/path/apa.pl", nil), "perl")
+	assert.Equal(t, cmdlineToCommand("perl", somePid), "perl")
+	assert.Equal(t, cmdlineToCommand("perl /some/path/apa.pl", somePid), "apa.pl")
+	assert.Equal(t, cmdlineToCommand("perl -option /some/path/apa.pl", somePid), "perl")
 }
 
 func TestGetGoCommandline(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("go build ./...", nil), "go build")
-	assert.Equal(t, cmdlineToCommand("go --version", nil), "go")
-	assert.Equal(t, cmdlineToCommand("/usr/local/bin/go", nil), "go")
+	assert.Equal(t, cmdlineToCommand("go build ./...", somePid), "go build")
+	assert.Equal(t, cmdlineToCommand("go --version", somePid), "go")
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/go", somePid), "go")
 }
 
 func TestGetGitCommandline(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("git clone git@github.com:walles/riff", nil), "git clone")
-	assert.Equal(t, cmdlineToCommand("git --version", nil), "git")
-	assert.Equal(t, cmdlineToCommand("/usr/local/bin/git", nil), "git")
-	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false reflog --max-count 50", nil), "git reflog")
-	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false", nil), "git")
-	assert.Equal(t, cmdlineToCommand("git -c", nil), "git")
-	assert.Equal(t, cmdlineToCommand("git -C /tmp/hello show", nil), "git show")
+	assert.Equal(t, cmdlineToCommand("git clone git@github.com:walles/riff", somePid), "git clone")
+	assert.Equal(t, cmdlineToCommand("git --version", somePid), "git")
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/git", somePid), "git")
+	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false reflog --max-count 50", somePid), "git reflog")
+	assert.Equal(t, cmdlineToCommand("git -c core.quotepath=false", somePid), "git")
+	assert.Equal(t, cmdlineToCommand("git -c", somePid), "git")
+	assert.Equal(t, cmdlineToCommand("git -C /tmp/hello show", somePid), "git show")
 }
 
 func TestGetTerraformCommandline(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("terraform -chdir=dev apply -target=abc123", nil), "terraform apply")
+	assert.Equal(t, cmdlineToCommand("terraform -chdir=dev apply -target=abc123", somePid), "terraform apply")
 }
 
 func TestGetTerraformProviderCommandline(t *testing.T) {
 	// Source: https://github.com/walles/px/issues/105
 	assert.Equal(t,
-		cmdlineToCommand(".terraform/providers/registry.terraform.io/heroku/heroku/4.8.0/darwin_amd64/terraform-provider-heroku_v4.8.0", nil),
+		cmdlineToCommand(".terraform/providers/registry.terraform.io/heroku/heroku/4.8.0/darwin_amd64/terraform-provider-heroku_v4.8.0", somePid),
 		"terraform-provider-heroku_v4.8.0",
 	)
 }
 
 func TestGetCommandPython(t *testing.T) {
 	// Basics
-	assert.Equal(t, cmdlineToCommand("python", nil), "python")
-	assert.Equal(t, cmdlineToCommand("/apa/Python", nil), "Python")
-	assert.Equal(t, cmdlineToCommand("python --help", nil), "python")
+	assert.Equal(t, cmdlineToCommand("python", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("/apa/Python", somePid), "Python")
+	assert.Equal(t, cmdlineToCommand("python --help", somePid), "python")
 
 	// Running scripts / modules
-	assert.Equal(t, cmdlineToCommand("python apa.py", nil), "apa.py")
-	assert.Equal(t, cmdlineToCommand("python /usr/bin/apa.py", nil), "apa.py")
-	assert.Equal(t, cmdlineToCommand("python2.7 /usr/bin/apa.py", nil), "apa.py")
-	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej", nil), "hej")
-	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej gris --flaska", nil), "hej")
-	assert.Equal(t, cmdlineToCommand("python -c cmd", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python -m mod", nil), "mod")
-	assert.Equal(t, cmdlineToCommand("python -m mod --hej gris --frukt", nil), "mod")
-	assert.Equal(t, cmdlineToCommand("Python -", nil), "Python")
+	assert.Equal(t, cmdlineToCommand("python apa.py", somePid), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/apa.py", somePid), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python2.7 /usr/bin/apa.py", somePid), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej", somePid), "hej")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hej gris --flaska", somePid), "hej")
+	assert.Equal(t, cmdlineToCommand("python -c cmd", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python -m mod", somePid), "mod")
+	assert.Equal(t, cmdlineToCommand("python -m mod --hej gris --frukt", somePid), "mod")
+	assert.Equal(t, cmdlineToCommand("Python -", somePid), "Python")
 
 	// Ignoring switches
-	assert.Equal(t, cmdlineToCommand("python -E apa.py", nil), "apa.py")
-	assert.Equal(t, cmdlineToCommand("python3 -E", nil), "python3")
-	assert.Equal(t, cmdlineToCommand("python -u -t -m mod", nil), "mod")
+	assert.Equal(t, cmdlineToCommand("python -E apa.py", somePid), "apa.py")
+	assert.Equal(t, cmdlineToCommand("python3 -E", somePid), "python3")
+	assert.Equal(t, cmdlineToCommand("python -u -t -m mod", somePid), "mod")
 
 	// -W switches unsupported for now
-	assert.Equal(t, cmdlineToCommand("python -W warning:spec apa.py", nil), "python")
+	assert.Equal(t, cmdlineToCommand("python -W warning:spec apa.py", somePid), "python")
 
 	// Invalid command lines
-	assert.Equal(t, cmdlineToCommand("python -W", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python -c", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python -m", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python -m   ", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python -m -u", nil), "python")
-	assert.Equal(t, cmdlineToCommand("python    ", nil), "python")
+	assert.Equal(t, cmdlineToCommand("python -W", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python -c", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python -m", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python -m   ", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python -m -u", somePid), "python")
+	assert.Equal(t, cmdlineToCommand("python    ", somePid), "python")
 }
 
 func TestGetCommandAws(t *testing.T) {
 	// Python wrapper around aws
-	assert.Equal(t, cmdlineToCommand("Python /usr/local/bin/aws", nil), "aws")
-	assert.Equal(t, cmdlineToCommand("python aws s3", nil), "aws s3")
-	assert.Equal(t, cmdlineToCommand("python3 aws s3 help", nil), "aws s3 help")
-	assert.Equal(t, cmdlineToCommand("/wherever/python3 aws s3 help flaska", nil), "aws s3 help")
+	assert.Equal(t, cmdlineToCommand("Python /usr/local/bin/aws", somePid), "aws")
+	assert.Equal(t, cmdlineToCommand("python aws s3", somePid), "aws s3")
+	assert.Equal(t, cmdlineToCommand("python3 aws s3 help", somePid), "aws s3 help")
+	assert.Equal(t, cmdlineToCommand("/wherever/python3 aws s3 help flaska", somePid), "aws s3 help")
 
-	assert.Equal(t, cmdlineToCommand("python aws s3 sync help", nil), "aws s3 sync help")
-	assert.Equal(t, cmdlineToCommand("python aws s3 sync nothelp", nil), "aws s3 sync")
-	assert.Equal(t, cmdlineToCommand("python aws s3 --unknown sync", nil), "aws s3")
+	assert.Equal(t, cmdlineToCommand("python aws s3 sync help", somePid), "aws s3 sync help")
+	assert.Equal(t, cmdlineToCommand("python aws s3 sync nothelp", somePid), "aws s3 sync")
+	assert.Equal(t, cmdlineToCommand("python aws s3 --unknown sync", somePid), "aws s3")
 
 	// Ignore profile and region; stop at switches and paths
 	cmd := strings.Join([]string{
@@ -357,19 +359,19 @@ func TestGetCommandAws(t *testing.T) {
 		"s3://xxxxxx",
 		"./xxxxxx",
 	}, " ")
-	assert.Equal(t, cmdlineToCommand(cmd, nil), "aws s3 sync")
+	assert.Equal(t, cmdlineToCommand(cmd, somePid), "aws s3 sync")
 }
 
 func TestGetCommandLoginShell(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("-fish", nil), "fish")
+	assert.Equal(t, cmdlineToCommand("-fish", somePid), "fish")
 }
 
 func TestGetCommandSudo(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("sudo", nil), "sudo")
-	assert.Equal(t, cmdlineToCommand("sudo python /usr/bin/hej gris --flaska", nil), "sudo hej")
+	assert.Equal(t, cmdlineToCommand("sudo", somePid), "sudo")
+	assert.Equal(t, cmdlineToCommand("sudo python /usr/bin/hej gris --flaska", somePid), "sudo hej")
 
 	// With flags we give up and keep just "sudo"
-	assert.Equal(t, cmdlineToCommand("sudo -B python /usr/bin/hej", nil), "sudo")
+	assert.Equal(t, cmdlineToCommand("sudo -B python /usr/bin/hej", somePid), "sudo")
 }
 
 func TestGetCommandSudoWithSpaceInCommandName(t *testing.T) {
@@ -381,10 +383,10 @@ func TestGetCommandSudoWithSpaceInCommandName(t *testing.T) {
 	}
 
 	// Verify splitting of the spaced file name
-	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath, nil), "sudo i contain spaces")
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath, somePid), "sudo i contain spaces")
 
 	// Verify splitting with more parameters on the line
-	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter", nil), "sudo i contain spaces")
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter", somePid), "sudo i contain spaces")
 }
 
 func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
@@ -400,53 +402,53 @@ func TestGetCommandSudoWithSpaceInPath(t *testing.T) {
 	}
 
 	// Verify splitting of the spaced file name
-	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath, nil), "sudo runme")
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath, somePid), "sudo runme")
 
 	// Verify splitting with more parameters on the line
-	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter", nil), "sudo runme")
+	assert.Equal(t, cmdlineToCommand("sudo "+spacedPath+" parameter", somePid), "sudo runme")
 }
 
 // Ref: https://github.com/walles/ftop/issues/5
 func TestIgnoreShellCdAndAnd(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("/bin/sh -c cd ~/src/moor && moor twin/screen.go", nil), "moor")
+	assert.Equal(t, cmdlineToCommand("/bin/sh -c cd ~/src/moor && moor twin/screen.go", somePid), "moor")
 }
 
 func TestIgnoreLeadingShellC(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("/bin/sh -c which minikube", nil), "which minikube")
+	assert.Equal(t, cmdlineToCommand("/bin/sh -c which minikube", somePid), "which minikube")
 }
 
 func TestGetCommandRubySwitches(t *testing.T) {
 	// ruby with warning level switch and brew.rb subcommand
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -W0 /usr/local/bin/brew.rb install rust", nil),
+		cmdlineToCommand("/usr/bin/ruby -W0 /usr/local/bin/brew.rb install rust", somePid),
 		"brew.rb install",
 	)
 
 	// Double-dash to end options, should pick the first script after it
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -W1 -- /apa/build.rb /bepa/cmake.rb", nil),
+		cmdlineToCommand("/usr/bin/ruby -W1 -- /apa/build.rb /bepa/cmake.rb", somePid),
 		"build.rb",
 	)
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -W1 -- -hello.rb /bepa/cmake.rb", nil),
+		cmdlineToCommand("/usr/bin/ruby -W1 -- -hello.rb /bepa/cmake.rb", somePid),
 		"-hello.rb",
 	)
 
 	// Encoding switch should be ignored
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -Eascii-8bit:ascii-8bit /usr/sbin/google-fluentd", nil),
+		cmdlineToCommand("/usr/bin/ruby -Eascii-8bit:ascii-8bit /usr/sbin/google-fluentd", somePid),
 		"google-fluentd",
 	)
 
 	// -I switch and its argument should be ignored...
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -I /some/include /usr/local/bin/brew.rb update", nil),
+		cmdlineToCommand("/usr/bin/ruby -I /some/include /usr/local/bin/brew.rb update", somePid),
 		"brew.rb update",
 	)
 
 	// ... but if no includes follow, give up
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/ruby -I", nil),
+		cmdlineToCommand("/usr/bin/ruby -I", somePid),
 		"ruby",
 	)
 }
@@ -468,30 +470,30 @@ func TestGetCommandPerl(t *testing.T) {
 			"tools",
 			"versions.json",
 			"WORKSPACE",
-		}, " "), nil),
+		}, " "), somePid),
 		"cloc",
 	)
 
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", nil),
+		cmdlineToCommand("/usr/bin/perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", somePid),
 		"cloc",
 	)
 	assert.Equal(t,
-		cmdlineToCommand("perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", nil),
+		cmdlineToCommand("perl /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", somePid),
 		"cloc",
 	)
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/perl5 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", nil),
+		cmdlineToCommand("/usr/bin/perl5 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", somePid),
 		"cloc",
 	)
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/perl5.30 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", nil),
+		cmdlineToCommand("/usr/bin/perl5.30 /usr/local/Cellar/cloc/1.90/libexec/bin/cloc", somePid),
 		"cloc",
 	)
 
 	// Give up on command line switches
 	assert.Equal(t,
-		cmdlineToCommand("/usr/bin/perl -S cloc", nil),
+		cmdlineToCommand("/usr/bin/perl -S cloc", somePid),
 		"perl",
 	)
 }
@@ -510,7 +512,7 @@ func TestMacosApp(t *testing.T) {
 		"MacOS",
 		"com.apple.dock.external.extra",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(dock, nil), "Dock/extra")
+	assert.Equal(t, cmdlineToCommand(dock, somePid), "Dock/extra")
 
 	// Firefox plugin-container nested .app
 	firefox := strings.Join([]string{
@@ -523,7 +525,7 @@ func TestMacosApp(t *testing.T) {
 		"MacOS",
 		"plugin-container",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(firefox, nil), "Firefox/plugin-container")
+	assert.Equal(t, cmdlineToCommand(firefox, somePid), "Firefox/plugin-container")
 
 	// CodeHelper(Renderer)
 	codeHelper := strings.Join([]string{
@@ -536,10 +538,10 @@ func TestMacosApp(t *testing.T) {
 		"MacOS",
 		"CodeHelper(Renderer)",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(codeHelper, nil), "CodeHelper(Renderer)")
+	assert.Equal(t, cmdlineToCommand(codeHelper, somePid), "CodeHelper(Renderer)")
 
 	// iTerm without prefix (human-friendly command)
-	assert.Equal(t, cmdlineToCommand("/Applications/iTerm.app/Contents/MacOS/iTerm2", nil), "iTerm2")
+	assert.Equal(t, cmdlineToCommand("/Applications/iTerm.app/Contents/MacOS/iTerm2", somePid), "iTerm2")
 
 	// IDS.framework without duplicating name
 	ids := strings.Join([]string{
@@ -552,7 +554,7 @@ func TestMacosApp(t *testing.T) {
 		"MacOS",
 		"identityservicesd",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(ids, nil), "IDS/identityservicesd")
+	assert.Equal(t, cmdlineToCommand(ids, somePid), "IDS/identityservicesd")
 
 	intelligencePlatform := strings.Join([]string{
 		"/System",
@@ -563,7 +565,7 @@ func TestMacosApp(t *testing.T) {
 		"/A",
 		"/intelligenceplatformd",
 	}, "/")
-	assert.Equal(t, cmdlineToCommand(intelligencePlatform, nil), "IntelligencePlatformCore (Daemon)")
+	assert.Equal(t, cmdlineToCommand(intelligencePlatform, somePid), "IntelligencePlatformCore (Daemon)")
 }
 
 func TestCoalesceAppCommand(t *testing.T) {
@@ -623,7 +625,7 @@ func TestGetCommandElectronMacos(t *testing.T) {
 			"--cancellationReceive=file:d6fe53594ec46a8bb986ad058c985f56d309e7bf19",
 			"--node-ipc",
 			"--clientProcessId=42516",
-		}, " "), nil),
+		}, " "), somePid),
 		"VisualStudioCode",
 	)
 }
@@ -634,7 +636,7 @@ func TestGetCommandFlutter(t *testing.T) {
 		cmdlineToCommand(strings.Join([]string{
 			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
 			"devtools",
-		}, " "), nil),
+		}, " "), somePid),
 		"dart devtools",
 	)
 
@@ -643,7 +645,7 @@ func TestGetCommandFlutter(t *testing.T) {
 		cmdlineToCommand(strings.Join([]string{
 			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
 			"devtools.snap",
-		}, " "), nil),
+		}, " "), somePid),
 		"devtools.snap",
 	)
 
@@ -652,7 +654,7 @@ func TestGetCommandFlutter(t *testing.T) {
 		cmdlineToCommand(strings.Join([]string{
 			"/usr/local/Cellar/dart/2.15.1/libexec/bin/dart",
 			"/usr/local/bin/devtools",
-		}, " "), nil),
+		}, " "), somePid),
 		"devtools",
 	)
 }
@@ -663,42 +665,42 @@ func TestArgvToCommand_EmptyArgv(t *testing.T) {
 
 func TestGetCommandGuile(t *testing.T) {
 	// Plain guile
-	assert.Equal(t, cmdlineToCommand("guile", nil), "guile")
+	assert.Equal(t, cmdlineToCommand("guile", somePid), "guile")
 
 	// -l returns its arg as the script
 	assert.Equal(t,
-		cmdlineToCommand("guile -l myscript.scm", nil),
+		cmdlineToCommand("guile -l myscript.scm", somePid),
 		"myscript.scm",
 	)
 
 	// Ignore common switches
 	assert.Equal(t,
-		cmdlineToCommand("guile -q --r6rs myscript.scm", nil),
+		cmdlineToCommand("guile -q --r6rs myscript.scm", somePid),
 		"myscript.scm",
 	)
 
 	// Ignore argful switches
 	assert.Equal(t,
-		cmdlineToCommand("guile -L /usr/local/include -C /tmp -x scheme myscript.scm", nil),
+		cmdlineToCommand("guile -L /usr/local/include -C /tmp -x scheme myscript.scm", somePid),
 		"myscript.scm",
 	)
 
 	// --listen with equals form
 	assert.Equal(t,
-		cmdlineToCommand("guile --listen=localhost:37146 myscript.scm", nil),
+		cmdlineToCommand("guile --listen=localhost:37146 myscript.scm", somePid),
 		"myscript.scm",
 	)
 
 	// Unknown switch after guile -> give up
 	assert.Equal(t,
-		cmdlineToCommand("guile --unknown myscript.scm", nil),
+		cmdlineToCommand("guile --unknown myscript.scm", somePid),
 		"guile",
 	)
 }
 
 func TestGetCommandResque(t *testing.T) {
-	assert.Equal(t, cmdlineToCommand("resque-1.20.0: a b c", nil), "resque-1.20.0:")
-	assert.Equal(t, cmdlineToCommand("resqued-0.7.12 x y z", nil), "resqued-0.7.12")
+	assert.Equal(t, cmdlineToCommand("resque-1.20.0: a b c", somePid), "resque-1.20.0:")
+	assert.Equal(t, cmdlineToCommand("resqued-0.7.12 x y z", somePid), "resqued-0.7.12")
 }
 
 func TestGetHomebrewCommandline(t *testing.T) {
@@ -709,58 +711,58 @@ func TestGetHomebrewCommandline(t *testing.T) {
 			"--disable=gems,did_you_mean,rubyopt",
 			"/usr/local/Homebrew/Library/Homebrew/brew.rb",
 			"upgrade",
-		}, " "), nil),
+		}, " "), somePid),
 		"brew.rb upgrade",
 	)
 }
 
 func TestGetCommandUnicode(t *testing.T) {
 	// Emoji-only command should be preserved
-	assert.Equal(t, cmdlineToCommand("😀", nil), "😀")
+	assert.Equal(t, cmdlineToCommand("😀", somePid), "😀")
 
 	// Simple unicode executable name
-	assert.Equal(t, cmdlineToCommand("/usr/local/bin/äpple", nil), "äpple")
+	assert.Equal(t, cmdlineToCommand("/usr/local/bin/äpple", somePid), "äpple")
 
 	// Python running a unicode script path -> basename
-	assert.Equal(t, cmdlineToCommand("python /usr/bin/hällo.py", nil), "hällo.py")
+	assert.Equal(t, cmdlineToCommand("python /usr/bin/hällo.py", somePid), "hällo.py")
 
 	// Ruby running a unicode script path -> basename
-	assert.Equal(t, cmdlineToCommand("ruby /some/path/тест.rb", nil), "тест.rb")
+	assert.Equal(t, cmdlineToCommand("ruby /some/path/тест.rb", somePid), "тест.rb")
 
 	// Shell running a unicode script path -> basename
-	assert.Equal(t, cmdlineToCommand("bash /some/path/ユニコード.sh", nil), "ユニコード.sh")
+	assert.Equal(t, cmdlineToCommand("bash /some/path/ユニコード.sh", somePid), "ユニコード.sh")
 }
 
 func TestGetCommandJava(t *testing.T) {
 	// Basics
-	assert.Equal(t, cmdlineToCommand("java", nil), "java")
-	assert.Equal(t, cmdlineToCommand("java -version", nil), "java")
-	assert.Equal(t, cmdlineToCommand("java -help", nil), "java")
+	assert.Equal(t, cmdlineToCommand("java", somePid), "java")
+	assert.Equal(t, cmdlineToCommand("java -version", somePid), "java")
+	assert.Equal(t, cmdlineToCommand("java -help", somePid), "java")
 
 	// Class and jar
-	assert.Equal(t, cmdlineToCommand("java SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java x.y.SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -jar flaska.jar", nil), "flaska.jar")
-	assert.Equal(t, cmdlineToCommand("java -jar /a/b/flaska.jar", nil), "flaska.jar")
+	assert.Equal(t, cmdlineToCommand("java SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java x.y.SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -jar flaska.jar", somePid), "flaska.jar")
+	assert.Equal(t, cmdlineToCommand("java -jar /a/b/flaska.jar", somePid), "flaska.jar")
 
 	// Special handling of Main
-	assert.Equal(t, cmdlineToCommand("java a.b.c.Main", nil), "c.Main")
+	assert.Equal(t, cmdlineToCommand("java a.b.c.Main", somePid), "c.Main")
 
 	// Ignore certain options
-	assert.Equal(t, cmdlineToCommand("java -server SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -Xwhatever SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -Dwhatever SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -eahej SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -dahej SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java -classpath /a/b/c SomeClass", nil), "SomeClass")
-	assert.Equal(t, cmdlineToCommand("java --enable-native-access=ALL-UNNAMED SomeClass", nil), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -server SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -Xwhatever SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -Dwhatever SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -eahej SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -dahej SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java -classpath /a/b/c SomeClass", somePid), "SomeClass")
+	assert.Equal(t, cmdlineToCommand("java --enable-native-access=ALL-UNNAMED SomeClass", somePid), "SomeClass")
 
 	// Invalid command lines
-	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c", nil), "java")
-	assert.Equal(t, cmdlineToCommand("java  ", nil), "java")
-	assert.Equal(t, cmdlineToCommand("java -jar", nil), "java")
-	assert.Equal(t, cmdlineToCommand("java -jar    ", nil), "java")
+	assert.Equal(t, cmdlineToCommand("java -cp /a/b/c", somePid), "java")
+	assert.Equal(t, cmdlineToCommand("java  ", somePid), "java")
+	assert.Equal(t, cmdlineToCommand("java -jar", somePid), "java")
+	assert.Equal(t, cmdlineToCommand("java -jar    ", somePid), "java")
 }
 
 func TestGetCommandJavaEquinox(t *testing.T) {
@@ -790,7 +792,7 @@ func TestGetCommandJavaEquinox(t *testing.T) {
 		"/Users/walles/Library/Application Support/Code/User/workspaceStorage/b8c3a38f62ce0fc92ce4edfb836480db/redhat.java/jdt_ws",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "org.eclipse.equinox.launcher_1.5.800.v20200727-1323.jar")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "org.eclipse.equinox.launcher_1.5.800.v20200727-1323.jar")
 }
 
 func TestGetCommandJavaGradled(t *testing.T) {
@@ -809,7 +811,7 @@ func TestGetCommandJavaGradled(t *testing.T) {
 		"2.8",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "GradleDaemon")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "GradleDaemon")
 }
 
 func TestGetCommandJavaGradleWorkerMain(t *testing.T) {
@@ -836,7 +838,7 @@ func TestGetCommandJavaGradleWorkerMain(t *testing.T) {
 		"'Gradle Test Executor 16'",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "GradleWorkerMain")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "GradleWorkerMain")
 }
 
 func TestGetCommandJavaLogstash(t *testing.T) {
@@ -875,7 +877,7 @@ func TestGetCommandJavaLogstash(t *testing.T) {
 		"/var/log/logstash/logstash.log",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "jruby.Main")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "jruby.Main")
 }
 
 func TestGetCommandJavaTeamCity(t *testing.T) {
@@ -902,7 +904,7 @@ func TestGetCommandJavaTeamCity(t *testing.T) {
 		"start",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "Bootstrap")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "Bootstrap")
 }
 
 func TestGetCommandLineJavaIssue139(t *testing.T) {
@@ -926,7 +928,7 @@ func TestGetCommandLineJavaIssue139(t *testing.T) {
 		"'Gradle Worker Daemon 3'",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "GradleWorkerMain")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "GradleWorkerMain")
 }
 
 func TestGetCommandLineJdkJavaOptions(t *testing.T) {
@@ -972,7 +974,7 @@ func TestGetCommandLineJdkJavaOptions(t *testing.T) {
 		"org.codehaus.plexus.classworlds.launcher.Launcher",
 	}, " ")
 
-	assert.Equal(t, cmdlineToCommand(commandline, nil), "Launcher")
+	assert.Equal(t, cmdlineToCommand(commandline, somePid), "Launcher")
 }
 
 func TestPrettifyJavaClass(t *testing.T) {
