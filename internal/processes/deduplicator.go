@@ -67,10 +67,11 @@ func (d *deduplicator) register(proc *Process) {
 	canonical := d.canonicalProcess(proc)
 	if canonical != nil {
 		proc.startTime = canonical.startTime
+		command := proc.Command()
 
 		// Known process. But does it have the same name as before?
 
-		for _, p := range d.byName[proc.Command] {
+		for _, p := range d.byName[command] {
 			if p.SameAs(proc) {
 				// Yup, same name as before, registration done
 				return
@@ -79,21 +80,23 @@ func (d *deduplicator) register(proc *Process) {
 
 		// But it seems to have changed its name! Processes do that
 		// sometimes, through exec() and other means.
-		d.byName[proc.Command] = append(d.byName[proc.Command], proc)
+		d.byName[command] = append(d.byName[command], proc)
 
 		return
 	}
 
 	// Register the process
+	command := proc.Command()
 	d.seenByPid[proc.Pid] = append(d.seenByPid[proc.Pid], proc)
-	d.byName[proc.Command] = append(d.byName[proc.Command], proc)
+	d.byName[command] = append(d.byName[command], proc)
 }
 
 // Suggest a disambiguating string for this process. Example return values could be:
 // - "" (the empty string) if there is only one of these
 // - "1" if there are multiple ones with this name, and this is the oldest one
 func (d *deduplicator) disambiguator(proc *Process) string {
-	processes := d.byName[proc.Command]
+	command := proc.Command()
+	processes := d.byName[command]
 
 	// If only one process with this name, no disambiguation needed
 	if len(processes) <= 1 {
@@ -118,7 +121,7 @@ func (d *deduplicator) disambiguator(proc *Process) string {
 		"PID %d started at %s not found in deduplicator list for command %s: %#v",
 		proc.Pid,
 		proc.startTime.String(),
-		proc.Command,
+		command,
 		sorted,
 	))
 }

@@ -157,8 +157,8 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 	appendChildren = func(p *processes.Process, depth int) {
 		children := p.Children()
 		slices.SortFunc(children, func(a, b *processes.Process) int {
-			if a.Command != b.Command {
-				return strings.Compare(strings.ToLower(a.Command), strings.ToLower(b.Command))
+			if a.Command() != b.Command() {
+				return strings.Compare(strings.ToLower(a.Command()), strings.ToLower(b.Command()))
 			}
 			return a.Pid - b.Pid
 		})
@@ -205,7 +205,7 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 }
 
 func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
-	split := proc.CommandLine()
+	split := proc.DisplayCommandLine()
 	if len(split) == 0 {
 		panic(fmt.Sprintf("process has no command line: %s", proc.String()))
 	}

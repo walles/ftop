@@ -45,13 +45,10 @@ type Process struct {
 	children []*Process
 	parent   *Process
 
-	cmdline string // "git clone git@github.com:walles/ftop.git"
-	Command string // "git"
+	Cmdline string // "git clone git@github.com:walles/ftop.git"
 
 	// "[2]", for disambiguating multiple processes with the same Command, or "" if the command is already unique
 	DeduplicationSuffix string
-
-	lowercaseCommand string // "git"
 
 	startTime time.Time
 
@@ -94,7 +91,7 @@ var uidToUsernameCache = map[int]string{}
 //
 //	bash(1234)
 func (p *Process) String() string {
-	return fmt.Sprintf("%s(%d)", p.Command, p.Pid)
+	return fmt.Sprintf("%s(%d)", p.Command(), p.Pid)
 }
 
 func (p *Process) Parent() *Process {
@@ -109,12 +106,65 @@ func (p *Process) StartTime() time.Time {
 	return p.startTime
 }
 
+func (p *Process) Command() string {
+	return cmdlineToCommand(p.Cmdline, p.Pid)
+}
+
 // Command line split into arguments, with path coalescing matching command
 // parsing. Example return value:
 //
 //	["/usr/bin/git", "clone", "git@github.com:walles/ftop.git"]
-func (p *Process) CommandLine() []string {
-	return cmdlineToSlice(p.cmdline, exists)
+//
+// If path coalescing fails, falls back to a plain space split of the raw
+// command line string. This preserves all arguments for display purposes,
+// unlike Command() which falls back to the executable name only.
+func (p *Process) DisplayCommandLine() []string {
+	commandLine, err := cmdlineToSlice(p.Cmdline, exists)
+	if err != nil {
+		// Fall back to plain space split rather than discarding arguments.
+		// Command() uses a different fallback (comm= from ps) because it needs
+		// a usable command name; here we prefer showing all args over accuracy.
+		log.Debugf("Failed to slice command line for process %d, falling back to space split: %v", p.Pid, err)
+		return strings.Fields(p.Cmdline)
+	}
+
+	return commandLine
+}
+
+// The executable name may or may not include a path, which may or may not
+// include spaces.
+func getExecutableForPid(pid int) (string, error) {
+	command := []string{
+		"/bin/ps",
+		"-p",
+		strconv.Itoa(pid),
+		"-o",
+		"comm=",
+	}
+
+	comm := ""
+	err := util.Exec(command, func(line string) error {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			return nil
+		}
+
+		if comm == "" {
+			comm = trimmed
+			return nil
+		}
+
+		return fmt.Errorf("expected one comm line, got additional line <%s>", line)
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get comm for pid %d: %w", pid, err)
+	}
+
+	if comm == "" {
+		return "", fmt.Errorf("no comm value found for pid %d", pid)
+	}
+
+	return comm, nil
 }
 
 func uidToUsername(uid int) string {
@@ -320,20 +370,17 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}
 
 	cmdline := match[9]
-	command := cmdlineToCommand(cmdline)
 
 	return &Process{
-		Pid:              pid,
-		ppid:             ppid,
-		RssKb:            rss_kb,
-		startTime:        startTime,
-		Username:         username,
-		cpuPercent:       &cpu_percent,
-		CpuTime:          &cpu_time,
-		memoryPercent:    &memory_percent,
-		cmdline:          cmdline,
-		Command:          command,
-		lowercaseCommand: strings.ToLower(command),
+		Pid:           pid,
+		ppid:          ppid,
+		RssKb:         rss_kb,
+		startTime:     startTime,
+		Username:      username,
+		cpuPercent:    &cpu_percent,
+		CpuTime:       &cpu_time,
+		memoryPercent: &memory_percent,
+		Cmdline:       cmdline,
 	}, nil
 }
 
@@ -455,7 +502,7 @@ func removeSelfChildren(processes map[int]*Process, selfPid int) {
 }
 
 func shouldHideSelfChild(child *Process) bool {
-	_, shouldHide := hiddenSelfChildCommands[child.Command]
+	_, shouldHide := hiddenSelfChildCommands[child.Command()]
 	return shouldHide
 }
 

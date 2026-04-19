@@ -63,12 +63,14 @@ func TestProcessesByScore_mixed(t *testing.T) {
 // list, since that's what I would expect from top.
 func TestProcessesByScore_TieBreak_CPUOverMem(t *testing.T) {
 	muchCpuLittleMem := processes.Process{
-		Command: "most CPU",
+		Pid:     101,
+		Cmdline: "mostCPU",
 		RssKb:   100,
 		CpuTime: toDurationPointer(300 * time.Second),
 	}
 	muchMemAboveAverageCpu := processes.Process{
-		Command: "most mem",
+		Pid:     102,
+		Cmdline: "mostMem",
 		RssKb:   300,
 		CpuTime: toDurationPointer(200 * time.Second),
 	}
@@ -80,8 +82,8 @@ func TestProcessesByScore_TieBreak_CPUOverMem(t *testing.T) {
 		}
 	})
 
-	assert.Equal(t, sorted[0].Command, "most CPU")
-	assert.Equal(t, sorted[1].Command, "most mem")
+	assert.Equal(t, sorted[0].Command(), "mostCPU")
+	assert.Equal(t, sorted[1].Command(), "mostMem")
 
 	// Try the other direction
 	sorted = SortByScore([]processes.Process{muchCpuLittleMem, muchMemAboveAverageCpu}, func(p processes.Process) stats {
@@ -91,8 +93,8 @@ func TestProcessesByScore_TieBreak_CPUOverMem(t *testing.T) {
 		}
 	})
 
-	assert.Equal(t, sorted[0].Command, "most CPU")
-	assert.Equal(t, sorted[1].Command, "most mem")
+	assert.Equal(t, sorted[0].Command(), "mostCPU")
+	assert.Equal(t, sorted[1].Command(), "mostMem")
 }
 
 func toDurationPointer(d time.Duration) *time.Duration {

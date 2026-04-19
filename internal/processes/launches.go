@@ -41,12 +41,12 @@ func incrementLaunchCount(root *LaunchNode, newlyLaunched *Process) *LaunchNode 
 
 	commands := make([]string, 0, len(ancestry))
 	for _, process := range ancestry {
-		commands = append(commands, process.Command)
+		commands = append(commands, process.Command())
 	}
 
 	rootCommand := launchRootFallbackCommand
 	if ancestry[0].Pid == initProcessPid {
-		rootCommand = ancestry[0].Command
+		rootCommand = ancestry[0].Command()
 	} else {
 		if root != nil {
 			rootCommand = root.Command

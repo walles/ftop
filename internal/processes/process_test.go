@@ -46,8 +46,7 @@ func TestGetAll(t *testing.T) {
 	// Validate ppid field
 	assert.Equal(t, os.Getppid(), self.ppid)
 
-	assert.Equal(t, true, self.Command == "processes.test" || strings.Contains(self.Command, "debug"))
-	assert.Equal(t, self.lowercaseCommand, strings.ToLower(self.Command))
+	assert.Equal(t, true, self.Command() == "processes.test" || strings.Contains(self.Command(), "debug"))
 
 	// Validate Username field
 	assert.Equal(t, self.Username, util.GetCurrentUsername())
@@ -73,7 +72,7 @@ func TestGetAll(t *testing.T) {
 
 	assert.SlicesEqual(t, self.children, []*Process{})
 
-	assert.Equal(t, true, len(self.cmdline) > 0)
+	assert.Equal(t, true, len(self.Cmdline) > 0)
 
 	assert.Equal(t, true, *self.cpuPercent >= 0)
 
@@ -94,10 +93,10 @@ func TestGetAll(t *testing.T) {
 }
 
 func TestRemoveSelfChildren_HidesHelpersButKeepsInteractiveChildren(t *testing.T) {
-	self := &Process{Pid: 100, Command: "ftop"}
-	pager := &Process{Pid: 101, Command: "less", parent: self}
-	editor := &Process{Pid: 102, Command: "Code", parent: pager}
-	helper := &Process{Pid: 103, Command: "ps", parent: self}
+	self := &Process{Pid: 100, Cmdline: "ftop"}
+	pager := &Process{Pid: 101, Cmdline: "less", parent: self}
+	editor := &Process{Pid: 102, Cmdline: "Code", parent: pager}
+	helper := &Process{Pid: 103, Cmdline: "ps", parent: self}
 
 	self.children = []*Process{pager, helper}
 	pager.children = []*Process{editor}
@@ -126,12 +125,12 @@ func TestRemoveSelfChildren_HidesHelpersButKeepsInteractiveChildren(t *testing.T
 }
 
 func TestShouldHideSelfChild(t *testing.T) {
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Command: "ps"}))
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Command: "netstat"}))
-	assert.Equal(t, true, shouldHideSelfChild(&Process{Command: "iostat"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 101, Cmdline: "ps"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 102, Cmdline: "netstat"}))
+	assert.Equal(t, true, shouldHideSelfChild(&Process{Pid: 103, Cmdline: "iostat"}))
 
-	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "nano"}))
-	assert.Equal(t, false, shouldHideSelfChild(&Process{Command: "Code"}))
+	assert.Equal(t, false, shouldHideSelfChild(&Process{Pid: 104, Cmdline: "nano"}))
+	assert.Equal(t, false, shouldHideSelfChild(&Process{Pid: 105, Cmdline: "Code"}))
 }
 
 func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
@@ -146,9 +145,8 @@ func TestPsLineToProcess_HappyPathMacOS(t *testing.T) {
 	assert.Equal(t, proc.RssKb, 588)
 	assert.Equal(t, proc.startTime, snapshotTime)
 	assert.Equal(t, proc.Username, uidToUsername(501))
-	assert.Equal(t, proc.Command, "sleep")
-	assert.Equal(t, proc.cmdline, "/bin/sleep")
-	assert.Equal(t, proc.lowercaseCommand, "sleep")
+	assert.Equal(t, proc.Command(), "sleep")
+	assert.Equal(t, proc.Cmdline, "/bin/sleep")
 
 	assert.Equal(t, true, proc.cpuPercent != nil)
 	assert.Equal(t, *proc.cpuPercent, 0.0)
@@ -172,9 +170,8 @@ func TestPsLineToProcess_HappyPathLinux(t *testing.T) {
 	assert.Equal(t, proc.RssKb, 3196)
 	assert.Equal(t, proc.startTime, snapshotTime.Add(-21*time.Second))
 	assert.Equal(t, proc.Username, uidToUsername(0))
-	assert.Equal(t, proc.Command, "bash")
-	assert.Equal(t, proc.cmdline, "bash")
-	assert.Equal(t, proc.lowercaseCommand, "bash")
+	assert.Equal(t, proc.Command(), "bash")
+	assert.Equal(t, proc.Cmdline, "bash")
 
 	assert.Equal(t, true, proc.cpuPercent != nil)
 	assert.Equal(t, *proc.cpuPercent, 0.1)
@@ -238,7 +235,7 @@ func TestPsLineToProcess_MalformedElapsedTime(t *testing.T) {
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, proc.Pid, 24381)
-	assert.Equal(t, proc.Command, "netstat")
+	assert.Equal(t, proc.Command(), "netstat")
 	assert.Equal(t, proc.startTime, snapshotTime)
 }
 
@@ -253,4 +250,20 @@ func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {
 	assert.Equal(t, proc.SameAs(withinTolerance), true)
 	assert.Equal(t, proc.SameAs(tooFarAway), false)
 	assert.Equal(t, proc.SameAs(otherPid), false)
+}
+
+func TestGetExecutableForPid_Self(t *testing.T) {
+	executable, err := getExecutableForPid(os.Getpid())
+	assert.Equal(t, err, nil)
+	assert.Equal(t, strings.TrimSpace(executable) != "", true)
+}
+
+func TestProcessCommandLine_PreservesArgsOnInvalidCoalescingInput(t *testing.T) {
+	process := &Process{
+		Pid:     os.Getpid(),
+		Cmdline: "/tmp/\x00 broken",
+	}
+
+	commandLine := process.DisplayCommandLine()
+	assert.SlicesEqual(t, commandLine, []string{"/tmp/\x00", "broken"})
 }

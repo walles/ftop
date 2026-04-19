@@ -61,7 +61,7 @@ func (u *Ui) renderThreeProcessPanes(processesRaw []processes.Process, y0 int, y
 	pickedCommand := ""
 	if u.pickedProcess != nil {
 		pickedUsername = u.pickedProcess.Username
-		pickedCommand = u.pickedProcess.Command
+		pickedCommand = u.pickedProcess.Command()
 	}
 
 	u.renderProcesses(0, y0, rightPerProcessBorderColumn, y1, table, widths, processes)
@@ -162,7 +162,7 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 
 		row := []string{
 			fmt.Sprintf("%d", p.Pid),
-			p.Command + p.DeduplicationSuffix,
+			p.Command() + p.DeduplicationSuffix,
 			p.Username,
 			p.CpuPercentString(),
 			p.CpuTimeString(),
@@ -200,7 +200,7 @@ func (u *Ui) createProcessesTable(processesRaw []processes.Process, processesHei
 		usersTable = append(usersTable, make([]string, 3))
 	}
 
-	commands := aggregate(processesRaw, func(p processes.Process) string { return p.Command }, func(stat stats) commandStats {
+	commands := aggregate(processesRaw, func(p processes.Process) string { return p.Command() }, func(stat stats) commandStats {
 		return commandStats{stats: stat}
 	})
 	commands = SortByScore(commands, func(b commandStats) stats {
@@ -354,10 +354,10 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		shouldHighlightCommand := false
 		shouldHighlightUser := false
 		if process != nil {
-			commandCells = renderCommand(process.Command, process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
+			commandCells = renderCommand(process.Command(), process.DeduplicationSuffix, widths[1], userRamp.AtInt(y))
 
 			thisIsThePickedProcess := u.pickedLine != nil && *u.pickedLine == rowIndex-1
-			commandIsSameAsPicked := u.pickedProcess != nil && process.Command == u.pickedProcess.Command
+			commandIsSameAsPicked := u.pickedProcess != nil && process.Command() == u.pickedProcess.Command()
 			userIsSameAsPicked := u.pickedProcess != nil && process.Username == u.pickedProcess.Username
 			shouldHighlightCommand = !thisIsThePickedProcess && commandIsSameAsPicked
 			shouldHighlightUser = !thisIsThePickedProcess && userIsSameAsPicked && u.pickedProcess.Username != veryCommonUsername

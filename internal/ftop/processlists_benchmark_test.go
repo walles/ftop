@@ -18,7 +18,7 @@ func makeBenchmarkProcesses(count int) []processes.Process {
 
 		process := processes.Process{
 			Pid:      1000 + i,
-			Command:  fmt.Sprintf("bench-cmd-%d", i%40),
+			Cmdline:  fmt.Sprintf("bench-cmd-%d", i%40),
 			Username: "bench-user",
 			RssKb:    ((i * 73) % 900000) + 512,
 			CpuTime:  &cpuTime,

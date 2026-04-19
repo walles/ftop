@@ -19,7 +19,7 @@ func TestRender_ShowsProcessInfoPaneImmediatelyFromPickedLine(t *testing.T) {
 	ui.pickedProcess = nil
 
 	processesRaw := []processes.Process{
-		{Pid: 42, Command: "picked", Username: "testuser", RssKb: 1000, CpuTime: toDuration(100)},
+		{Pid: 42, Cmdline: "picked", Username: "testuser", RssKb: 1000, CpuTime: toDuration(100)},
 	}
 
 	ui.Render(processesRaw, nil, nil)

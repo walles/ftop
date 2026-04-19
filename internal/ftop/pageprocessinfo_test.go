@@ -25,7 +25,7 @@ func TestUsersLoggedInWhenProcessStartedForPaging(t *testing.T) {
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
 	pt := pageText{}
 
-	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Command: "picked"}, &pt)
+	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
 
 	assert.Equal(t, stringsContains(pt.String(), "Users logged in when picked(42) started"), true)
 	assert.Equal(t, stringsContains(pt.String(), "\nalice\n"), true)
@@ -46,7 +46,7 @@ func TestUsersLoggedInWhenProcessStartedForPagingShowsErrors(t *testing.T) {
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
 	pt := pageText{}
 
-	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Command: "picked"}, &pt)
+	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
 
 	assert.Equal(t, stringsContains(pt.String(), "\n<Unable to inspect login history: boom>\n"), true)
 	assert.Equal(t, stringsContains(pt.String(), "\n  <Unable to inspect login history: boom>\n"), false)

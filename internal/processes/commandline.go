@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,6 +24,15 @@ var PERL_BIN = regexp.MustCompile(`^perl[.0-9]*$`)
 
 // From command line to command name
 var commandCache = make(map[string]string)
+
+type existence byte
+
+const (
+	existenceFalse existence = iota
+	existenceTrue
+	existenceNotYet
+	existenceError // Can't tell whether this exists or not
+)
 
 // Extract a potential file path from the end of a string.
 //
@@ -66,49 +76,55 @@ func getTrailingAbsolutePath(partialCmdline string) *string {
 //
 // Return values:
 //
-//   - true: Coalesce, done
-//   - false: Do not coalesce, done
-//   - nil: Undecided, add another part and try again
-func shouldCoalesce(parts []string, exists func(string) *bool) *bool {
+//   - existenceTrue: Coalesce, done
+//   - existenceFalse: Do not coalesce, done
+//   - existenceNotYet: Undecided, add another part and try again
+//   - existenceError: Cannot determine, propagate up
+func shouldCoalesce(parts []string, exists func(string) existence) existence {
 	last := parts[len(parts)-1]
 	if strings.HasPrefix(last, "-") || strings.HasPrefix(last, "/") {
 		// Last part starts a command line option or a new absolute path, don't
 		// coalesce.
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	coalesced := strings.Join(parts, " ")
 	candidatePtr := getTrailingAbsolutePath(coalesced)
 	if candidatePtr == nil {
 		// This is not a candidate for coalescing
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	return exists(*candidatePtr)
 }
 
 // How many parts should be coalesced?
-func coalesceCount(parts []string, exists func(string) *bool) int {
+func coalesceCount(parts []string, exists func(string) existence) (int, error) {
 	for coalesceCount := 2; coalesceCount <= len(parts); coalesceCount++ {
 		should := shouldCoalesce(parts[0:coalesceCount], exists)
 
-		if should == nil {
+		if should == existenceNotYet {
 			// Undecided, keep looking
 			continue
 		}
 
-		if !*should {
-			return 1
+		if should == existenceError {
+			return 0, fmt.Errorf("failed to check path existence while slicing command line")
 		}
 
-		// should == true
-		return coalesceCount
+		if should == existenceFalse {
+			return 1, nil
+		}
+
+		if should != existenceTrue {
+			panic(fmt.Errorf("unsupported coalescing state: %v", should))
+		}
+
+		return coalesceCount, nil
 	}
 
 	// Undecided until the end, this means no coalescing should be done
-	return 1
+	return 1, nil
 }
 
 func isFileNameTooLong(err error) bool {
@@ -120,48 +136,43 @@ func isFileNameTooLong(err error) bool {
 	return pathErr.Err == syscall.ENAMETOOLONG
 }
 
-// Helper function for keeping cmdlineToSlice testable.
-//
-// Return values:
-// - true: File exists
-// - nil: File does not exist, but if you add more parts it might show up
-// - false: File does not exist, and adding more parts will not help
-func exists(path string) *bool {
+// Helper function for keeping cmdlineToSlice testable
+func exists(path string) existence {
 	_, err := os.Stat(path)
 	if err == nil {
-		res := true
-		return &res
+		return existenceTrue
 	}
 
 	// Not there, at least not yet
 
 	if isFileNameTooLong(err) {
 		// Not a valid file name, back off!
-		res := false
-		return &res
+		return existenceFalse
 	}
 
 	if !os.IsNotExist(err) {
-		// Unexpected error
-		log.Debugf("Failed to check file existence: %v", err)
-
-		// Who knows what to return here? False is the safe option that prevents
-		// coalescing.
-		res := false
-		return &res
+		return existenceError
 	}
 
 	// File does not exist, but could it if we got more parts?
 	parent := filepath.Dir(path)
 	parentExists := exists(parent)
-	if parentExists != nil && *parentExists {
+	switch parentExists {
+	case existenceTrue:
 		// Parent exists, maybe the file will show up if we add more parts
-		return nil
+		return existenceNotYet
+	case existenceFalse:
+		// Parent does not exist, this is not it
+		return existenceFalse
+	case existenceError:
+		// Cannot check parent, propagate the error
+		return existenceError
+	case existenceNotYet:
+		// The parent did not exist
+		return existenceFalse
+	default:
+		panic(fmt.Errorf("unsupported parent existence state: %v", parentExists))
 	}
-
-	// Parent does not exist, this is not it
-	res := false
-	return &res
 }
 
 // Convert "ls dir/" into ["ls", "dir/"]. Also handle spaces, so it can convert
@@ -169,41 +180,44 @@ func exists(path string) *bool {
 //
 // The exists function is called to check if a path exists on the filesystem. It
 // is a parameter of its own for testability reasons.
-func cmdlineToSlice(cmdline string, exists func(string) *bool) []string {
+func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, error) {
 	baseSplit := strings.Split(cmdline, " ")
 	if len(baseSplit) == 1 {
-		return baseSplit
+		return baseSplit, nil
 	}
 
 	merged := make([]string, 0, len(baseSplit))
 	for i := 0; i < len(baseSplit); {
-		cc := coalesceCount(baseSplit[i:], exists)
+		cc, err := coalesceCount(baseSplit[i:], exists)
+		if err != nil {
+			return nil, err
+		}
+
 		merged = append(merged, strings.Join(baseSplit[i:i+cc], " "))
 		i += cc
 	}
 
-	return merged
+	return merged, nil
 }
 
-func cmdlineToCommand(cmdline string) string {
+// Convert a command line string into a command name. Examples:
+//   - "ls dir/" -> "ls"
+//   - "java -jar myapp.jar" -> "myapp.jar"
+//   - "sh -c cd /some/dir && echo hello" -> "echo"
+func cmdlineToCommand(cmdline string, pid int) string {
 	cached, found := commandCache[cmdline]
 	if found {
 		return cached
 	}
 
-	result := cmdlineToCommandInternal(cmdline)
+	result := cmdlineToCommandInternal(cmdline, pid)
 	commandCache[cmdline] = result
 	return result
 }
 
-// Extracts the command from the command line.
-//
-// This function most often returns the first component of the command line with
-// the path stripped away.
-//
-// For some language runtimes, this function may return the name of the program
-// that the runtime is executing.
-func cmdlineToCommandInternal(cmdline string) string {
+// If cmdline slicing fails, we fall back to ps -o comm= for that PID. And if
+// that fails, we fall back to whitespace splitting.
+func cmdlineToCommandInternal(cmdline string, pid int) string {
 	if LINUX_KERNEL_PROC.MatchString(cmdline) {
 		return cmdline
 	}
@@ -212,8 +226,21 @@ func cmdlineToCommandInternal(cmdline string) string {
 		return cmdline
 	}
 
-	argv := cmdlineToSlice(cmdline, exists)
-	return argvToCommand(argv)
+	argv, err := cmdlineToSlice(cmdline, exists)
+	if err == nil {
+		return argvToCommand(argv)
+	}
+
+	log.Infof("Failed to slice command line for command parsing for process %d, falling back to comm=: %v", pid, err)
+
+	executable, executableErr := getExecutableForPid(pid)
+	if executableErr == nil {
+		return argvToCommand([]string{executable})
+	}
+
+	log.Infof("Failed to get comm= for process %d, falling back to space split command parsing: %v, cmdline=<%s>", pid, executableErr, cmdline)
+
+	return argvToCommand(strings.Fields(cmdline))
 }
 
 // Convert "sh -c cd /some/dir && echo hello" to just "echo hello".
@@ -237,6 +264,10 @@ func stripShellPrefix(argv []string) []string {
 }
 
 func argvToCommand(argv []string) string {
+	if len(argv) == 0 {
+		return ""
+	}
+
 	argv = stripShellPrefix(argv)
 	command := filepath.Base(argv[0])
 

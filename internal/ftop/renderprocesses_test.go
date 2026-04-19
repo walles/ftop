@@ -11,12 +11,12 @@ import (
 
 func TestCreateProcessTable(t *testing.T) {
 	sortedProcs := []processes.Process{
-		{Pid: 6, Command: "six", Username: "six", RssKb: 60, CpuTime: toDuration(60)},
-		{Pid: 5, Command: "five", Username: "five", RssKb: 50, CpuTime: toDuration(50)},
-		{Pid: 4, Command: "four", Username: "four", RssKb: 40, CpuTime: toDuration(40)},
-		{Pid: 3, Command: "three", Username: "three", RssKb: 30, CpuTime: toDuration(30)},
-		{Pid: 2, Command: "two", Username: "two", RssKb: 20, CpuTime: toDuration(20)},
-		{Pid: 1, Command: "one", Username: "one", RssKb: 10, CpuTime: toDuration(10)},
+		{Pid: 6, Cmdline: "six", Username: "six", RssKb: 60, CpuTime: toDuration(60)},
+		{Pid: 5, Cmdline: "five", Username: "five", RssKb: 50, CpuTime: toDuration(50)},
+		{Pid: 4, Cmdline: "four", Username: "four", RssKb: 40, CpuTime: toDuration(40)},
+		{Pid: 3, Cmdline: "three", Username: "three", RssKb: 30, CpuTime: toDuration(30)},
+		{Pid: 2, Cmdline: "two", Username: "two", RssKb: 20, CpuTime: toDuration(20)},
+		{Pid: 1, Cmdline: "one", Username: "one", RssKb: 10, CpuTime: toDuration(10)},
 	}
 
 	var u Ui
