@@ -189,7 +189,6 @@ func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, er
 	for i := 0; i < len(baseSplit); {
 		cc, err := coalesceCount(baseSplit[i:], exists)
 		if err != nil {
-			// FIXME: Check all callers that they handle this error well
 			return nil, err
 		}
 
