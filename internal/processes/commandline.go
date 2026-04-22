@@ -101,7 +101,8 @@ func shouldCoalesce(parts []string, exists func(string) existence) existence {
 // How many parts should be coalesced?
 func coalesceCount(parts []string, exists func(string) existence) (int, error) {
 	for coalesceCount := 2; coalesceCount <= len(parts); coalesceCount++ {
-		should := shouldCoalesce(parts[0:coalesceCount], exists)
+		candidate := parts[0:coalesceCount]
+		should := shouldCoalesce(candidate, exists)
 
 		if should == existenceNotYet {
 			// Undecided, keep looking
@@ -109,18 +110,18 @@ func coalesceCount(parts []string, exists func(string) existence) (int, error) {
 		}
 
 		if should == existenceError {
-			return 0, fmt.Errorf("failed to check path existence while slicing command line")
+			return 0, fmt.Errorf("failed to check path existence while slicing command line: %s", strings.Join(candidate, " "))
 		}
 
 		if should == existenceFalse {
 			return 1, nil
 		}
 
-		if should != existenceTrue {
-			panic(fmt.Errorf("unsupported coalescing state: %v", should))
+		if should == existenceTrue {
+			return coalesceCount, nil
 		}
 
-		return coalesceCount, nil
+		panic(fmt.Errorf("unsupported coalescing state: %v", should))
 	}
 
 	// Undecided until the end, this means no coalescing should be done
