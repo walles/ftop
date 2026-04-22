@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/walles/ftop/internal/log"
+	"github.com/walles/ftop/internal/util"
 )
 
 type Tracker struct {
@@ -33,7 +34,26 @@ func NewTracker() *Tracker {
 			log.PanicHandler("process tracker", recover(), debug.Stack())
 		}()
 		tracker.update() // Initial update
-		for range time.NewTicker(time.Second).C {
+
+		interval := 1 * time.Second
+		for {
+			t0 := time.Now()
+			time.Sleep(interval)
+			sleepDuration := time.Since(t0)
+			if sleepDuration > interval*2 {
+				// This can happen on mac laptops when they go to sleep. And in
+				// that situation, ps (as run by tracker.update() below) can
+				// take a very long time. Which will mess up process start time
+				// calculations. And when start times are off, that will mess up
+				// PID reuse detection, leading to us claiming a lot of new
+				// processes recently showed up, even though that never
+				// happened.
+				//
+				// So let's just wait another interval to save us some trouble.
+				log.Debugf("Sleeping %s took %s, retrying...", util.FormatDuration(interval), util.FormatDuration(sleepDuration))
+				continue
+			}
+
 			tracker.update()
 		}
 	}()
