@@ -107,7 +107,7 @@ func (p *Process) StartTime() time.Time {
 }
 
 func (p *Process) Command() string {
-	return cmdlineToCommand(p.Cmdline, p.Pid)
+	return cmdlineToCommand(p.Cmdline, p.Pid, p.Username)
 }
 
 // Command line split into arguments, with path coalescing matching command

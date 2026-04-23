@@ -205,20 +205,20 @@ func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, er
 //   - "ls dir/" -> "ls"
 //   - "java -jar myapp.jar" -> "myapp.jar"
 //   - "sh -c cd /some/dir && echo hello" -> "echo"
-func cmdlineToCommand(cmdline string, pid int) string {
+func cmdlineToCommand(cmdline string, pid int, user string) string {
 	cached, found := commandCache[cmdline]
 	if found {
 		return cached
 	}
 
-	result := cmdlineToCommandInternal(cmdline, pid)
+	result := cmdlineToCommandInternal(cmdline, pid, user)
 	commandCache[cmdline] = result
 	return result
 }
 
 // If cmdline slicing fails, we fall back to ps -o comm= for that PID. And if
 // that fails, we fall back to whitespace splitting.
-func cmdlineToCommandInternal(cmdline string, pid int) string {
+func cmdlineToCommandInternal(cmdline string, pid int, user string) string {
 	if LINUX_KERNEL_PROC.MatchString(cmdline) {
 		return cmdline
 	}
@@ -232,14 +232,14 @@ func cmdlineToCommandInternal(cmdline string, pid int) string {
 		return argvToCommand(argv)
 	}
 
-	log.Infof("Failed to slice command line for PID %d, falling back to comm=: %v", pid, err)
+	log.Infof("Failed to slice command line for PID %d (%s), falling back to comm=: %v", pid, user, err)
 
 	executable, executableErr := getExecutableForPid(pid)
 	if executableErr == nil {
 		return argvToCommand([]string{executable})
 	}
 
-	log.Infof("Failed to get comm= for PID %d, falling back to space split: %v, cmdline=<%s>", pid, executableErr, cmdline)
+	log.Infof("Failed to get comm= for PID %d (%s), falling back to space split: %v, cmdline=<%s>", pid, user, executableErr, cmdline)
 
 	return argvToCommand(strings.Fields(cmdline))
 }
