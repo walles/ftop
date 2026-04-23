@@ -110,7 +110,7 @@ func coalesceCount(parts []string, exists func(string) existence) (int, error) {
 		}
 
 		if should == existenceError {
-			return 0, fmt.Errorf("failed to check path existence while slicing command line: %s", strings.Join(candidate, " "))
+			return 0, fmt.Errorf("failed to check path existence: %s", strings.Join(candidate, " "))
 		}
 
 		if should == existenceFalse {
@@ -232,14 +232,14 @@ func cmdlineToCommandInternal(cmdline string, pid int) string {
 		return argvToCommand(argv)
 	}
 
-	log.Infof("Failed to slice command line for command parsing for process %d, falling back to comm=: %v", pid, err)
+	log.Infof("Failed to slice command line for PID %d, falling back to comm=: %v", pid, err)
 
 	executable, executableErr := getExecutableForPid(pid)
 	if executableErr == nil {
 		return argvToCommand([]string{executable})
 	}
 
-	log.Infof("Failed to get comm= for process %d, falling back to space split command parsing: %v, cmdline=<%s>", pid, executableErr, cmdline)
+	log.Infof("Failed to get comm= for PID %d, falling back to space split: %v, cmdline=<%s>", pid, executableErr, cmdline)
 
 	return argvToCommand(strings.Fields(cmdline))
 }
