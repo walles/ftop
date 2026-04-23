@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/assert"
 )
 
-func TestBuildProcessMatches_IgnoresGlobalShiftWithIdenticalSubsecondDelta(t *testing.T) {
+func TestBuildProcessMatches_BailsOnTimeAnomaly(t *testing.T) {
 	base := time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC)
 
 	old1 := &Process{Pid: 101, startTime: base, Cmdline: "cmd1"}
@@ -37,19 +37,7 @@ func TestBuildProcessMatches_IgnoresGlobalShiftWithIdenticalSubsecondDelta(t *te
 		new4.Pid: new4,
 	}
 
-	matches := buildProcessMatches(previous, current)
-
-	assert.Equal(t, len(matches.Matched), 3)
-	assert.Equal(t, len(matches.Gone), 1)
-	assert.Equal(t, len(matches.New), 1)
-
-	assert.Equal(t, matches.Matched[101].Old, old1)
-	assert.Equal(t, matches.Matched[101].New, new1)
-	assert.Equal(t, matches.Matched[102].Old, old2)
-	assert.Equal(t, matches.Matched[102].New, new2)
-	assert.Equal(t, matches.Matched[104].Old, old4)
-	assert.Equal(t, matches.Matched[104].New, new4)
-
-	assert.Equal(t, matches.Gone[0], old3)
-	assert.Equal(t, matches.New[0], new3)
+	_, err := buildProcessMatches(previous, current)
+	_, isTimeAnomaly := err.(timeAnomalyError)
+	assert.Equal(t, isTimeAnomaly, true)
 }

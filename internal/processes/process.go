@@ -384,6 +384,11 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}, nil
 }
 
+// Inconsistent times reported. Can indicate hibernation on laptops. Process
+// start times would be off, so let's just not report anything right now. Later
+// should work.
+type timeAnomalyError error
+
 func GetAll() ([]*Process, error) {
 	command := []string{
 		"/bin/ps",
@@ -392,44 +397,27 @@ func GetAll() ([]*Process, error) {
 		"pid=,ppid=,rss=,etime=,uid=,pcpu=,time=,%mem=,command=",
 	}
 
-	var processes map[int]*Process
-	var slowDurations []string
-	for attempt := 1; ; attempt++ {
-		processes = make(map[int]*Process, 0)
+	processes := make(map[int]*Process, 0)
 
-		startedAt := time.Now()
-		err := util.Exec(command, func(line string) error {
-			proc, err := psLineToProcess(line, startedAt)
-			if err != nil {
-				return err
-			}
-
-			processes[proc.Pid] = proc
-			return nil
-		})
-
+	startedAt := time.Now()
+	err := util.Exec(command, func(line string) error {
+		proc, err := psLineToProcess(line, startedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get process list: %v", err)
+			return err
 		}
 
-		duration := time.Since(startedAt)
-		if duration <= MAX_PS_DURATION {
-			break
-		}
+		processes[proc.Pid] = proc
+		return nil
+	})
 
-		// We can get here if the system has been hibernated and resumed,
-		// causing the clock to jump forward while ps is running.
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process list: %v", err)
+	}
 
-		slowDurations = append(slowDurations, util.FormatDuration(duration))
-
-		if attempt >= 5 {
-			return nil, fmt.Errorf(
-				"ps command exceeded limit of %s on all %d attempts (durations: %s)",
-				util.FormatDuration(MAX_PS_DURATION),
-				attempt,
-				strings.Join(slowDurations, ", "),
-			)
-		}
+	if time.Since(startedAt) > MAX_PS_DURATION {
+		return nil, timeAnomalyError(fmt.Errorf("ps command took %s, max allowed is %s",
+			util.FormatDuration(time.Since(startedAt)),
+			util.FormatDuration(MAX_PS_DURATION)))
 	}
 
 	// Resolve parent-child relationships

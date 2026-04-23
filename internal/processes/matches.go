@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -38,7 +39,7 @@ type mismatchEntry struct {
 
 // Match processes between previous and current frames, categorizing them as
 // matched, gone, or new.
-func buildProcessMatches(previous, current map[int]*Process) ProcessMatching {
+func buildProcessMatches(previous, current map[int]*Process) (ProcessMatching, error) {
 	matching := ProcessMatching{
 		Matched:      make(map[int]ProcessMatch, len(previous)),
 		Gone:         make([]*Process, 0),
@@ -73,31 +74,15 @@ func buildProcessMatches(previous, current map[int]*Process) ProcessMatching {
 		bySubsecondDelta[key] = append(bySubsecondDelta[key], i)
 	}
 
-	anomalyIndices := make(map[int]bool)
 	for _, indices := range bySubsecondDelta {
-		if len(indices) < 2 {
-			continue
-		}
-
-		for _, i := range indices {
-			anomalyIndices[i] = true
+		if len(indices) > 1 {
+			return ProcessMatching{}, timeAnomalyError(fmt.Errorf(
+				"%d mismatches share the same sub-second delta, indicating a time anomaly",
+				len(indices)))
 		}
 	}
 
-	if len(anomalyIndices) > 0 {
-		log.Infof(
-			"Ignoring %d/%d SameAs() mismatches: identical sub-second delta indicates a global etime shift",
-			len(anomalyIndices),
-			len(mismatches),
-		)
-	}
-
-	for i, m := range mismatches {
-		if anomalyIndices[i] {
-			matching.Matched[m.old.Pid] = ProcessMatch{Old: m.old, New: m.new}
-			continue
-		}
-
+	for _, m := range mismatches {
 		log.Infof(
 			"SameAs() mismatch:\n  old=%s startTime=%s ppid=%d children=%v\n  new=%s startTime=%s ppid=%d children=%v\n  delta=%s",
 			m.old.String(),
@@ -122,5 +107,5 @@ func buildProcessMatches(previous, current map[int]*Process) ProcessMatching {
 		matching.New = append(matching.New, newProc)
 	}
 
-	return matching
+	return matching, nil
 }

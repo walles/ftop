@@ -32,7 +32,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)
@@ -63,7 +63,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)
@@ -94,7 +94,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)
@@ -125,7 +125,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)
@@ -155,7 +155,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)
@@ -202,7 +202,7 @@ func TestPreserveDyingProcessCommands(t *testing.T) {
 		}
 
 		currentByPid := map[int]*Process{current[0].Pid: current[0]}
-		matches := buildProcessMatches(previous, currentByPid)
+		matches, _ := buildProcessMatches(previous, currentByPid)
 
 		// Apply preservation logic
 		preserveDyingProcessCommands(matches)

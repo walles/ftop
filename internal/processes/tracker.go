@@ -61,10 +61,19 @@ func NewTracker() *Tracker {
 	return tracker
 }
 
+func isFatal(err error) bool {
+	_, isTimeAnomaly := err.(timeAnomalyError)
+	return !isTimeAnomaly
+}
+
 func (tracker *Tracker) update() {
 	procs, err := GetAll()
 	if err != nil {
-		log.Errorf("Process tracker refresh failed, keeping previous snapshot: %v", err)
+		if isFatal(err) {
+			log.Errorf("Process tracker refresh failed, keeping previous snapshot: %v", err)
+		} else {
+			log.Debugf("Process tracker refresh had a time anomaly, keeping previous snapshot: %v", err)
+		}
 		return
 	}
 
@@ -75,7 +84,15 @@ func (tracker *Tracker) update() {
 
 	var matches ProcessMatching
 	if tracker.current != nil {
-		matches = buildProcessMatches(tracker.current, procsMap)
+		matches, err = buildProcessMatches(tracker.current, procsMap)
+		if err != nil {
+			if isFatal(err) {
+				log.Errorf("Process tracker refresh failed, keeping previous snapshot: %v", err)
+			} else {
+				log.Debugf("Process tracker refresh had a time anomaly, keeping previous snapshot: %v", err)
+			}
+			return
+		}
 	}
 
 	// Restore original commands for dying processes
