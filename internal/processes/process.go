@@ -75,8 +75,8 @@ var PS_LINE = regexp.MustCompile(
 // Match + group: "1:02.03"
 var CPU_DURATION_OSX = regexp.MustCompile(`^([0-9]+):([0-9][0-9]\.[0-9]+)$`)
 
-// Match + group: "00:21" and malformed "00:-1"
-var ELAPSED_DURATION_MINUTES = regexp.MustCompile(`^([0-9]+):(-?[0-9]+)$`)
+// Match + group: "00:21", malformed "00:-1" and malformed "-14:-1"
+var ELAPSED_DURATION_MINUTES = regexp.MustCompile(`^(-?[0-9]+):(-?[0-9]+)$`)
 
 // Match + group: "01:23:45"
 var CPU_DURATION_LINUX = regexp.MustCompile(`^([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
@@ -262,10 +262,6 @@ func parseElapsedDuration(durationString string) (time.Duration, error) {
 		}
 
 		totalSeconds := (minutes * 60) + seconds
-		if totalSeconds < 0 {
-			return 0, nil
-		}
-
 		return time.Duration(totalSeconds) * time.Second, nil
 	}
 
@@ -342,6 +338,11 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	elapsed, err := parseElapsedDuration(elapsedString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", match[4], line, err)
+	}
+
+	if elapsed < 0 {
+		log.Debugf("/bin/ps reported process elapsed time <%s> in the future by %s from line <%s>",
+			elapsedString, util.FormatDuration(elapsed.Abs()), line)
 	}
 
 	// startTime comes from ps wall-clock data, so strip any monotonic component

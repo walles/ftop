@@ -236,7 +236,30 @@ func TestPsLineToProcess_MalformedElapsedTime(t *testing.T) {
 
 	assert.Equal(t, proc.Pid, 24381)
 	assert.Equal(t, proc.Command(), "netstat")
-	assert.Equal(t, proc.startTime, snapshotTime)
+	assert.Equal(t, proc.startTime, snapshotTime.Add(time.Second))
+}
+
+// This odd input has been observed from macOS /bin/ps in the wild, where etime
+// can temporarily look like "-14:-1" during sleep / darkwake cycles.
+//
+// We keep this test to ensure one malformed process does not break refreshes:
+// it should parse, be kept, and get a future startTime that the UI can mark as
+// uncertain instead of dropping the whole snapshot.
+//
+// Environment where this was observed:
+//
+//	macOS 15.7.4 (24G517)
+//	"PROGRAM:ps  PROJECT:adv_cmds-235" from "what /bin/ps"
+func TestPsLineToProcess_NegativeMinutesElapsedTime(t *testing.T) {
+	line := "54898 1 7384 -14:-1 0 0.0 0:00.08 0.0 /usr/libexec/mdmclient daemon"
+	snapshotTime := time.Date(2026, time.March, 15, 11, 22, 0, 0, time.Local)
+
+	proc, err := psLineToProcess(line, snapshotTime)
+	assert.Equal(t, err, nil)
+
+	assert.Equal(t, proc.Pid, 54898)
+	assert.Equal(t, proc.Command(), "mdmclient")
+	assert.Equal(t, proc.startTime, snapshotTime.Add(14*time.Minute+time.Second))
 }
 
 func TestProcessSameAs_AcceptsOneSecondDifference(t *testing.T) {

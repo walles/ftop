@@ -70,20 +70,27 @@ func (u *Ui) renderProcessInfoPane(y0, y1 int) {
 
 	y += 2
 	x := 1
-	x += drawText(u.screen, x, y, x1, "Started ", plain)
-	x += drawText(u.screen, x, y, x1, util.FormatDuration(time.Since(u.pickedProcess.StartTime())), highlighted)
-	x += drawText(u.screen, x, y, x1, " ago at ", plain)
+	startDelta := time.Since(u.pickedProcess.StartTime())
+	if startDelta < 0 {
+		x += drawText(u.screen, x, y, x1, "Start time uncertain, reported as ", plain)
+		x += drawText(u.screen, x, y, x1, util.FormatDuration(startDelta.Abs()), highlighted)
+		drawText(u.screen, x, y, x1, " in the future.", plain)
+	} else {
+		x += drawText(u.screen, x, y, x1, "Started ", plain)
+		x += drawText(u.screen, x, y, x1, util.FormatDuration(startDelta), highlighted)
+		x += drawText(u.screen, x, y, x1, " ago at ", plain)
 
-	startString := u.pickedProcess.StartTime().Format(DISPLAY_TIME_FORMAT)
-	x += drawText(u.screen, x, y, x1, startString, highlighted)
+		startString := u.pickedProcess.StartTime().Format(DISPLAY_TIME_FORMAT)
+		x += drawText(u.screen, x, y, x1, startString, highlighted)
 
-	x += drawText(u.screen, x, y, x1, ". It used ", plain)
-	x += drawText(u.screen, x, y, x1, util.FormatDuration(u.pickedProcess.CpuTimeOrZero()), highlighted)
-	x += drawText(u.screen, x, y, x1, " CPU, or ", plain)
+		x += drawText(u.screen, x, y, x1, ". It used ", plain)
+		x += drawText(u.screen, x, y, x1, util.FormatDuration(u.pickedProcess.CpuTimeOrZero()), highlighted)
+		x += drawText(u.screen, x, y, x1, " CPU, or ", plain)
 
-	percentCpu := 100.0 * float64(u.pickedProcess.CpuTimeOrZero()) / float64(time.Since(u.pickedProcess.StartTime()))
-	x += drawText(u.screen, x, y, x1, util.FormatPercent(percentCpu), highlighted)
-	drawText(u.screen, x, y, x1, ".", plain)
+		percentCpu := 100.0 * float64(u.pickedProcess.CpuTimeOrZero()) / float64(startDelta)
+		x += drawText(u.screen, x, y, x1, util.FormatPercent(percentCpu), highlighted)
+		drawText(u.screen, x, y, x1, ".", plain)
+	}
 
 	// Render nativity info
 
