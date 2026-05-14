@@ -2,153 +2,111 @@ package processes
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/util"
 )
 
-// Match + group: "1:02.03"
-var CPU_DURATION_OSX = regexp.MustCompile(`^([0-9]+):([0-9][0-9]\.[0-9]+)$`)
-
-// Match + group: "00:21", malformed "00:-1" and malformed "-14:-1"
-var ELAPSED_DURATION_MINUTES = regexp.MustCompile(`^(-?[0-9]+):(-?[0-9]+)$`)
-
-// Match + group: "01:23:45"
-var CPU_DURATION_LINUX = regexp.MustCompile(`^([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
-
-// Match + group: "123-01:23:45"
-var CPU_DURATION_LINUX_DAYS = regexp.MustCompile(`^([0-9]+)-([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$`)
-
 // Convert a CPU duration string returned by ps to a Duration
-func parseDuration(durationString string) (time.Duration, error) {
-	if match := CPU_DURATION_OSX.FindStringSubmatch(durationString); match != nil {
-		minutes, err := strconv.Atoi(match[1])
+func parseDuration(s string) (time.Duration, error) {
+	parts := strings.SplitN(s, ":", 3)
+
+	if len(parts) == 2 {
+		// Example: "1:02.03"
+		minutes, err := strconv.Atoi(parts[0])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from duration string <%s>: %v", match[1], durationString, err)
+			return 0, fmt.Errorf("failed to parse minutes <%s> from duration string <%s>: %v", parts[0], s, err)
 		}
 
-		seconds, err := strconv.ParseFloat(match[2], 64)
+		seconds, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from duration string <%s>: %v", match[2], durationString, err)
+			return 0, fmt.Errorf("failed to parse seconds <%s> from duration string <%s>: %v", parts[1], s, err)
 		}
 
 		totalSeconds := float64(minutes*60) + seconds
 		return time.Duration(totalSeconds * float64(time.Second)), nil
 	}
 
-	if match := CPU_DURATION_LINUX.FindStringSubmatch(durationString); match != nil {
-		hours, err := strconv.Atoi(match[1])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse hours <%s> from duration string <%s>: %v", match[1], durationString, err)
+	if len(parts) == 3 {
+		// Examples: "01:23:45", "123-01:23:45"
+		days := 0
+		hoursStr := parts[0]
+		if dashIdx := strings.IndexByte(hoursStr, '-'); dashIdx > 0 {
+			d, err := strconv.Atoi(hoursStr[:dashIdx])
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse days from duration string <%s>: %v", s, err)
+			}
+			days = d
+			hoursStr = hoursStr[dashIdx+1:]
 		}
 
-		minutes, err := strconv.Atoi(match[2])
+		hours, err := strconv.Atoi(hoursStr)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from duration string <%s>: %v", match[2], durationString, err)
+			return 0, fmt.Errorf("failed to parse hours <%s> from duration string <%s>: %v", hoursStr, s, err)
 		}
 
-		seconds, err := strconv.Atoi(match[3])
+		minutes, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from duration string <%s>: %v", match[3], durationString, err)
+			return 0, fmt.Errorf("failed to parse minutes <%s> from duration string <%s>: %v", parts[1], s, err)
 		}
 
-		totalSeconds := (hours * 3600) + (minutes * 60) + seconds
-		return time.Duration(totalSeconds * int(time.Second)), nil
-	}
-
-	if match := CPU_DURATION_LINUX_DAYS.FindStringSubmatch(durationString); match != nil {
-		days, err := strconv.Atoi(match[1])
+		seconds, err := strconv.Atoi(parts[2])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse days <%s> from duration string <%s>: %v", match[1], durationString, err)
-		}
-
-		hours, err := strconv.Atoi(match[2])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse hours <%s> from duration string <%s>: %v", match[2], durationString, err)
-		}
-
-		minutes, err := strconv.Atoi(match[3])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from duration string <%s>: %v", match[3], durationString, err)
-		}
-
-		seconds, err := strconv.Atoi(match[4])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from duration string <%s>: %v", match[4], durationString, err)
+			return 0, fmt.Errorf("failed to parse seconds <%s> from duration string <%s>: %v", parts[2], s, err)
 		}
 
 		totalSeconds := (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
-		return time.Duration(totalSeconds * int(time.Second)), nil
+		return time.Duration(totalSeconds) * time.Second, nil
 	}
 
-	return 0, fmt.Errorf("failed to parse duration string <%s>", durationString)
+	return 0, fmt.Errorf("failed to parse duration string <%s>", s)
 }
 
-func parseElapsedDuration(durationString string) (time.Duration, error) {
-	if match := ELAPSED_DURATION_MINUTES.FindStringSubmatch(durationString); match != nil {
-		minutes, err := strconv.Atoi(match[1])
+func parseElapsedDuration(s string) (time.Duration, error) {
+	parts := strings.SplitN(s, ":", 3)
+	if len(parts) == 2 {
+		// Examples: "00:21", malformed "00:-1" and malformed "-14:-1"
+		minutes, err := strconv.Atoi(parts[0])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", parts[0], s, err)
 		}
-
-		seconds, err := strconv.Atoi(match[2])
+		seconds, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
+			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", parts[1], s, err)
 		}
-
-		totalSeconds := (minutes * 60) + seconds
-		return time.Duration(totalSeconds) * time.Second, nil
+		return time.Duration((minutes*60)+seconds) * time.Second, nil
 	}
-
-	if match := CPU_DURATION_LINUX.FindStringSubmatch(durationString); match != nil {
-		hours, err := strconv.Atoi(match[1])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse hours <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+	if len(parts) == 3 {
+		// Examples: "01:23:45", "123-01:23:45"
+		days := 0
+		hoursStr := parts[0]
+		if dashIdx := strings.IndexByte(hoursStr, '-'); dashIdx > 0 {
+			d, err := strconv.Atoi(hoursStr[:dashIdx])
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse days from elapsed duration string <%s>: %v", s, err)
+			}
+			days = d
+			hoursStr = hoursStr[dashIdx+1:]
 		}
-
-		minutes, err := strconv.Atoi(match[2])
+		hours, err := strconv.Atoi(hoursStr)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
+			return 0, fmt.Errorf("failed to parse hours <%s> from elapsed duration string <%s>: %v", hoursStr, s, err)
 		}
-
-		seconds, err := strconv.Atoi(match[3])
+		minutes, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[3], durationString, err)
+			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", parts[1], s, err)
 		}
-
-		totalSeconds := (hours * 3600) + (minutes * 60) + seconds
-		return time.Duration(totalSeconds) * time.Second, nil
-	}
-
-	if match := CPU_DURATION_LINUX_DAYS.FindStringSubmatch(durationString); match != nil {
-		days, err := strconv.Atoi(match[1])
+		seconds, err := strconv.Atoi(parts[2])
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse days <%s> from elapsed duration string <%s>: %v", match[1], durationString, err)
+			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", parts[2], s, err)
 		}
-
-		hours, err := strconv.Atoi(match[2])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse hours <%s> from elapsed duration string <%s>: %v", match[2], durationString, err)
-		}
-
-		minutes, err := strconv.Atoi(match[3])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse minutes <%s> from elapsed duration string <%s>: %v", match[3], durationString, err)
-		}
-
-		seconds, err := strconv.Atoi(match[4])
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse seconds <%s> from elapsed duration string <%s>: %v", match[4], durationString, err)
-		}
-
 		totalSeconds := (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
 		return time.Duration(totalSeconds) * time.Second, nil
 	}
-
-	return 0, fmt.Errorf("failed to parse elapsed duration string <%s>", durationString)
+	return 0, fmt.Errorf("failed to parse elapsed duration string <%s>", s)
 }
 
 func processFieldsToProcess(fields [9]string, line string, snapshotTime time.Time) (*Process, error) {
