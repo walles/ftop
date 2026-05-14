@@ -1,32 +1,44 @@
 package processes
 
 import (
+	"bufio"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/walles/ftop/internal/assert"
 )
 
-func BenchmarkPsLineToProcess(b *testing.B) {
+func BenchmarkPsLineRetention(b *testing.B) {
 	snapshotTime := time.Now()
 
-	// Prepare 1000 identical lines based on typical ps output
+	var builder strings.Builder
+	lineStr := " 974 973 588 00:00 501 0.0 0:00.00 0.0 We intentionally use a very long command line here to ensure the simulated bufio.Scanner allocates large backing strings allowing the benchmark to accurately measure the heap retention caused by keeping substrings of these long lines\n"
 	const numLines = 1000
-	lines := make([]string, numLines)
-	for i := range lines {
-		lines[i] = " 974 973 588 00:00 501 0.0 0:00.00 0.0 /bin/sleep foo bar"
+	for range numLines {
+		builder.WriteString(lineStr)
 	}
+	psOutput := builder.String()
 
 	b.ResetTimer()
-	b.ReportAllocs()
 
 	for b.Loop() {
-		for _, line := range lines {
-			_, err := psLineToProcess(line, snapshotTime)
+		retained := make([]*Process, 0, numLines)
+
+		// Create scanner across the big string to replicate util.Exec behavior
+		scanner := bufio.NewScanner(strings.NewReader(psOutput))
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			p, err := psLineToProcess(line, snapshotTime)
 			if err != nil {
 				b.Fatalf("Parse error: %v", err)
 			}
+			retained = append(retained, p)
 		}
+
+		runtime.KeepAlive(retained)
 	}
 }
 
