@@ -7,8 +7,7 @@ import (
 	"github.com/walles/ftop/internal/assert"
 )
 
-func BenchmarkPsParser(b *testing.B) {
-	parser := newPsParser()
+func BenchmarkPsLineToProcess(b *testing.B) {
 	snapshotTime := time.Now()
 
 	// Prepare 1000 identical lines based on typical ps output
@@ -23,7 +22,7 @@ func BenchmarkPsParser(b *testing.B) {
 
 	for b.Loop() {
 		for _, line := range lines {
-			_, err := parser.ParseLine(line, snapshotTime)
+			_, err := psLineToProcess(line, snapshotTime)
 			if err != nil {
 				b.Fatalf("Parse error: %v", err)
 			}

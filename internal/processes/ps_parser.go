@@ -10,18 +10,6 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
-type psParser struct {
-}
-
-func newPsParser() *psParser {
-	return &psParser{}
-}
-
-// Match + group: " 7708 1 00:21 501 0.1 0:00.08 0.0 /usr/bin/sleep"
-var PS_LINE = regexp.MustCompile(
-	" *([0-9]+) +([0-9]+) +([0-9]+) +([^ ]+) +([^ ]+) +([0-9.]+) +([-0-9.:]+) +([0-9.]+) +(.*)",
-)
-
 // Match + group: "1:02.03"
 var CPU_DURATION_OSX = regexp.MustCompile(`^([0-9]+):([0-9][0-9]\.[0-9]+)$`)
 
@@ -163,31 +151,30 @@ func parseElapsedDuration(durationString string) (time.Duration, error) {
 	return 0, fmt.Errorf("failed to parse elapsed duration string <%s>", durationString)
 }
 
-func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
-	match := PS_LINE.FindStringSubmatch(line)
-	if match == nil {
+func processFieldsToProcess(fields [9]string, line string, snapshotTime time.Time) (*Process, error) {
+	if fields[8] == "" {
 		return nil, fmt.Errorf("failed to match ps line <%q>", line)
 	}
 
-	pid, err := strconv.Atoi(match[1])
+	pid, err := strconv.Atoi(fields[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse pid <%s> from line <%s>: %v", match[1], line, err)
+		return nil, fmt.Errorf("failed to parse pid <%s> from line <%s>: %v", fields[0], line, err)
 	}
 
-	ppid, err := strconv.Atoi(match[2])
+	ppid, err := strconv.Atoi(fields[1])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ppid <%s> from line <%s>: %v", match[2], line, err)
+		return nil, fmt.Errorf("failed to parse ppid <%s> from line <%s>: %v", fields[1], line, err)
 	}
 
-	rss_kb, err := strconv.Atoi(match[3])
+	rss_kb, err := strconv.Atoi(fields[2])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse rss_kb <%s> from line <%s>: %v", match[3], line, err)
+		return nil, fmt.Errorf("failed to parse rss_kb <%s> from line <%s>: %v", fields[2], line, err)
 	}
 
-	elapsedString := match[4]
+	elapsedString := fields[3]
 	elapsed, err := parseElapsedDuration(elapsedString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", match[4], line, err)
+		return nil, fmt.Errorf("failed to parse elapsed time <%s> from line <%s>: %v", fields[3], line, err)
 	}
 
 	if elapsed < 0 {
@@ -199,28 +186,28 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	// inherited from time.Now() to avoid monotonic-based Sub() deltas.
 	startTime := snapshotTime.Round(0).Add(-elapsed)
 
-	uid, err := strconv.Atoi(match[5])
+	uid, err := strconv.Atoi(fields[4])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse UID <%s> from line <%s>: %v", match[5], line, err)
+		return nil, fmt.Errorf("failed to parse UID <%s> from line <%s>: %v", fields[4], line, err)
 	}
 	username := uidToUsername(uid)
 
-	cpu_percent, err := strconv.ParseFloat(match[6], 64)
+	cpu_percent, err := strconv.ParseFloat(fields[5], 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpu_percent <%s> from line <%s>: %v", match[6], line, err)
+		return nil, fmt.Errorf("failed to parse cpu_percent <%s> from line <%s>: %v", fields[5], line, err)
 	}
 
-	cpu_time, err := parseDuration(match[7])
+	cpu_time, err := parseDuration(fields[6])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpu_time <%s> from line <%s>: %v", match[7], line, err)
+		return nil, fmt.Errorf("failed to parse cpu_time <%s> from line <%s>: %v", fields[6], line, err)
 	}
 
-	memory_percent, err := strconv.ParseFloat(match[8], 64)
+	memory_percent, err := strconv.ParseFloat(fields[7], 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse memory_percent <%s> from line <%s>: %v", match[8], line, err)
+		return nil, fmt.Errorf("failed to parse memory_percent <%s> from line <%s>: %v", fields[7], line, err)
 	}
 
-	cmdline := match[9]
+	cmdline := fields[8]
 
 	return &Process{
 		Pid:           pid,
@@ -235,8 +222,37 @@ func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
 	}, nil
 }
 
-func (p *psParser) ParseLine(line string, snapshotTime time.Time) (*Process, error) {
-	// For now, this just calls the existing regex-based parsing function
-	// to establish our baseline performance.
-	return psLineToProcess(line, snapshotTime)
+func psLineToProcess(line string, snapshotTime time.Time) (*Process, error) {
+	var fields [9]string
+	fieldIdx := 0
+	start := 0
+	inWord := false
+
+	for i := 0; i < len(line); i++ {
+		if line[i] != ' ' {
+			if !inWord {
+				inWord = true
+				start = i
+			}
+		} else {
+			if inWord {
+				fields[fieldIdx] = line[start:i]
+				fieldIdx++
+				inWord = false
+				if fieldIdx == 8 {
+					// The 9th field is the command string, which may contain spaces.
+					// Find the start of the 9th field and grab the rest of the string.
+					remaining := line[i:]
+					trimStart := 0
+					for trimStart < len(remaining) && remaining[trimStart] == ' ' {
+						trimStart++
+					}
+					fields[8] = remaining[trimStart:]
+					break
+				}
+			}
+		}
+	}
+
+	return processFieldsToProcess(fields, line, snapshotTime)
 }

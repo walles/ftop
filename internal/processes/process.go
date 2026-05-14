@@ -180,11 +180,10 @@ func GetAll() ([]*Process, error) {
 	}
 
 	processes := make(map[int]*Process, 0)
-	parser := newPsParser()
 
 	startedAt := time.Now()
 	err := util.Exec(command, func(line string) error {
-		proc, err := parser.ParseLine(line, startedAt)
+		proc, err := psLineToProcess(line, startedAt)
 		if err != nil {
 			return err
 		}
