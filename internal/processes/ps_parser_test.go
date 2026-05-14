@@ -98,6 +98,31 @@ func TestPsLineToProcess_StableAcrossEtimeRefreshes(t *testing.T) {
 	assert.Equal(t, procA.SameAs(procB), true)
 }
 
+func TestPsLineToProcess_IgnoresMonotonicClockInSameAs(t *testing.T) {
+	lineA := "    1     0  3196       00:21     0  0.1 00:00:00  0.0 bash"
+	lineB := "    1     0  3196       00:21     0  0.1 00:00:00  0.0 bash"
+
+	baseSnapshot := time.Now()
+	snapshotA := baseSnapshot
+
+	// Emulate a wall-clock jump where wall time changed by 100ms while the
+	// monotonic clock advanced by 9s.
+	snapshotB := withWallFromAndMonotonicFrom(
+		baseSnapshot.Add(100*time.Millisecond),
+		baseSnapshot.Add(9*time.Second),
+	)
+
+	procA, err := psLineToProcess(lineA, snapshotA)
+	assert.Equal(t, err, nil)
+
+	procB, err := psLineToProcess(lineB, snapshotB)
+	assert.Equal(t, err, nil)
+
+	wallDelta := procA.startTime.Round(0).Sub(procB.startTime.Round(0)).Abs()
+	assert.Equal(t, wallDelta <= 100*time.Millisecond, true)
+	assert.Equal(t, procA.SameAs(procB), true)
+}
+
 // Real world example from macOS ps
 func TestPsLineToProcess_MalformedElapsedTime(t *testing.T) {
 	line := "24381 48334   1024       00:-1   501   0.0   0:00.00  0.0 netstat -ib"
