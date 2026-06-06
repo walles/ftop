@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"unicode"
 
@@ -23,7 +24,7 @@ var OSX_PARENTHESIZED_PROC = regexp.MustCompile(`^\\([^()]+\\)$`)
 var PERL_BIN = regexp.MustCompile(`^perl[.0-9]*$`)
 
 // From command line to command name
-var commandCache = make(map[string]string)
+var commandCache = sync.Map{}
 
 type existence byte
 
@@ -206,13 +207,13 @@ func cmdlineToSlice(cmdline string, exists func(string) existence) ([]string, er
 //   - "java -jar myapp.jar" -> "myapp.jar"
 //   - "sh -c cd /some/dir && echo hello" -> "echo"
 func cmdlineToCommand(cmdline string, pid int, user string) string {
-	cached, found := commandCache[cmdline]
+	cached, found := commandCache.Load(cmdline)
 	if found {
-		return cached
+		return cached.(string)
 	}
 
 	result := cmdlineToCommandInternal(cmdline, pid, user)
-	commandCache[cmdline] = result
+	commandCache.Store(cmdline, result)
 	return result
 }
 
