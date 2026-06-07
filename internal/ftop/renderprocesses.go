@@ -378,7 +378,7 @@ func (u *Ui) renderProcesses(x0, y0, x1, y1 int, table [][]string, widths []int,
 		var rowStyle twin.Style
 		if rowIndex == 0 {
 			// Header row, header style
-			rowStyle = twin.StyleDefault.WithAttr(twin.AttrBold)
+			rowStyle = twin.StyleDefault.WithForeground(u.theme.Foreground()).WithAttr(twin.AttrBold)
 		} else {
 			rowStyle = twin.StyleDefault
 			rowStyle = rowStyle.WithForeground(topBottomRamp.AtInt(y))
