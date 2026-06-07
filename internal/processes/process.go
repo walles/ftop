@@ -56,8 +56,9 @@ type Process struct {
 	RssKb         int
 	memoryPercent *float64
 
-	cpuPercent *float64
-	CpuTime    *time.Duration
+	cpuPercent   *float64
+	CpuTime      *time.Duration // Since ftop started
+	CpuTimeTotal *time.Duration // Since the process started
 
 	// Count of children younger than NATIVITY_MAX_AGE
 	Nativity int
@@ -334,14 +335,6 @@ func (p *Process) CpuTimeString() string {
 	}
 
 	return util.FormatDuration(*p.CpuTime)
-}
-
-func (p *Process) CpuTimeOrZero() time.Duration {
-	if p.CpuTime == nil {
-		return 0
-	}
-
-	return *p.CpuTime
 }
 
 func (p *Process) SameAs(other *Process) bool {

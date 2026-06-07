@@ -1,16 +1,22 @@
 package ftop
 
 import (
+	"time"
+
 	"github.com/walles/ftop/internal/processes"
 )
 
 func sortProcessesForDisplay(processesRaw []processes.Process) []processes.Process {
 	return SortByScore(processesRaw, func(p processes.Process) stats {
+		cpuTimeOrZero := time.Duration(0)
+		if p.CpuTime != nil {
+			cpuTimeOrZero = *p.CpuTime
+		}
 		return stats{
 			// The name in this case is really a fallback sort key for when the
 			// other sort keys are all equal.
 			name:     p.Command(), // <- Run BenchmarkSortProcessesForDisplay() if you change this!
-			cpuTime:  p.CpuTimeOrZero(),
+			cpuTime:  cpuTimeOrZero,
 			rssKb:    p.RssKb,
 			nativity: p.Nativity,
 		}

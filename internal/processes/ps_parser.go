@@ -175,6 +175,7 @@ func processFieldsToProcess(fields [9]string, line string, snapshotTime time.Tim
 		Username:      username,
 		cpuPercent:    &cpu_percent,
 		CpuTime:       &cpu_time,
+		CpuTimeTotal:  &cpu_time,
 		memoryPercent: &memory_percent,
 		Cmdline:       cmdline,
 	}, nil

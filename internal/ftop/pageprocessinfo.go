@@ -92,7 +92,10 @@ func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 
 	pt.writeTitle("Timings")
 	age := time.Since(proc.StartTime())
-	cpuTime := proc.CpuTimeOrZero()
+	cpuTime := time.Duration(0)
+	if proc.CpuTimeTotal != nil {
+		cpuTime = *proc.CpuTimeTotal
+	}
 	percentCpu := 100.0 * float64(cpuTime) / float64(age)
 	pt.writeLine(fmt.Sprintf(
 		"Started %s ago at %s. It used %s CPU, or %s.",
