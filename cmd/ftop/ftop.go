@@ -16,9 +16,11 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+const missingVersion = "<build with ./build.sh to get a version number here>"
+
 // Build a binary using build.sh to get a proper version string here. This
 // pre-filled string will be used otherwise.
-var versionString = "<build with ./build.sh to get a version number here>"
+var versionString = ""
 
 type twinLoggerAdapter struct{}
 
@@ -35,6 +37,24 @@ func (t *twinLoggerAdapter) Error(message string) {
 }
 
 func main() {
+	if versionString == "" {
+		// Ref: https://www.reddit.com/r/golang/comments/u1a7ah/comment/i4b4r52/
+		buildInfo, ok := debug.ReadBuildInfo()
+		if ok {
+			buildInfoVersion := buildInfo.Main.Version
+			if buildInfoVersion == "(devel)" {
+				// I got "(devel)" from "go run ./cmd/ftop/ftop.go --version", not helpful.
+				buildInfoVersion = ""
+			}
+			if buildInfoVersion != "" {
+				versionString = buildInfoVersion
+			}
+		}
+	}
+	if versionString == "" {
+		versionString = missingVersion
+	}
+
 	twin.SetLogger(&twinLoggerAdapter{})
 
 	argsParser, err := newArgsParser()
