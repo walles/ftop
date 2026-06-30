@@ -557,4 +557,41 @@ func parseWithSubcommand(argv []string, ignoreSwitches []string) *string {
 	return &pretty
 }
 
-// (Node handling now inlined at call site in commandline.go)
+// Returns nil if we failed to figure out the script name
+func parseNodeCommand(argv []string) *string {
+	result := parseGenericScriptCommand(argv, []string{
+		"--max_old_space_size",
+		"--no-warnings",
+		"--enable-source-maps",
+	}, nil)
+	if result == nil {
+		return nil
+	}
+
+	if *result != "ts-node" {
+		return result
+	}
+
+	// ts-node is itself a wrapper that runs a TypeScript file, find that file
+	for i, arg := range argv {
+		if filepath.Base(arg) != "ts-node" {
+			// Skip until we get to the ts-node argument
+			continue
+		}
+
+		for _, next := range argv[i+1:] {
+			if next == "" {
+				continue
+			}
+			if strings.HasPrefix(next, "-") {
+				// Options unsupported
+				return result
+			}
+
+			script := filepath.Base(next)
+			return &script
+		}
+	}
+
+	return result
+}

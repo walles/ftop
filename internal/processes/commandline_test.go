@@ -246,6 +246,16 @@ func TestNodeMaxOldSpace(t *testing.T) {
 	)
 }
 
+// ts-node is a wrapper that makes node run TypeScript files directly. The
+// actual file being executed (src/index.ts) is more useful to show than the
+// wrapper's own name (ts-node).
+func TestNodeTsNode(t *testing.T) {
+	assert.Equal(t,
+		cmdlineToCommand("node /Users/xyz/.bin/ts-node src/index.ts", somePid, someUser),
+		"index.ts",
+	)
+}
+
 func TestGetBashBrewShCommandline(t *testing.T) {
 	assert.Equal(t,
 		cmdlineToCommand("/bin/bash -p /usr/local/Homebrew/Library/Homebrew/brew.sh upgrade", somePid, someUser),

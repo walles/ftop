@@ -323,11 +323,7 @@ func argvToCommand(argv []string) string {
 	}
 
 	if command == "node" {
-		return faillog(argv, parseGenericScriptCommand(argv, []string{
-			"--max_old_space_size",
-			"--no-warnings",
-			"--enable-source-maps",
-		}, nil))
+		return faillog(argv, parseNodeCommand(argv))
 	}
 
 	if command == "dotnet" {
