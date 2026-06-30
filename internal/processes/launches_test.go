@@ -169,6 +169,7 @@ func assertAncestry(t *testing.T, node *LaunchNode, expected ancestry) {
 
 	if node == nil {
 		t.Fatalf("expected node <%s> but got <nil>", expected.Command)
+		return
 	}
 
 	if node.Command != expected.Command {
