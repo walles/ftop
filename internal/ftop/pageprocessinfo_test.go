@@ -2,6 +2,7 @@ package ftop
 
 import (
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,29 @@ import (
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
 )
+
+// The pager renders lines as they arrive, which is only useful if we hand them
+// over as we compose them. Buffering the page up until the last section is done
+// would make the slow sections hold up the fast ones.
+func TestPageTextWritesThrough(t *testing.T) {
+	pipeReader, pipeWriter := io.Pipe()
+	pt := pageText{out: pipeWriter}
+
+	go func() {
+		pt.writeLine("early")
+
+		// Intentionally leaving the pipe open: the point is that "early" is
+		// readable while composition is still going on.
+	}()
+
+	early := make([]byte, len("early\n"))
+	_, err := io.ReadFull(pipeReader, early)
+	if err != nil {
+		t.Fatalf("Reading the first line: %v", err)
+	}
+
+	assert.Equal(t, string(early), "early\n")
+}
 
 func TestUsersLoggedInWhenProcessStartedForPaging(t *testing.T) {
 	original := getLoggedInUsersAt
@@ -23,14 +47,15 @@ func TestUsersLoggedInWhenProcessStartedForPaging(t *testing.T) {
 	}
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
 	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "Users logged in when picked(42) started"), true)
-	assert.Equal(t, stringsContains(pt.String(), "\nalice\n"), true)
-	assert.Equal(t, stringsContains(pt.String(), "\nbob from 10.0.0.5\n"), true)
-	assert.Equal(t, stringsContains(pt.String(), "  alice"), false)
+	assert.Equal(t, stringsContains(page.String(), "Users logged in when picked(42) started"), true)
+	assert.Equal(t, stringsContains(page.String(), "\nalice\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "\nbob from 10.0.0.5\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "  alice"), false)
 }
 
 func TestUsersLoggedInWhenProcessStartedForPagingShowsErrors(t *testing.T) {
@@ -44,12 +69,13 @@ func TestUsersLoggedInWhenProcessStartedForPagingShowsErrors(t *testing.T) {
 	}
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
 	ui.usersLoggedInWhenProcessStartedForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "\n<Unable to inspect login history: boom>\n"), true)
-	assert.Equal(t, stringsContains(pt.String(), "\n  <Unable to inspect login history: boom>\n"), false)
+	assert.Equal(t, stringsContains(page.String(), "\n<Unable to inspect login history: boom>\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "\n  <Unable to inspect login history: boom>\n"), false)
 }
 
 // Replaces the lsof lookup for the duration of the test
@@ -74,29 +100,32 @@ func TestCwdFriendsForPagingListsFriends(t *testing.T) {
 		9:  "/somewhereelse",
 	}, nil)
 
-	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	ui.allProcesses = []processes.Process{
+	candidates := []*processes.Process{
 		{Pid: 8, Cmdline: "gopls"},
 		{Pid: 9, Cmdline: "elsewhere"},
 		{Pid: 7, Cmdline: "fish"},
 	}
-	pt := pageText{}
 
-	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
 
-	assert.Equal(t, stringsContains(pt.String(), "\nfish(7)\ngopls(8)\n"), true)
-	assert.Equal(t, stringsContains(pt.String(), "elsewhere"), false)
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, candidates, &pt)
+
+	assert.Equal(t, stringsContains(page.String(), "\nfish(7)\ngopls(8)\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "elsewhere"), false)
 }
 
 func TestCwdFriendsForPagingShowsErrors(t *testing.T) {
 	fakeCwds(t, nil, errors.New("boom"))
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
-	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, nil, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "\n<Unable to list working directories: boom>\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "\n<Unable to list working directories: boom>\n"), true)
 }
 
 // lsof and our process listing are taken at slightly different times, so the
@@ -105,11 +134,12 @@ func TestCwdFriendsForPagingUnknownCwd(t *testing.T) {
 	fakeCwds(t, map[int]string{1: "/somewhere"}, nil)
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
-	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, nil, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "\n<Working directory unknown"), true)
+	assert.Equal(t, stringsContains(page.String(), "\n<Working directory unknown"), true)
 }
 
 // Half the system has / as its working directory, listing those is pointless.
@@ -117,24 +147,26 @@ func TestCwdFriendsForPagingRootCwd(t *testing.T) {
 	fakeCwds(t, map[int]string{42: "/"}, nil)
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
-	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, nil, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "Others sharing this process' working directory (/)"), true)
-	assert.Equal(t, stringsContains(pt.String(), "\n<Working directory too common, never mind>\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "Others sharing this process' working directory (/)"), true)
+	assert.Equal(t, stringsContains(page.String(), "\n<Working directory too common, never mind>\n"), true)
 }
 
 func TestCwdFriendsForPagingNoFriends(t *testing.T) {
 	fakeCwds(t, map[int]string{42: "/Users/johan/src/ftop"}, nil)
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
-	pt := pageText{}
+	var page strings.Builder
+	pt := pageText{out: &page}
 
-	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, nil, &pt)
 
-	assert.Equal(t, stringsContains(pt.String(), "Others sharing this process' working directory (/Users/johan/src/ftop)"), true)
-	assert.Equal(t, stringsContains(pt.String(), "\n<Nobody else shares this working directory>\n"), true)
+	assert.Equal(t, stringsContains(page.String(), "Others sharing this process' working directory (/Users/johan/src/ftop)"), true)
+	assert.Equal(t, stringsContains(page.String(), "\n<Nobody else shares this working directory>\n"), true)
 }
 
 func stringsContains(haystack string, needle string) bool {

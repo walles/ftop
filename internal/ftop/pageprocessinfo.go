@@ -2,7 +2,9 @@ package ftop
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -23,16 +25,34 @@ var getLoggedInUsersAt = loginhistory.GetUsersAt
 var getCwdsByPid = processes.GetCwdsByPid
 
 type pageText struct {
-	text        strings.Builder
+	// Where the page goes, one line at a time. The pager renders whatever has
+	// arrived so far, so the early sections are readable while the slow ones
+	// are still being composed.
+	out io.Writer
+
 	titleStyle  twin.Style
 	borderStyle twin.Style
 }
 
+// Concatenates the parts and hands them over in a single write.
+//
+// Styled lines come in a lot of pieces, and the pager is on the other end of a
+// pipe, so putting the line together first saves it a handover per piece.
+//
+// Write errors are ignored: the only reader is the pager, and once that one is
+// gone there is nobody left to show the rest of the page to.
+func (pt *pageText) write(parts ...string) {
+	var line strings.Builder
+	for _, part := range parts {
+		line.WriteString(part)
+	}
+
+	_, _ = io.WriteString(pt.out, line.String())
+}
+
 // Appends a line feed at the end of the provided string
 func (pt *pageText) writeLine(line string) {
-	// pt.text.WriteString("  ")
-	pt.text.WriteString(line)
-	pt.text.WriteRune('\n')
+	pt.write(line, "\n")
 }
 
 func (pt *pageText) writeTitle(title string) {
@@ -42,19 +62,17 @@ func (pt *pageText) writeTitle(title string) {
 
 	// "24 bit" is fine here, if the terminal doesn't support it, the pager will
 	// just down sample it as needed.
-	pt.text.WriteString(pt.borderStyle.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit))
-	pt.text.WriteString("──")
-	pt.text.WriteString(pt.titleStyle.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit))
-	pt.text.WriteString(title)
-	pt.text.WriteString(pt.borderStyle.RenderUpdateFrom(pt.titleStyle, twin.ColorCount24bit))
-	pt.text.WriteString(trailer)
-	pt.text.WriteString(twin.StyleDefault.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit))
-	pt.text.WriteString("\n")
-	pt.text.WriteString("\n")
-}
-
-func (pt *pageText) String() string {
-	return pt.text.String()
+	pt.write(
+		pt.borderStyle.RenderUpdateFrom(twin.StyleDefault, twin.ColorCount24bit),
+		"──",
+		pt.titleStyle.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit),
+		title,
+		pt.borderStyle.RenderUpdateFrom(pt.titleStyle, twin.ColorCount24bit),
+		trailer,
+		twin.StyleDefault.RenderUpdateFrom(pt.borderStyle, twin.ColorCount24bit),
+		"\n",
+		"\n",
+	)
 }
 
 func (u *Ui) pageProcessInfo(proc *processes.Process) {
@@ -74,7 +92,41 @@ func (u *Ui) pageProcessInfo(proc *processes.Process) {
 }
 
 func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
+	// Snapshotted here rather than inside the composer below, since the main
+	// loop replaces u.allProcesses once per frame.
+	candidates := make([]*processes.Process, len(u.allProcesses))
+	for i := range u.allProcesses {
+		candidates[i] = &u.allProcesses[i]
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+
+	go func() {
+		defer func() {
+			log.PanicHandler("main/process info composer", recover(), debug.Stack())
+		}()
+
+		defer func() {
+			_ = pipeWriter.Close()
+		}()
+
+		u.writeProcessInfo(proc, candidates, pipeWriter)
+	}()
+
+	return moor.PageFromStream(pipeReader, moor.Options{NoLineNumbers: true})
+}
+
+// Composes the process info page into out, one section at a time.
+//
+// candidates is the process list to look for working directory friends in, see
+// processes.CwdFriends().
+//
+// This forks subprocesses and can take a while. It writes as it goes, so
+// whatever is on the other end of out will see the early sections long before
+// this returns.
+func (u *Ui) writeProcessInfo(proc *processes.Process, candidates []*processes.Process, out io.Writer) {
 	pt := pageText{
+		out:         out,
 		borderStyle: twin.StyleDefault.WithForeground(u.theme.Border()),
 		titleStyle:  twin.StyleDefault.WithForeground(u.theme.BorderTitle()),
 	}
@@ -120,14 +172,12 @@ func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 	pt.writeLine("")
 	pt.writeLine("")
 
-	u.cwdFriendsForPaging(proc, &pt)
+	u.cwdFriendsForPaging(proc, candidates, &pt)
 
 	pt.writeLine("")
 
 	// End with a separator
 	pt.writeTitle("")
-
-	return moor.PageFromString(pt.String(), moor.Options{NoLineNumbers: true})
 }
 
 func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
@@ -331,7 +381,7 @@ func (u *Ui) usersLoggedInWhenProcessStartedForPaging(proc *processes.Process, p
 	}
 }
 
-func (u *Ui) cwdFriendsForPaging(proc *processes.Process, pt *pageText) {
+func (u *Ui) cwdFriendsForPaging(proc *processes.Process, candidates []*processes.Process, pt *pageText) {
 	const title = "Others sharing this process' working directory"
 
 	cwds, err := getCwdsByPid()
@@ -353,11 +403,6 @@ func (u *Ui) cwdFriendsForPaging(proc *processes.Process, pt *pageText) {
 	if cwd == "/" {
 		pt.writeLine("<Working directory too common, never mind>")
 		return
-	}
-
-	candidates := make([]*processes.Process, len(u.allProcesses))
-	for i := range u.allProcesses {
-		candidates[i] = &u.allProcesses[i]
 	}
 
 	friends := processes.CwdFriends(proc, candidates, cwds)
