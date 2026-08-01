@@ -36,7 +36,7 @@ func TestCwdFriends_findFriends(t *testing.T) {
 	assert.SlicesEqual(t, friends, []*Process{friend})
 }
 
-// We are not our own friend, not even when we show up in the others list.
+// We are not our own friend, not even when we show up among the candidates.
 func TestCwdFriends_excludesSelf(t *testing.T) {
 	me := &Process{Pid: 123, Cmdline: "me"}
 
@@ -55,14 +55,14 @@ func TestCwdFriends_ordering(t *testing.T) {
 	laterCat := &Process{Pid: 6, Cmdline: "cat"}
 	earlierCat := &Process{Pid: 5, Cmdline: "cat"}
 
-	others := []*Process{bash, laterCat, awk, earlierCat, loginBash}
+	candidates := []*Process{bash, laterCat, awk, earlierCat, loginBash}
 
 	cwds := map[int]string{me.Pid: "/shared"}
-	for _, other := range others {
-		cwds[other.Pid] = "/shared"
+	for _, candidate := range candidates {
+		cwds[candidate.Pid] = "/shared"
 	}
 
-	friends := CwdFriends(me, others, cwds)
+	friends := CwdFriends(me, candidates, cwds)
 
 	assert.SlicesEqual(t, friends, []*Process{awk, loginBash, bash, earlierCat, laterCat})
 }
