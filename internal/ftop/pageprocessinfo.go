@@ -21,6 +21,7 @@ const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 
 var getLoggedInUsersAt = loginhistory.GetUsersAt
 var getCwdsByPid = processes.GetCwdsByPid
+var getOtherProcesses = getAllOtherProcesses
 
 type pageText struct {
 	text        strings.Builder
@@ -355,7 +356,7 @@ func (u *Ui) cwdFriendsForPaging(proc *processes.Process, pt *pageText) {
 		return
 	}
 
-	friends := processes.CwdFriends(proc, getAllOtherProcesses(proc), cwds)
+	friends := processes.CwdFriends(proc, getOtherProcesses(proc), cwds)
 	if len(friends) == 0 {
 		pt.writeLine("<Nobody else shares this working directory>")
 		return

@@ -20,7 +20,7 @@ func CwdFriends(proc *Process, others []*Process, cwds map[int]string) []*Proces
 		return nil
 	}
 
-	friends := []*Process{}
+	var friends []*Process
 	for _, other := range others {
 		if other.Pid == proc.Pid {
 			continue
@@ -38,17 +38,15 @@ func CwdFriends(proc *Process, others []*Process, cwds map[int]string) []*Proces
 		friends = append(friends, other)
 	}
 
-	// Command() is not free, so ask each friend for its name only once
-	sortKeys := map[*Process]string{}
-	for _, friend := range friends {
-		// Login shells are launched as "-bash" or "-fish". Drop the dash so
-		// that they sort next to their non-login siblings.
-		sortKeys[friend] = strings.TrimPrefix(friend.Command(), "-")
+	// Login shells are launched as "-bash" or "-fish". Drop the dash so that
+	// they sort next to their non-login siblings.
+	sortKey := func(p *Process) string {
+		return strings.TrimPrefix(p.Command(), "-")
 	}
 
 	slices.SortFunc(friends, func(a, b *Process) int {
 		return cmp.Or(
-			strings.Compare(sortKeys[a], sortKeys[b]),
+			strings.Compare(sortKey(a), sortKey(b)),
 			cmp.Compare(a.Pid, b.Pid),
 		)
 	})
