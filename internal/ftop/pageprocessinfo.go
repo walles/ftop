@@ -335,13 +335,10 @@ func (u *Ui) cwdFriendsForPaging(proc *processes.Process, pt *pageText) {
 	const title = "Others sharing this process' working directory"
 
 	cwds, err := getCwdsByPid()
-	if len(cwds) == 0 && err != nil {
+	if err != nil {
 		pt.writeTitle(title)
 		pt.writeLine("<Unable to list working directories: " + err.Error() + ">")
 		return
-	}
-	if err != nil {
-		log.Debugf("Some working directories could not be listed: %v", err)
 	}
 
 	cwd, found := cwds[proc.Pid]

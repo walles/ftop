@@ -15,10 +15,6 @@ import (
 //
 // This forks lsof, which takes a fraction of a second. Too slow for calling
 // once per frame, fine for on-demand lookups.
-//
-// Whatever could be parsed is returned even if the error is non-nil; lsof
-// exits non-zero when some processes couldn't be inspected, but the rest of
-// its output is still good.
 func GetCwdsByPid() (map[int]string, error) {
 	parser := lsofCwdParser{cwds: map[int]string{}}
 
@@ -30,8 +26,11 @@ func GetCwdsByPid() (map[int]string, error) {
 	//   descriptor and name fields
 	commandline := []string{"lsof", "-n", "-w", "-d", "cwd", "-F", "pfn0"}
 	err := util.Exec(commandline, parser.parseLine)
+	if err != nil {
+		return nil, err
+	}
 
-	return parser.cwds, err
+	return parser.cwds, nil
 }
 
 // Parses the output of "lsof -d cwd -F pfn0", which comes in NUL terminated
