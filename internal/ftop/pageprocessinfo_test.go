@@ -66,26 +66,7 @@ func fakeCwds(t *testing.T, cwds map[int]string, err error) {
 	}
 }
 
-// Replaces the process tree walk for the duration of the test
-func fakeOtherProcesses(t *testing.T, procs []*processes.Process) {
-	t.Helper()
-
-	original := getOtherProcesses
-	t.Cleanup(func() {
-		getOtherProcesses = original
-	})
-
-	getOtherProcesses = func(*processes.Process) []*processes.Process {
-		return procs
-	}
-}
-
 func TestCwdFriendsForPagingListsFriends(t *testing.T) {
-	fish := &processes.Process{Pid: 7, Cmdline: "fish"}
-	gopls := &processes.Process{Pid: 8, Cmdline: "gopls"}
-	elsewhere := &processes.Process{Pid: 9, Cmdline: "elsewhere"}
-
-	fakeOtherProcesses(t, []*processes.Process{gopls, elsewhere, fish})
 	fakeCwds(t, map[int]string{
 		42: "/Users/johan/src/ftop",
 		7:  "/Users/johan/src/ftop",
@@ -94,6 +75,11 @@ func TestCwdFriendsForPagingListsFriends(t *testing.T) {
 	}, nil)
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	ui.allProcesses = []processes.Process{
+		{Pid: 8, Cmdline: "gopls"},
+		{Pid: 9, Cmdline: "elsewhere"},
+		{Pid: 7, Cmdline: "fish"},
+	}
 	pt := pageText{}
 
 	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)

@@ -70,8 +70,8 @@ func (ui *Ui) MainLoop() {
 			continue
 		}
 
-		procs := procsTracker.Processes()
-		procs = processes.Filter(procs, ui.filter)
+		ui.allProcesses = procsTracker.Processes()
+		procs := processes.Filter(ui.allProcesses, ui.filter)
 		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
 	}
 }

@@ -6,36 +6,42 @@ import (
 	"strings"
 )
 
-// The processes among others that have the same current working directory as
-// proc, sorted by command name and then by PID.
+// The processes among candidates that have the same current working directory
+// as proc, sorted by command name and then by PID.
 //
-// cwds maps PIDs to working directories, see GetCwdsByPid(). Processes missing
-// from cwds are never returned, and if proc itself is missing the result is
-// empty since we then have nothing to compare against.
+// cwds maps PIDs to working directories, see GetCwdsByPid(). Those PIDs come
+// without names, so candidates is what turns them back into processes we can
+// name and sort by; pass every process you know about. PIDs we find no
+// candidate for are dropped, since we would have nothing to call them.
 //
-// proc is never part of the result, not even if it is also in others.
-func CwdFriends(proc *Process, others []*Process, cwds map[int]string) []*Process {
+// Candidates missing from cwds are skipped: they are either processes we
+// aren't allowed to inspect, or ones that started or died in between the
+// process listing and the cwd listing.
+//
+// The result is empty if proc itself is missing from cwds, since we then have
+// nothing to compare against. proc is never part of the result.
+func CwdFriends(proc *Process, candidates []*Process, cwds map[int]string) []*Process {
 	cwd, weKnowOurCwd := cwds[proc.Pid]
 	if !weKnowOurCwd {
 		return nil
 	}
 
 	var friends []*Process
-	for _, other := range others {
-		if other.Pid == proc.Pid {
+	for _, candidate := range candidates {
+		if candidate.Pid == proc.Pid {
 			continue
 		}
 
-		otherCwd, found := cwds[other.Pid]
+		candidateCwd, found := cwds[candidate.Pid]
 		if !found {
 			continue
 		}
 
-		if otherCwd != cwd {
+		if candidateCwd != cwd {
 			continue
 		}
 
-		friends = append(friends, other)
+		friends = append(friends, candidate)
 	}
 
 	// Login shells are launched as "-bash" or "-fish". Drop the dash so that
