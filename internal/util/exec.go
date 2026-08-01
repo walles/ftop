@@ -11,8 +11,6 @@ import (
 // Exec command line using the default locale and invokes the callback for each
 // line.
 func Exec(commandline []string, perLineCallback func(line string) error) error {
-	cmd := exec.Command(commandline[0], commandline[1:]...)
-
 	env := []string{}
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "LANG") || strings.HasPrefix(e, "LC_") {
@@ -20,6 +18,21 @@ func Exec(commandline []string, perLineCallback func(line string) error) error {
 		}
 		env = append(env, e)
 	}
+
+	return execWithEnv(commandline, env, perLineCallback)
+}
+
+// Like Exec(), but with the user's own locale left in place.
+//
+// Use this for commands printing file names. Without a locale telling them
+// which character encoding to use, some commands escape every non-ASCII byte
+// into something unreadable.
+func ExecInUsersLocale(commandline []string, perLineCallback func(line string) error) error {
+	return execWithEnv(commandline, os.Environ(), perLineCallback)
+}
+
+func execWithEnv(commandline []string, env []string, perLineCallback func(line string) error) error {
+	cmd := exec.Command(commandline[0], commandline[1:]...)
 	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()

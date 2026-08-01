@@ -52,6 +52,91 @@ func TestUsersLoggedInWhenProcessStartedForPagingShowsErrors(t *testing.T) {
 	assert.Equal(t, stringsContains(pt.String(), "\n  <Unable to inspect login history: boom>\n"), false)
 }
 
+// Replaces the lsof lookup for the duration of the test
+func fakeCwds(t *testing.T, cwds map[int]string, err error) {
+	t.Helper()
+
+	original := getCwdsByPid
+	t.Cleanup(func() {
+		getCwdsByPid = original
+	})
+
+	getCwdsByPid = func() (map[int]string, error) {
+		return cwds, err
+	}
+}
+
+func TestCwdFriendsForPagingListsFriends(t *testing.T) {
+	fakeCwds(t, map[int]string{
+		42: "/Users/johan/src/ftop",
+		7:  "/Users/johan/src/ftop",
+		8:  "/Users/johan/src/ftop",
+		9:  "/somewhereelse",
+	}, nil)
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	ui.allProcesses = []processes.Process{
+		{Pid: 8, Cmdline: "gopls"},
+		{Pid: 9, Cmdline: "elsewhere"},
+		{Pid: 7, Cmdline: "fish"},
+	}
+	pt := pageText{}
+
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+
+	assert.Equal(t, stringsContains(pt.String(), "\nfish(7)\ngopls(8)\n"), true)
+	assert.Equal(t, stringsContains(pt.String(), "elsewhere"), false)
+}
+
+func TestCwdFriendsForPagingShowsErrors(t *testing.T) {
+	fakeCwds(t, nil, errors.New("boom"))
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	pt := pageText{}
+
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+
+	assert.Equal(t, stringsContains(pt.String(), "\n<Unable to list working directories: boom>\n"), true)
+}
+
+// lsof and our process listing are taken at slightly different times, so the
+// picked process can be missing from the lsof output.
+func TestCwdFriendsForPagingUnknownCwd(t *testing.T) {
+	fakeCwds(t, map[int]string{1: "/somewhere"}, nil)
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	pt := pageText{}
+
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+
+	assert.Equal(t, stringsContains(pt.String(), "\n<Working directory unknown"), true)
+}
+
+// Half the system has / as its working directory, listing those is pointless.
+func TestCwdFriendsForPagingRootCwd(t *testing.T) {
+	fakeCwds(t, map[int]string{42: "/"}, nil)
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	pt := pageText{}
+
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+
+	assert.Equal(t, stringsContains(pt.String(), "Others sharing this process' working directory (/)"), true)
+	assert.Equal(t, stringsContains(pt.String(), "\n<Working directory too common, never mind>\n"), true)
+}
+
+func TestCwdFriendsForPagingNoFriends(t *testing.T) {
+	fakeCwds(t, map[int]string{42: "/Users/johan/src/ftop"}, nil)
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	pt := pageText{}
+
+	ui.cwdFriendsForPaging(&processes.Process{Pid: 42, Cmdline: "picked"}, &pt)
+
+	assert.Equal(t, stringsContains(pt.String(), "Others sharing this process' working directory (/Users/johan/src/ftop)"), true)
+	assert.Equal(t, stringsContains(pt.String(), "\n<Nobody else shares this working directory>\n"), true)
+}
+
 func stringsContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)
 }

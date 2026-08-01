@@ -20,6 +20,7 @@ import (
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 
 var getLoggedInUsersAt = loginhistory.GetUsersAt
+var getCwdsByPid = processes.GetCwdsByPid
 
 type pageText struct {
 	text        strings.Builder
@@ -115,6 +116,11 @@ func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 	pt.writeLine("")
 
 	u.usersLoggedInWhenProcessStartedForPaging(proc, &pt)
+
+	pt.writeLine("")
+	pt.writeLine("")
+
+	u.cwdFriendsForPaging(proc, &pt)
 
 	pt.writeLine("")
 
@@ -322,6 +328,46 @@ func (u *Ui) usersLoggedInWhenProcessStartedForPaging(proc *processes.Process, p
 
 	for _, user := range users {
 		pt.writeLine(user)
+	}
+}
+
+func (u *Ui) cwdFriendsForPaging(proc *processes.Process, pt *pageText) {
+	const title = "Others sharing this process' working directory"
+
+	cwds, err := getCwdsByPid()
+	if err != nil {
+		pt.writeTitle(title)
+		pt.writeLine("<Unable to list working directories: " + err.Error() + ">")
+		return
+	}
+
+	cwd, found := cwds[proc.Pid]
+	if !found {
+		pt.writeTitle(title)
+		pt.writeLine("<Working directory unknown, try again or try \"sudo ftop\">")
+		return
+	}
+
+	pt.writeTitle(title + " (" + cwd + ")")
+
+	if cwd == "/" {
+		pt.writeLine("<Working directory too common, never mind>")
+		return
+	}
+
+	candidates := make([]*processes.Process, len(u.allProcesses))
+	for i := range u.allProcesses {
+		candidates[i] = &u.allProcesses[i]
+	}
+
+	friends := processes.CwdFriends(proc, candidates, cwds)
+	if len(friends) == 0 {
+		pt.writeLine("<Nobody else shares this working directory>")
+		return
+	}
+
+	for _, friend := range friends {
+		pt.writeLine(friend.String())
 	}
 }
 

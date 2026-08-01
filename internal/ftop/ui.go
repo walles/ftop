@@ -29,6 +29,10 @@ type Ui struct {
 	// This will be updated during rendering
 	pickedProcess *processes.Process
 
+	// Unfiltered process list as of the most recent frame. The process info
+	// page needs to look beyond whatever the user is filtering on.
+	allProcesses []processes.Process
+
 	// At this width or wider, we have always managed to render all three panes.
 	// Below this, we shouldn't even try.
 	//
