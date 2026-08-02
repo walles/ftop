@@ -24,5 +24,26 @@ if [ "$(go env GOARCH)" == "386" ]; then
 fi
 go test $RACE -timeout 20s ./...
 
+# Ensure we can build for all platforms we release for
+#
+# NOTE: Keep this list in sync with the release builds in release.sh
+echo
+echo "Testing cross compilation..."
+echo "  Linux i386..."
+GOOS=linux GOARCH=386 ./build.sh
+echo "  Linux arm32..."
+GOOS=linux GOARCH=arm ./build.sh
+
+# The macOS binaries get their system stats through CGO, and cross compiling
+# CGO code for macOS requires the macOS SDK. So these builds only work on macOS.
+if [ "$(go env GOHOSTOS)" = "darwin" ]; then
+  echo "  macOS amd64..."
+  CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 ./build.sh
+  echo "  macOS arm64..."
+  CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 ./build.sh
+else
+  echo "  Skipping the macOS builds, they need the macOS SDK for CGO"
+fi
+
 echo
 echo "All tests passed!"

@@ -28,6 +28,9 @@ jobs:
       # the build times separately from the test times.
       - run: go build ./...
       - run: go build -race ./...
+      # NOTE: test.sh cross compiles for Linux here, but skips its macOS builds
+      # since those need the macOS SDK for CGO. Those are only covered by
+      # running test.sh on a Mac, which release.sh does before every release.
       - run: ./test.sh
 
       # -race is not supported on i386
