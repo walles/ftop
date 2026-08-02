@@ -84,6 +84,8 @@ echo "Building ${VERSION} release binaries..."
 
 # NOTE: To get the version number right, production builds must be done after
 # the above tagging.
+#
+# NOTE: Keep this list in sync with the cross compilation test in test.sh
 GOOS=linux GOARCH=386 ./build.sh
 GOOS=linux GOARCH=arm ./build.sh
 
