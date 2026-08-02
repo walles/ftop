@@ -101,19 +101,42 @@ func (u *Ui) buildAndPageProcessInfo(proc *processes.Process) error {
 
 	pipeReader, pipeWriter := io.Pipe()
 
-	go func() {
-		defer func() {
-			log.PanicHandler("main/process info composer", recover(), debug.Stack())
-		}()
-
-		defer func() {
-			_ = pipeWriter.Close()
-		}()
-
-		u.writeProcessInfo(proc, candidates, pipeWriter)
-	}()
+	go u.composeProcessInfo(proc, candidates, pipeWriter)
 
 	return moor.PageFromStream(pipeReader, moor.Options{NoLineNumbers: true})
+}
+
+// Composes the page into pipeWriter, then closes it so the pager knows the page
+// is complete.
+//
+// Meant to be run in a goroutine of its own, see buildAndPageProcessInfo().
+//
+// A crash while composing ends the page with a note about it, and asks ftop to
+// shut down. The pager is unaffected either way, so the user gets to read both
+// the page so far and the crash note before ftop exits.
+func (u *Ui) composeProcessInfo(proc *processes.Process, candidates []*processes.Process, pipeWriter *io.PipeWriter) {
+	// Registered before the recovery below so that it runs after it, leaving the
+	// pipe open long enough for the crash note to make it into the page.
+	defer func() {
+		_ = pipeWriter.Close()
+	}()
+
+	defer func() {
+		panicResult := recover()
+		if panicResult == nil {
+			return
+		}
+
+		// Into the page before reporting the crash, so that the note is there
+		// by the time the pager gets the end of the page.
+		pt := pageText{out: pipeWriter}
+		pt.writeLine("")
+		pt.writeLine(fmt.Sprintf("<Page composition crashed: %s>", panicResult))
+
+		log.PanicHandler("main/process info composer", panicResult, debug.Stack())
+	}()
+
+	u.writeProcessInfo(proc, candidates, pipeWriter)
 }
 
 // Composes the process info page into out, one section at a time.

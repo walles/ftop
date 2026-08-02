@@ -36,6 +36,22 @@ func TestPageTextWritesThrough(t *testing.T) {
 	assert.Equal(t, string(early), "early\n")
 }
 
+// Composing can crash halfway through, and all the pager would otherwise show
+// is a page that stops for no stated reason. The note has to make it into the
+// page before the pipe closes, or the reader never sees it.
+func TestComposeProcessInfoPutsCrashesInThePage(t *testing.T) {
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+
+	pipeReader, pipeWriter := io.Pipe()
+
+	// A nil process crashes the composer as soon as it looks at it
+	go ui.composeProcessInfo(nil, nil, pipeWriter)
+
+	page, err := io.ReadAll(pipeReader)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, strings.Contains(string(page), "<Page composition crashed:"), true)
+}
+
 func TestUsersLoggedInWhenProcessStartedForPaging(t *testing.T) {
 	original := getLoggedInUsersAt
 	t.Cleanup(func() {
