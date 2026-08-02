@@ -40,7 +40,7 @@ func (ui *Ui) MainLoop() {
 		}
 	}()
 
-	for !ui.done {
+	for !ui.done.Load() {
 		switch event := (<-ui.events).(type) {
 		case redrawUi:
 			// This block intentionally left blank since process list update
@@ -73,6 +73,23 @@ func (ui *Ui) MainLoop() {
 		ui.allProcesses = procsTracker.Processes()
 		procs := processes.Filter(ui.allProcesses, ui.filter)
 		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
+	}
+}
+
+// Asks MainLoop() to return, callable from any goroutine.
+//
+// Returns immediately, without waiting for the main loop to notice. The main
+// loop finishes whatever it is doing first, so if the process info pager is up
+// (see pageProcessInfo()), ftop keeps running until the user leaves the pager.
+func (ui *Ui) RequestShutdown() {
+	ui.done.Store(true)
+
+	// Best effort wake up call, in case the main loop is waiting for something
+	// to happen. If the queue is full then the main loop has events to process
+	// anyway, and it will check ui.done as soon as it gets to them.
+	select {
+	case ui.events <- redrawUi{}:
+	default:
 	}
 }
 

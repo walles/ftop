@@ -10,7 +10,7 @@ type eventHandlerBase struct {
 
 func (h *eventHandlerBase) onRune(r rune) {
 	if r == 'q' {
-		h.ui.done = true
+		h.ui.done.Store(true)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *eventHandlerBase) onKeyCode(keyCode twin.KeyCode) {
 			return
 		}
 
-		h.ui.done = true
+		h.ui.done.Store(true)
 		return
 	}
 

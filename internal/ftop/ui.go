@@ -1,6 +1,8 @@
 package ftop
 
 import (
+	"sync/atomic"
+
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/moor/v2/twin"
@@ -20,7 +22,9 @@ type Ui struct {
 
 	filter string // Empty means no filter
 
-	done bool
+	// Atomic because RequestShutdown() sets it from whichever goroutine is
+	// asking us to stop, while MainLoop() reads it.
+	done atomic.Bool
 
 	// nil means no line picked. If the value is too large it should be updated
 	// by the rendering code.

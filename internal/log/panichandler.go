@@ -9,6 +9,10 @@ var panicShutdownOnce sync.Once
 // Register a callback to trigger on recovered panic.
 //
 // Intended for fail-fast shutdown in case any goroutine panics.
+//
+// The hook runs at most once, from inside the PanicHandler() call of whichever
+// goroutine crashed first. Whatever it touches has to tolerate being touched
+// from there.
 func SetPanicShutdownHook(hook func()) {
 	panicShutdownHookLock.Lock()
 	defer panicShutdownHookLock.Unlock()

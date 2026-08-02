@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
+	"sync/atomic"
 
 	detectrace "github.com/jbenet/go-detect-race"
 
@@ -155,7 +156,8 @@ func profilingMainLoop(pleasePanic bool) int {
 	return result
 }
 
-func mainLoop(pleasePanic bool) int {
+// Named return so that the panic recovery below can make us exit non-zero.
+func mainLoop(pleasePanic bool) (exitCode int) {
 	screen, err := twin.NewScreen()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
@@ -163,12 +165,14 @@ func mainLoop(pleasePanic bool) int {
 	}
 
 	defer onExit(screen, CLI.Debug)
-	log.SetPanicShutdownHook(func() {
-		onExit(screen, true)
-	})
 
 	defer func() {
-		log.PanicHandler("main", recover(), debug.Stack())
+		panicResult := recover()
+		if panicResult != nil {
+			exitCode = 1
+		}
+
+		log.PanicHandler("main", panicResult, debug.Stack())
 	}()
 
 	if pleasePanic {
@@ -178,7 +182,20 @@ func mainLoop(pleasePanic bool) int {
 	theme := themes.NewTheme(CLI.Theme.String(), screen.TerminalBackground())
 
 	ui := ftop.NewUi(screen, theme, CLI.InitialFilter)
+
+	// Up to this point the only goroutine that can crash is this one, and the
+	// defers above cover it.
+	var crashed atomic.Bool
+	log.SetPanicShutdownHook(func() {
+		crashed.Store(true)
+		ui.RequestShutdown()
+	})
+
 	ui.MainLoop()
+
+	if crashed.Load() {
+		return 1
+	}
 
 	return 0
 }
