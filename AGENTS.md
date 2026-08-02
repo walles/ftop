@@ -3,6 +3,12 @@
 Use `./test.sh` to run all tests. In addition to just running all tests, that
 script will do linting, some cross compiling and more.
 
+# Manual Testing
+
+If the user wants to test manually, ask them to run `./ftop.sh` rather than
+building a binary yourself. `ftop.sh` builds and runs the current sources with
+race detection enabled.
+
 # Fixing Bugs
 
 1. Create a new branch with a sensible name, e.g. `fix-crash-on-search-backwards`.
