@@ -102,6 +102,7 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		func() { u.closeLaunchesForPaging(proc, &pt) },
 		func() { u.usersLoggedInWhenProcessStartedForPaging(proc, &pt) },
 		func() { u.cwdFriendsForPaging(proc, allProcesses, &pt) },
+		func() { u.ipcConnectionsForPaging(proc, &pt) },
 	}
 
 	for i, section := range sections {
