@@ -6,28 +6,28 @@ import (
 	"strings"
 )
 
-// The processes among candidates that have the same current working directory
+// The processes among allProcesses that have the same current working directory
 // as proc, sorted by command name and then by PID.
 //
 // cwds maps PIDs to working directories, see GetCwdsByPid(). Those PIDs come
-// without names, so candidates is what turns them back into processes we can
+// without names, so allProcesses is what turns them back into processes we can
 // name and sort by; pass every process you know about. PIDs we find no
 // candidate for are dropped, since we would have nothing to call them.
 //
-// Candidates missing from cwds are skipped: they are either processes we
-// aren't allowed to inspect, or ones that started or died in between the
-// process listing and the cwd listing.
+// Candidates missing from cwds are skipped: they are either processes we aren't
+// allowed to inspect, or ones that started or died in between the process
+// listing and the cwd listing.
 //
 // The result is empty if proc itself is missing from cwds, since we then have
 // nothing to compare against. proc is never part of the result.
-func CwdFriends(proc *Process, candidates []*Process, cwds map[int]string) []*Process {
+func CwdFriends(proc *Process, allProcesses []*Process, cwds map[int]string) []*Process {
 	cwd, weKnowOurCwd := cwds[proc.Pid]
 	if !weKnowOurCwd {
 		return nil
 	}
 
 	var friends []*Process
-	for _, candidate := range candidates {
+	for _, candidate := range allProcesses {
 		if candidate.Pid == proc.Pid {
 			continue
 		}
