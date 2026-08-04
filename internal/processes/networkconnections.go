@@ -21,9 +21,9 @@ type Peer struct {
 
 // Which end dialed the other.
 //
-// Worked out from the ports this machine listens on, which can get it backwards
-// for a connection whose listening socket we cannot see, see
-// NetworkConnections().
+// Worked out from the ports this machine listens on, so it can come out
+// backwards for a connection whose listening socket we cannot see, and UDP has
+// no equivalent to compare against at all. See directionAndPort().
 type Direction int
 
 const (
@@ -32,15 +32,21 @@ const (
 
 	// We dialed the peer
 	DirectionOutgoing
+
+	// No telling which end dialed the other. Every UDP connection is this.
+	DirectionUnknown
 )
 
-// Some number of TCP connections between one process and one peer, all of them
-// to or from the same port.
+// Some number of connections between one process and one peer, all of them
+// speaking the same protocol to or from the same port.
 type Connection struct {
 	Peer      Peer
+	Protocol  Protocol
 	Direction Direction
 
-	// The port being served, never the ephemeral one the client picked.
+	// The port being served, never the ephemeral one the client picked. The
+	// peer's port when Direction is DirectionUnknown, there being no telling
+	// which of the two is the served one.
 	Port int
 
 	// True for a port we accept connections on. Such a connection has no peer,
@@ -52,7 +58,7 @@ type Connection struct {
 	Count int
 }
 
-// The TCP connections of proc, aggregated and sorted for display.
+// The TCP and UDP connections of proc, aggregated and sorted for display.
 //
 // socketsByPid is every socket we could see, see GetSocketsByPid(); the sockets
 // of other processes are what lets us name the process at the other end of a
@@ -67,18 +73,28 @@ type Connection struct {
 //
 // Sockets that neither listen nor have a peer are left out; lsof reports those
 // for sockets that are bound but were never connected, and there is nothing to
-// say about them.
+// say about them. That takes most UDP sockets with it, a UDP server's bound
+// socket included, since UDP has no listening state to tell one from an
+// ephemeral source port.
 //
-// The result is empty if proc holds no TCP sockets, or if it is missing from
+// Which costs UDP its peers as well: a UDP server serves every client from one
+// bound socket and never connects it, so there is no reversed pair to match, and
+// a process talking to a local UDP server gets that server's address for a peer
+// rather than the server itself. Expect local UDP to come back as Peer.Pid 0 on
+// a loopback address unless both ends happen to have connected their sockets.
+//
+// The result is empty if proc holds no sockets, or if it is missing from
 // socketsByPid because we aren't allowed to inspect it.
 //
 // Which end dialed which is worked out from the ports this machine listens on,
 // so a connection whose listening socket is nowhere to be seen, having been
 // closed or held by a process we may not inspect, can come out backwards, and
-// then reported on the client's port rather than the server's.
+// then reported on the client's port rather than the server's. UDP connections
+// are always DirectionUnknown, see directionAndPort().
 //
 // The ordering is listening ports first, then incoming connections, then
-// outgoing ones; by peer name, PID and port within each group.
+// outgoing ones, then the ones we can't tell the direction of; by peer name, PID
+// and port within each group.
 func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map[int][]Socket) []Connection {
 	ourSockets := deduplicateBySocket(socketsByPid[proc.Pid])
 	if len(ourSockets) == 0 {
@@ -104,12 +120,19 @@ func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map
 			// stack listener has one per address family, and reporting two of
 			// them, or one with a count of two, would both be lies.
 			_, port := splitEndpoint(socket.Local)
-			counts[Connection{Direction: DirectionIncoming, Port: port, Listening: true}] = 1
+			counts[Connection{
+				Protocol:  socket.Protocol,
+				Direction: DirectionIncoming,
+				Port:      port,
+				Listening: true,
+			}] = 1
 			continue
 		}
 
 		if socket.Remote == "" {
-			// Bound but never connected, nothing to say about it
+			// Bound, with nobody at the other end. Nothing we can say honestly:
+			// see this function's own doc comment for what that costs UDP, which
+			// arrives here far more often than TCP does.
 			continue
 		}
 
@@ -117,38 +140,11 @@ func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map
 			continue
 		}
 
-		_, localPort := splitEndpoint(socket.Local)
-
-		// A connection to a port this machine listens on is one somebody else
-		// dialed. The whole machine's ports rather than just our own, because
-		// the process holding an accepted socket often isn't the one holding the
-		// listener: an accept-then-fork server keeps the listener in the parent,
-		// every sshd session child being one, and a socket activated server
-		// never holds one at all.
-		//
-		// Known limit: a server that closes its listening socket once it has
-		// accepted, as "nc -l" does, leaves no listening port anywhere on the
-		// machine, so its connections come out backwards, as if it had dialed
-		// the client on the client's ephemeral port. Telling those apart would
-		// mean guessing from the port numbers, and ephemeral ranges are platform
-		// specific while servers do listen high. Same for a listener held by a
-		// process we aren't allowed to inspect, which is why this gets more
-		// accurate as root.
-		//
-		// The machine-wide set gets it wrong the other way around too: dialing
-		// out from a local port that anything on this machine listens on reads
-		// as incoming, and then the port reported is our own instead of the
-		// server's. That takes an ephemeral port colliding with a listening one,
-		// so unlike the cases above it is a coincidence rather than a pattern.
-		direction := DirectionOutgoing
-		_, port := splitEndpoint(socket.Remote)
-		if listeningEndpoints[socket.Local] || listeningWildcardPorts[localPort] {
-			direction = DirectionIncoming
-			port = localPort
-		}
+		direction, port := directionAndPort(socket, listeningEndpoints, listeningWildcardPorts)
 
 		counts[Connection{
 			Peer:      peerOf(socket, peerPids, names),
+			Protocol:  socket.Protocol,
 			Direction: direction,
 			Port:      port,
 		}]++
@@ -165,6 +161,59 @@ func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map
 	return connections
 }
 
+// Which end of socket dialed the other, and the port worth reporting it on.
+//
+// Only TCP tells us who dialed whom. Anything else comes back
+// DirectionUnknown on the peer's port, there being no way to tell which of the
+// two ports is the served one.
+//
+// listeningEndpoints and listeningWildcardPorts are the machine's listen sets,
+// see listenSets(). socket is expected to have a peer; a listening socket has no
+// direction to work out.
+//
+// A connection to a port this machine listens on is one somebody else dialed.
+// The whole machine's ports rather than just our own, because the process
+// holding an accepted socket often isn't the one holding the listener: an
+// accept-then-fork server keeps the listener in the parent, every sshd session
+// child being one, and a socket activated server never holds one at all.
+//
+// Known limit: a server that closes its listening socket once it has accepted,
+// as "nc -l" does, leaves no listening port anywhere on the machine, so its
+// connections come out backwards, as if it had dialed the client on the client's
+// ephemeral port. Telling those apart would mean guessing from the port numbers,
+// and ephemeral ranges are platform specific while servers do listen high. Same
+// for a listener held by a process we aren't allowed to inspect, which is why
+// this gets more accurate as root.
+//
+// The machine-wide set gets it wrong the other way around too: dialing out from
+// a local port that anything on this machine listens on reads as incoming, and
+// then the port reported is our own instead of the server's. That takes an
+// ephemeral port colliding with a listening one, so unlike the cases above it is
+// a coincidence rather than a pattern.
+func directionAndPort(
+	socket Socket,
+	listeningEndpoints map[string]bool,
+	listeningWildcardPorts map[int]bool,
+) (Direction, int) {
+	_, remotePort := splitEndpoint(socket.Remote)
+
+	if socket.Protocol != ProtocolTcp {
+		// Only TCP tells us who dialed whom. lsof reports no state at all for a
+		// UDP socket, and a UDP socket is bound as soon as it sends, so there is
+		// no listening port anywhere on the machine to compare ours against. Of
+		// the two ports the peer's is the one more likely to mean something, a
+		// process talking to a UDP service being the common case.
+		return DirectionUnknown, remotePort
+	}
+
+	_, localPort := splitEndpoint(socket.Local)
+	if listeningEndpoints[socket.Local] || listeningWildcardPorts[localPort] {
+		return DirectionIncoming, localPort
+	}
+
+	return DirectionOutgoing, remotePort
+}
+
 // Who is at the other end of socket: the process holding the same connection
 // with the endpoints the other way around, or the remote address if we can find
 // no such process.
@@ -172,7 +221,7 @@ func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map
 // peerPids and names are the indexes built by peerPidsByEndpointPair() and a
 // PID to command name mapping, respectively.
 func peerOf(socket Socket, peerPids map[string]int, names map[int]string) Peer {
-	peerPid, found := peerPids[endpointPairKey(socket.Remote, socket.Local)]
+	peerPid, found := peerPids[endpointPairKey(socket.Protocol, socket.Remote, socket.Local)]
 	if found {
 		// The name can be missing: lsof runs after the process listing, so the
 		// peer may be a process that didn't exist yet when we listed them.
@@ -198,7 +247,7 @@ func isTheFarEndOfOurOwnConnection(socket Socket, ourPairs map[string]bool) bool
 		return false
 	}
 
-	return ourPairs[endpointPairKey(socket.Remote, socket.Local)]
+	return ourPairs[endpointPairKey(socket.Protocol, socket.Remote, socket.Local)]
 }
 
 // The connections held by sockets, keyed the way endpointPairKey() spells them.
@@ -212,7 +261,7 @@ func endpointPairs(sockets []Socket) map[string]bool {
 			continue
 		}
 
-		pairs[endpointPairKey(socket.Local, socket.Remote)] = true
+		pairs[endpointPairKey(socket.Protocol, socket.Local, socket.Remote)] = true
 	}
 
 	return pairs
@@ -223,14 +272,15 @@ func endpointPairs(sockets []Socket) map[string]bool {
 // One socket reaches us several times over in more than one way: some lsof
 // versions report an open file once per thread of the process holding it, and a
 // socket open on several file descriptors, by dup(2) or by being inherited as
-// stdin, stdout and stderr, is reported once per descriptor. A TCP connection is
-// its four endpoint numbers, so two sockets of one process carrying the same four
-// are the same socket, whichever descriptors they arrived on.
+// stdin, stdout and stderr, is reported once per descriptor. A connection is its
+// protocol plus its four endpoint numbers, so two sockets of one process carrying
+// the same five are the same socket, whichever descriptors they arrived on.
 //
 // Listening is part of what identifies a socket as well, so that a listener isn't
 // mistaken for the bound but unconnected socket that shares its address.
 func deduplicateBySocket(sockets []Socket) []Socket {
 	type socketIdentity struct {
+		protocol  Protocol
 		local     string
 		remote    string
 		listening bool
@@ -241,6 +291,7 @@ func deduplicateBySocket(sockets []Socket) []Socket {
 	var deduplicated []Socket
 	for _, socket := range sockets {
 		identity := socketIdentity{
+			protocol:  socket.Protocol,
 			local:     socket.Local,
 			remote:    socket.Remote,
 			listening: socket.Listening,
@@ -261,7 +312,7 @@ func deduplicateBySocket(sockets []Socket) []Socket {
 // of those listeners that accept connections to any address at all.
 //
 // Every process' sockets rather than one process' own, see NetworkConnections()
-// for why.
+// for why. All of them TCP in practice, UDP having no listening state.
 //
 // Sockets accepted by a wildcard listener report a concrete local address, which
 // never matches the "*:8082" the listener is bound to, so for those the port is
@@ -306,7 +357,7 @@ func peerPidsByEndpointPair(socketsByPid map[int][]Socket) map[string]int {
 				continue
 			}
 
-			key := endpointPairKey(socket.Local, socket.Remote)
+			key := endpointPairKey(socket.Protocol, socket.Local, socket.Remote)
 			lowestSoFar, found := peerPids[key]
 			if found && lowestSoFar < pid {
 				continue
@@ -319,14 +370,18 @@ func peerPidsByEndpointPair(socketsByPid map[int][]Socket) map[string]int {
 	return peerPids
 }
 
-// How a connection is spelled in the peer index: one end, then the other.
+// How a connection is spelled in the peer index: its protocol, then one end and
+// the other.
 //
 // Looking up a socket of ours with its endpoints reversed finds the process at
-// the other end of it. A TCP connection is its four endpoint numbers, so there
-// is at most one such connection, held by at least one process if we are allowed
-// to see it at all.
-func endpointPairKey(local string, remote string) string {
-	return local + "->" + remote
+// the other end of it. A connection is its protocol plus its four endpoint
+// numbers, so there is at most one such connection, held by at least one process
+// if we are allowed to see it at all.
+//
+// The protocol belongs in the key because a TCP and a UDP connection can carry
+// the very same four numbers while having nothing to do with each other.
+func endpointPairKey(protocol Protocol, local string, remote string) string {
+	return string(protocol) + " " + local + "->" + remote
 }
 
 // The address and port of "127.0.0.1:8080", "*:7000" or "[::1]:8081", with the
@@ -352,10 +407,14 @@ func splitEndpoint(endpoint string) (address string, port int) {
 	return address, port
 }
 
-// Listening ports first, then incoming connections, then outgoing ones, so that
-// each way of drawing a connection stays in one block of the listing. Then by
-// peer name, peer PID and port, all of which are only tie breakers, there to
-// make the order the same every time.
+// Listening ports first, then incoming connections, then outgoing ones, then the
+// ones nobody can tell the direction of, so that each way of drawing a connection
+// stays in one block of the listing. Then by peer name, peer PID and port, all of
+// which are only tie breakers, there to make the order the same every time.
+//
+// Protocol is not among the keys, and doesn't need to be: TCP is the only
+// protocol that ever lands in the first three groups and UDP the only one that
+// lands in the last, so the blocks come out protocol-pure anyway.
 func compareConnections(a Connection, b Connection) int {
 	return cmp.Or(
 		cmp.Compare(sortGroup(a), sortGroup(b)),
@@ -375,5 +434,9 @@ func sortGroup(connection Connection) int {
 		return 1
 	}
 
-	return 2
+	if connection.Direction == DirectionOutgoing {
+		return 2
+	}
+
+	return 3
 }

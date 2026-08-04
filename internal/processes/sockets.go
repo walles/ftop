@@ -9,12 +9,23 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
-// One TCP socket held open by some process, as reported by lsof.
+// Which transport protocol a socket speaks, lowercased so that it can go
+// straight into the page.
+type Protocol string
+
+const (
+	ProtocolTcp Protocol = "tcp"
+	ProtocolUdp Protocol = "udp"
+)
+
+// One TCP or UDP socket held open by some process, as reported by lsof.
 type Socket struct {
-	// lsof's file descriptor number, "31" or similar. Unique within the process
-	// holding it, which is what makes it usable for recognizing the same socket
-	// reported to us twice.
+	// lsof's file descriptor number, "31" or similar. Not an identity: one socket
+	// is reported once per descriptor it is open on, so the same socket arrives
+	// under several of these. See deduplicateBySocket() for what does identify one.
 	Fd string
+
+	Protocol Protocol
 
 	// Our own end of the socket: "127.0.0.1:8080", "*:8080" for a listener
 	// bound to every interface, or "[::1]:8081" for IPv6.
@@ -25,17 +36,20 @@ type Socket struct {
 	// connected.
 	Remote string
 
+	// True for a socket lsof reports as listening. Never true for UDP, which has
+	// no listening state.
 	Listening bool
 }
 
-// Maps PIDs to the TCP sockets held open by the corresponding processes.
+// Maps PIDs to the TCP and UDP sockets held open by the corresponding
+// processes.
 //
 // The listing is partial: processes we aren't allowed to inspect are missing
 // from the map, so expect only a fraction of the running processes when not
-// running as root. Processes without any TCP sockets are missing as well, which
-// is most of them.
+// running as root. Processes without any sockets are missing as well, which is
+// most of them.
 //
-// UDP sockets are not included, and neither are pipes or unix domain sockets.
+// Pipes and unix domain sockets are not included.
 //
 // This forks lsof, which takes a fraction of a second. Too slow for calling
 // once per frame, fine for on-demand lookups.
@@ -46,11 +60,12 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 	// -P: Don't resolve port numbers, service names like "ipp" for 631 don't
 	//   sort numerically
 	// -w: Don't warn about processes we aren't allowed to inspect
-	// -iTCP: List TCP sockets only, this is much faster than listing every open
-	//   file of every process
-	// -F pfnT0: Machine readable output with NUL terminated PID, file
-	//   descriptor, name and TCP state fields
-	commandline := []string{"lsof", "-n", "-P", "-w", "-iTCP", "-F", "pfnT0"}
+	// -iTCP -iUDP: List those two kinds of socket only. Much faster than listing
+	//   every open file of every process, and narrower than a plain -i, which
+	//   also reports the ICMP sockets we have nothing to say about.
+	// -F pfnPT0: Machine readable output with NUL terminated PID, file
+	//   descriptor, protocol, name and TCP state fields
+	commandline := []string{"lsof", "-n", "-P", "-w", "-iTCP", "-iUDP", "-F", "pfnPT0"}
 
 	// Locale intentionally left alone, matching GetCwdsByPid()
 	err := util.ExecInUsersLocale(commandline, parser.parseLine)
@@ -65,17 +80,18 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 		return nil, err
 	}
 
-	log.Infof("Listing TCP sockets partially failed, got %d processes' worth: %v",
+	log.Infof("Listing sockets partially failed, got %d processes' worth: %v",
 		len(parser.socketsByPid), err)
 
 	return parser.socketsByPid, nil
 }
 
-// Parses the output of "lsof -n -P -w -iTCP -F pfnT0", which comes in NUL
+// Parses the output of "lsof -n -P -w -iTCP -iUDP -F pfnPT0", which comes in NUL
 // terminated fields, one line per process and then one line per socket:
 //
 //	p7619\0
-//	f31\0n192.168.50.32:57759->172.217.19.234:443\0TST=ESTABLISHED\0TQR=0\0TQS=0\0
+//	f31\0PTCP\0n192.168.50.32:57759->172.217.19.234:443\0TST=ESTABLISHED\0TQR=0\0TQS=0\0
+//	f36\0PUDP\0n*:65330\0
 type lsofSocketParser struct {
 	socketsByPid map[int][]Socket
 
@@ -138,6 +154,19 @@ func (parser *lsofSocketParser) parseField(field string, socket *Socket) error {
 
 	case 'f':
 		socket.Fd = value
+
+	case 'P':
+		// "TCP" or "UDP", those being the only two we ask lsof for. Lowercased
+		// rather than checked, so that anything else lsof ever reports arrives in
+		// the page as itself instead of being dropped or renamed.
+		//
+		// An lsof that didn't report this field at all would leave every socket
+		// looking like neither protocol, which reads as undeterminable direction
+		// and would quietly spoil TCP too. lsof ignores field letters it doesn't
+		// know rather than failing, so what guards against that is
+		// TestGetSocketsByPid and its UDP sibling, both of which check the
+		// protocol of a socket they opened themselves.
+		socket.Protocol = Protocol(strings.ToLower(value))
 
 	case 'n':
 		// A listening socket is named by its own address alone, a connected one
