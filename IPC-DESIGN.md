@@ -4,6 +4,10 @@ Working notes for IPC connection visualization. **These decisions are settled** 
 they came out of a design review, and the rationale for each is recorded below so
 it doesn't get relitigated.
 
+**px** is referred to throughout, with file and line references into
+`px_ipc_map.py`. It is `walles/px` on GitHub, and is usually checked out next
+door at `../px`.
+
 **Lifecycle:** this outlives the TCP slice, because the deferred work at the
 bottom depends on it. It should die once pipes, unix sockets and UDP are all
 implemented — and before deleting it, salvage the "Verified on Linux" findings
@@ -246,8 +250,8 @@ pid→name; `pageprocessinfo.go` already has it in hand.
 ```
 Inter Process Communication
 <Detected: TCP. Not detected: UDP, pipes, unix sockets>
-curl(999) --> picked(42)                 tcp 8080
-              picked(42) --> sshd(123)   tcp 22
+curl(999) --> picked(42)                tcp 8080
+              picked(42) --> sshd(123)  tcp 22
 
 Network Connections
             picked(42)                     tcp 8080 (listening)
@@ -275,6 +279,9 @@ Network Connections
 - **The left column is only as wide as it needs to be**, so a section with
   nothing incoming starts its lines at the process instead of indenting past an
   arrow nothing uses.
+- **Two spaces between columns**, matching `pagelaunchhierarchy.go`. The mockups
+  above are drawn to that rule; earlier revisions had the IPC block at three by
+  hand, which was drawing rather than design.
 - **Columns are measured per section**, not shared across the two. There is a
   title bar and two blank lines between them, so a few columns of offset is
   invisible. Sharing would force the two section functions to stop being
@@ -344,3 +351,13 @@ trace.
   `/etc/services` parsing, no model change.
 - A line cap for processes with hundreds of *distinct* peers.
 - Sharing one lsof invocation across sections, once there are three of them.
+- **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
+  for a remote host is its address, and then render as a host name — so with
+  several remote peers the visible order isn't alphabetical by what the reader
+  sees. Sorting in the pure layer has nothing else to sort on, and fixing it
+  means sorting again in the page after DNS. Considered and left alone.
+- **A seam inside `resolveAddressesViaDns`.** Asserting that duplicate addresses
+  are only looked up once needs an injectable `LookupAddr`, and the alternative —
+  reverse resolving a TEST-NET address for real — puts a network call and up to
+  2 s into the test suite. The function's fallback behaviour is covered at page
+  level instead, via an address the fake resolver has no answer for.
