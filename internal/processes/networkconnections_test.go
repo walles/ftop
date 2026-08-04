@@ -85,6 +85,47 @@ func TestNetworkConnections_listenerBoundToOneAddress(t *testing.T) {
 	})
 }
 
+// A server that accepts a connection and hands it to a child process keeps the
+// listening socket in the parent, and a socket activated server never holds one
+// at all. The port is one connections arrive on either way, so what decides the
+// direction is the ports being listened on anywhere on this machine rather than
+// only the ones we hold ourselves.
+func TestNetworkConnections_incomingViaAnotherProcessesListener(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "sshd"}
+	listeningParent := &Process{Pid: 10, Cmdline: "sshd"}
+
+	sockets := map[int][]Socket{
+		42: {{Fd: "9", Local: "192.168.50.32:22", Remote: "1.2.3.4:54321"}},
+		10: {{Fd: "3", Local: "*:22", Listening: true}},
+	}
+
+	connections := NetworkConnections(me, []*Process{me, listeningParent}, sockets)
+
+	// The listening row belongs to the parent, not to us: we don't hold that
+	// socket.
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionIncoming, Port: 22, Count: 1},
+	})
+}
+
+// Somebody else's listener bound to one address accepts connections to that
+// address, whichever process ends up holding the accepted socket.
+func TestNetworkConnections_incomingViaAnotherProcessesBoundListener(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "worker"}
+	listeningParent := &Process{Pid: 10, Cmdline: "server"}
+
+	sockets := map[int][]Socket{
+		42: {{Fd: "9", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		10: {{Fd: "3", Local: "127.0.0.1:8080", Listening: true}},
+	}
+
+	connections := NetworkConnections(me, []*Process{me, listeningParent}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "127.0.0.1"}, Direction: DirectionIncoming, Port: 8080, Count: 1},
+	})
+}
+
 // The process at the other end of a connection is the one holding a socket with
 // our own endpoints reversed. A TCP connection is its four endpoint numbers, so
 // there is at most one such process.
