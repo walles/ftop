@@ -267,9 +267,10 @@ func TestNetworkConnections_dualStackListenerIsOneRow(t *testing.T) {
 }
 
 // Some lsof versions report the same open file once per thread of the process
-// holding it. One file descriptor is one socket however many times we hear
-// about it.
-func TestNetworkConnections_deduplicatesRepeatedFileDescriptors(t *testing.T) {
+// holding it, repeating the whole record. However many times we hear about a
+// socket, it is one socket, while a connection to another port of the same peer
+// is a second connection rather than another copy of the first.
+func TestNetworkConnections_deduplicatesTheSameSocketReportedTwice(t *testing.T) {
 	me := &Process{Pid: 42, Cmdline: "picked"}
 
 	sockets := map[int][]Socket{

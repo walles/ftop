@@ -186,16 +186,52 @@ States seen on a quiet laptop: 289 `ESTABLISHED`, 10 `LISTEN`, 3 `CLOSE_WAIT`.
 
 The rule:
 
-> If our own local endpoint is one **we** listen on, the peer dialed us.
-> Otherwise we dialed the peer.
+> If our own local endpoint is one **this machine** listens on, the peer dialed
+> us. Otherwise we dialed the peer.
 
-Sound rather than heuristic — not listening on a port means we cannot have
-accepted on it. It needs only our own listen set, never the peer's, so it works
-identically for local and remote peers at any privilege level.
+The listen set is machine-wide rather than our own. An earlier revision of this
+section used our own listen set and called the result sound, on the grounds that
+not listening on a port means we cannot have accepted on it. That is false: the
+process holding an accepted socket frequently isn't the one holding the listener.
+An accept-then-fork server keeps the listener in the parent — every `sshd`
+session child is one — and a socket activated server never holds one at all.
+Per-process, all of those render backwards.
+
+It still never needs the *peer's* state, only the machine's, so it works the same
+for local and remote peers. It is no longer privilege-independent though:
+listeners held by processes we may not inspect are invisible to us, and those
+connections fall back to the wrong answer below. Accuracy improves as root.
+
+Widening the set also buys a **false positive** the per-process rule didn't have:
+dialing out from a local port that anything on this machine listens on reads as
+incoming, and then the reported port is our own ephemeral one rather than the
+server's. A `*:`-bound listener is matched on the port alone, so one unrelated
+listener on the port we happened to dial out from is enough. It takes an
+ephemeral port colliding with a listening one, which makes it a coincidence
+rather than a pattern — unlike the accept-then-fork case above, which was
+systematic. Accepted deliberately: a rare coincidence beats getting every `sshd`
+session child backwards.
 
 Wildcard listeners need care: a listener on `*:8080` accepts a connection whose
 local endpoint reads `192.168.50.32:8080`. So match against two sets, one
 port-only for `*:`-bound listeners and one of full endpoints.
+
+**Known limit: one-shot listeners.** A server that closes its listening socket
+once it has accepted leaves no listening port anywhere on the machine, and its
+connection renders backwards — as though it had dialed the client, on the
+client's ephemeral port. Reproduced with GNU netcat 0.7.1 (`nc -l -p 9999`),
+which holds only the accepted socket while the connection is up:
+
+```
+netcat 52943  fd 4u  TCP 127.0.0.1:9993->127.0.0.1:61683 (ESTABLISHED)
+netcat 52948  fd 3u  TCP 127.0.0.1:61683->127.0.0.1:9993 (ESTABLISHED)
+```
+
+Both ends are visible and neither is listening, so the two ends disagree about
+who dialed whom and about which port is the server's. The only rule that covers
+this is guessing from the port numbers — ephemeral ranges are platform specific
+and servers do listen high — which is the sort of heuristic the UDP exclusion
+below exists to avoid. Left wrong on purpose.
 
 `Direction` has exactly two values. There is no undeterminable case **for TCP**.
 
@@ -212,13 +248,34 @@ surface. Showing both sides would report `(×2)` for one connection.
 
 ## Aggregation
 
-**Dedup by (pid, fd) before aggregating**, as cheap insurance. px claims that on
-Linux lsof reports the same open file once per thread of a process
-(`px_ipc_map.py:61`, handled there by putting all files in a set). That does
-**not** reproduce on lsof 4.99.4 — a process with 8 threads holding 1 connection
-reported exactly 1 socket, see "Verified on Linux" above. px was presumably
-looking at an older lsof. The dedup costs nothing and protects against whatever
-lsof is on the target box, but it is not load-bearing.
+**Dedup by (pid, local, remote, listening) before aggregating** — the socket's
+own identity, since a TCP connection *is* its 4-tuple, so two sockets of one
+process carrying the same endpoints are the same socket. `listening` is in the key
+only to keep a listener apart from the bound-but-unconnected socket that can share
+its address.
+
+This is **load-bearing, and an earlier revision of this section had it wrong.** It
+specified `(pid, fd)`, on the theory that the only duplication to worry about was
+px's claim that on Linux lsof reports the same open file once per thread
+(`px_ipc_map.py:61`, handled there by putting all files in a set) — which does
+**not** reproduce on lsof 4.99.4, where a process with 8 threads holding 1
+connection reported exactly 1 socket, see "Verified on Linux" above.
+
+But lsof reports a socket once per **file descriptor** it is open on, and those
+descriptors have different numbers. So `dup(2)`, and inheriting a socket as stdin,
+stdout and stderr the way a socket activated server's child does, both defeat an
+fd-keyed dedup and inflate `Count` for connections that don't exist. Observed on a
+quiet macOS laptop: one ssh connection reported twice, and this, one kernel socket
+(note the identical device) on two descriptors:
+
+```
+bash 62476  3u  IPv4 0xb9119cc34f8832c4  TCP 127.0.0.1:62637->127.0.0.1:9994
+bash 62476  4u  IPv4 0xb9119cc34f8832c4  TCP 127.0.0.1:62637->127.0.0.1:9994
+```
+
+Keying on the endpoints covers the per-thread case too, so nothing is lost by
+dropping `fd` from the key. lsof's `DEVICE` column would identify the socket just
+as well, but it needs another `-F` field and the 4-tuple already settles it.
 
 Sockets that neither listen nor have a peer are **dropped**: lsof reports those
 for a socket that is bound but was never connected, and they carry nothing worth
@@ -246,6 +303,13 @@ machine demands it.
 Two files, one per section, matching the one-file-per-section convention from
 commit 6bcd409. `ipcConnectionsForPaging` grows an `allProcesses` parameter for
 pid→name; `pageprocessinfo.go` already has it in hand.
+
+Plus a third file, `pageconnections.go`, for the column layout the two sections
+share: same three columns, same description column, same measure-then-pad pass,
+differing only in what a peer is called. Written as one function taking a
+`peerLabel` callback rather than copied into both sections. The sections keep
+rendering their own error and empty states, which is the independence that
+mattered.
 
 ```
 Inter Process Communication
