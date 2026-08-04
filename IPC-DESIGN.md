@@ -77,10 +77,14 @@ own error state, which is why the error rides along in the listing.
 
 ## Verified on Linux
 
-Run in a `python:3-slim` container (Debian 13.6, **lsof 4.99.4**) with real
-loopback connections: an IPv4 listener on `127.0.0.1:8080`, an IPv6 listener on
+Two runs, both in a `python:3-slim` container (Debian 13.6, **lsof 4.99.4**) as
+root: the first before the implementation existed, with real loopback
+connections — an IPv4 listener on `127.0.0.1:8080`, an IPv6 listener on
 `[::1]:8081`, a wildcard listener on `0.0.0.0:8082`, a client for each, and a
-client with 8 threads holding one connection.
+client with 8 threads holding one connection — and the second against the
+finished code, adding `sshd` (**OpenSSH 10.0p2**) with a live ssh session, a
+socket held on two file descriptors, and 400 connections' worth of load. The
+findings of the second run are marked *(run 2)*.
 
 **Reversed-pair matching holds byte-for-byte, both address families.** This is
 the central mechanism of the design, and it was previously unverified on either
@@ -105,38 +109,76 @@ defensive.
 
 **No per-thread socket duplication** on this lsof, see "Aggregation" below.
 
-Still unverified: behaviour as root on a busy multi-user box, which is the
-environment this is ultimately for. The container ran as root but with only a
-handful of processes.
+**`TST=LISTEN` arrives verbatim, with the same three `T` fields as macOS** *(run
+2)*. Dispatching on the `ST=` value prefix is right on both platforms, so
+listening rows do render and connections aren't uniformly called outgoing:
 
-### Before merging to `main`
+```
+f6
+n*:22
+TST=LISTEN
+TQR=0
+TQS=0
+```
 
-That run predates the implementation, and three assumptions have been added since
-that only macOS has been asked about. Verify on Linux as root, in a container with
-`sshd` running, and record the answers above.
+**The `sshd` session child renders as incoming on port 22** *(run 2)* — the case
+the machine-wide listen set exists for, observed working for the first time on
+either platform. The listener is spelled `*:22`, so port-only wildcard matching
+is what ties it to the child's concrete `127.0.0.1:22`, and neither session
+process holds a listening socket of its own:
 
-1. **`TST=LISTEN` arrives at all.** The three-`T`-fields requirement under "Data
-   collection" was observed on macOS. If Linux `lsof -F pfnT0` spells the state
-   differently, `Socket.Listening` is never true, and then every listening row
-   disappears and every connection is called outgoing. Cheap to check, and the
-   worst failure of the three.
-2. **The `sshd` session child renders as incoming on port 22.** This is what the
-   machine-wide listen set is for, and it has never been observed working on
-   either platform: macOS has no such child to look at. Needs a real ssh session,
-   and root, since the child and the listening parent may both be off limits
-   otherwise. Confirm too that Linux `lsof` spells the `sshd` listener `*:22`,
-   because port-only matching is what connects it to the child's
-   `10.0.0.5:22->client:54321`.
-3. **A dup'd descriptor is reported once per descriptor.** The dedup key under
-   "Aggregation" was changed on macOS evidence. Reproduce with
-   `bash -c 'exec 3<>/dev/tcp/127.0.0.1/9999; exec 4>&3; sleep 30'` against any
-   listener, and confirm one connection comes out with no `(×2)`.
+```
+pid 985   sshd [listener]          fd 6  n*:22                          LISTEN
+pid 985   sshd [listener]          fd 7  n*:22                          LISTEN
+pid 996   ssh                      fd 3  n127.0.0.1:60482->127.0.0.1:22
+pid 998   sshd-session [priv]      fd 7  n127.0.0.1:22->127.0.0.1:60482
+pid 1005  sshd-session root@notty  fd 7  n127.0.0.1:22->127.0.0.1:60482
+```
 
-Worth measuring while there, though neither blocks a merge: the `-iTCP` versus
-full-lsof timing that the "Data collection" table only has macOS numbers for, on a
-box with many sockets — the rationale for the second fork is explicitly about
-Linux — and that a non-root run still returns our own sockets rather than failing
-outright.
+```
+ssh(996)             outgoing  peer sshd-session:(998)  port 22
+sshd-session:(998)   incoming  peer ssh(996)            port 22
+sshd-session:(1005)  incoming  peer ssh(996)            port 22
+```
+
+Two more decisions get exercised by that same session. OpenSSH 10 splits the
+session into two processes that both hold the accepted socket, which is the
+fork-inheritance collision from "Peer matching" in the flesh — lowest PID wins
+puts 998 on `ssh`'s line, and it is the same 998 every time the page is opened.
+And the listener's two `*:22` sockets, one per address family (Linux spells both
+`*:22`, not `[::]:22`), collapse into a single listening row with no count, which
+is the dual-stack case from "Aggregation" on real data rather than on a
+hand-written test.
+
+**A dup'd descriptor is reported once per descriptor, and endpoint dedup absorbs
+it** *(run 2)*. From `bash -c 'exec 3<>/dev/tcp/127.0.0.1/9999; exec 4>&3; sleep
+3000'` — reported as `sleep` because bash exec-replaces itself for its last
+command, while the descriptors are still the ones bash opened:
+
+```
+pid 995  fd 3  n127.0.0.1:48608->127.0.0.1:9999
+pid 995  fd 4  n127.0.0.1:48608->127.0.0.1:9999
+```
+
+One connection comes out of it, `Count` 1, no `(×2)`.
+
+**`-iTCP` earns its second fork on Linux as well** *(run 2)*, by less than the
+rationale hopes: with 819 socket lines against 4122 open files in total, `-iTCP`
+took 0.047 s for 55 KB where full lsof took 0.085 s for 180 KB, three runs each
+and under 0.02 s of spread. A container understates it — full lsof is the side
+that grows with the machine, and this machine had a few dozen processes.
+
+**Non-root degrades instead of failing** *(run 2)*: exit code 0, stderr empty
+thanks to `-w`, and exactly one PID reported — our own, its connection the right
+way round. Its peer comes back as a bare `127.0.0.1` with no PID, the listening
+process being invisible from there.
+
+**Zero UDP entries on Linux either** *(run 2)*, checked against a process holding
+a connected UDP socket that `lsof -iUDP` does report.
+
+Still unverified: behaviour on a busy multi-user box, which is the environment
+this is ultimately for. Run 2 loaded the container up with sockets and open
+files, but a container has a handful of processes and a single user.
 
 ## Model — `internal/processes`
 
