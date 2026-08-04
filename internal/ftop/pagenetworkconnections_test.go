@@ -39,26 +39,28 @@ func fakeDns(t *testing.T, names map[string]string) func() []string {
 // connection to sshd belongs in the Inter Process Communication section.
 func TestNetworkConnectionsForPagingListsRemotePeers(t *testing.T) {
 	mySockets := []processes.Socket{
-		{Fd: "100", Local: "192.168.50.32:8080", Listening: true},
-		{Fd: "400", Local: "127.0.0.1:60000", Remote: "127.0.0.1:22"},
+		{Fd: "100", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:8080", Listening: true},
+		{Fd: "400", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:60000", Remote: "127.0.0.1:22"},
 	}
 	for i := range 12 {
 		mySockets = append(mySockets, processes.Socket{
-			Fd:     fmt.Sprintf("2%02d", i),
-			Local:  "192.168.50.32:8080",
-			Remote: fmt.Sprintf("1.2.3.4:%d", 1000+i),
+			Fd:       fmt.Sprintf("2%02d", i),
+			Protocol: processes.ProtocolTcp,
+			Local:    "192.168.50.32:8080",
+			Remote:   fmt.Sprintf("1.2.3.4:%d", 1000+i),
 		})
 	}
 	for i := range 7 {
 		mySockets = append(mySockets, processes.Socket{
-			Fd:     fmt.Sprintf("3%02d", i),
-			Local:  fmt.Sprintf("192.168.50.32:%d", 50000+i),
-			Remote: "140.82.114.25:443",
+			Fd:       fmt.Sprintf("3%02d", i),
+			Protocol: processes.ProtocolTcp,
+			Local:    fmt.Sprintf("192.168.50.32:%d", 50000+i),
+			Remote:   "140.82.114.25:443",
 		})
 	}
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: mySockets,
-		1:  {{Fd: "9", Local: "127.0.0.1:22", Remote: "127.0.0.1:60000"}},
+		1:  {{Fd: "9", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Remote: "127.0.0.1:60000"}},
 	}}
 	fakeDns(t, map[string]string{"140.82.114.25": "api.github.com"})
 
@@ -80,16 +82,42 @@ func TestNetworkConnectionsForPagingListsRemotePeers(t *testing.T) {
 	assert.Equal(t, stringsContains(page.String(), "──Network Connections──"), true)
 }
 
+// UDP says nothing about who dialed whom, so its lines get an arrow pointing both
+// ways. That arrow is as wide as the one way arrow, so a section holding both kinds
+// of line still lines up.
+func TestNetworkConnectionsForPagingUndeterminedDirection(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+			{Fd: "4", Protocol: processes.ProtocolUdp, Local: "192.168.50.32:51293", Remote: "8.8.8.8:53"},
+		},
+	}}
+	fakeDns(t, map[string]string{"140.82.114.25": "api.github.com", "8.8.8.8": "dns.google"})
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.networkConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
+
+	expected := "" +
+		"picked(42) --> api.github.com  tcp 443\n" +
+		"picked(42) <-> dns.google      udp 53\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
 // Only remote hosts have addresses to resolve. Asking about anything else would
 // mean paying the reverse DNS timeout for nothing.
 func TestNetworkConnectionsForPagingResolvesRemotePeersOnly(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: {
-			{Fd: "3", Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
-			{Fd: "5", Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
+			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
 		},
-		999: {{Fd: "7", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		999: {{Fd: "7", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
 	}}
 	asked := fakeDns(t, nil)
 

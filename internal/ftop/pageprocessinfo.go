@@ -16,8 +16,8 @@ const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 
 var getSocketsByPid = processes.GetSocketsByPid
 
-// The TCP sockets of every process we were allowed to inspect, or the error that
-// came of trying to list them.
+// The TCP and UDP sockets of every process we were allowed to inspect, or the
+// error that came of trying to list them.
 //
 // Both connection sections render from one listing, so that they can't disagree
 // about a connection that came or went between two lsof runs. They still render

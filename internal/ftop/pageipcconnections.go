@@ -31,7 +31,7 @@ func (u *Ui) ipcConnectionsForPaging(
 	// list is read has to arrive before the list, and this page goes into a pager
 	// where the reader may never reach the bottom. Grow this as more kinds of IPC
 	// land, and delete it once nothing is missing.
-	pt.writeLine("<Detected: TCP. Not detected: UDP, pipes, unix sockets>")
+	pt.writeLine("<Detected: TCP, UDP. Not detected: pipes, unix sockets>")
 
 	var ipcConnections []processes.Connection
 	for _, connection := range processes.NetworkConnections(currentProcess, allProcesses, sockets.byPid) {

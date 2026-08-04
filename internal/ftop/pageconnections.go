@@ -9,8 +9,10 @@ import (
 )
 
 // Writes one line per connection, with the arrows pointing from whoever dialed
-// to whoever was dialed. That is the one directional fact about a TCP connection
-// worth knowing, and it tells the reader which side is the service.
+// to whoever was dialed. That is the one directional fact about a connection
+// worth knowing, and it tells the reader which side is the service. Connections
+// nobody can tell the direction of, every UDP one included, get an arrow pointing
+// both ways instead.
 //
 // peerLabel is what to call the peer of a connection. It is never asked about a
 // listening port, since nobody is at the other end of one of those.
@@ -64,9 +66,16 @@ func (u *Ui) writeConnectionLines(
 			line.dialer = peerLabel(connection.Peer)
 
 		default:
+			// Both arrows are the same number of columns wide, so which one a line
+			// gets doesn't disturb the alignment of the lines around it.
+			arrow := " --> "
+			if connection.Direction == processes.DirectionUnknown {
+				arrow = " <-> "
+			}
+
 			peer := peerLabel(connection.Peer)
-			line.middle = us + " --> " + peer
-			line.fancyMiddle = fancyUs + " --> " + peer
+			line.middle = us + arrow + peer
+			line.fancyMiddle = fancyUs + arrow + peer
 		}
 
 		dialerWidth = max(dialerWidth, utf8.RuneCountInString(line.dialer))
@@ -100,7 +109,7 @@ func (u *Ui) writeConnectionLines(
 // loopback and says nothing, and for a remote peer it is in the peer column
 // already.
 func connectionDescription(connection processes.Connection) string {
-	description := "tcp " + strconv.Itoa(connection.Port)
+	description := string(connection.Protocol) + " " + strconv.Itoa(connection.Port)
 
 	if connection.Listening {
 		return description + " (listening)"
