@@ -9,11 +9,11 @@ it doesn't get relitigated.
 door at `../px`.
 
 **Lifecycle:** this outlives the TCP slice, because the deferred work at the
-bottom depends on it. It should die once pipes, unix sockets and UDP are all
-implemented — and before deleting it, salvage the "Verified on Linux" findings
-and the rejected-alternative rationale into comments next to the code they
-explain. Do not merge it to `main` without deciding which of those two things is
-happening.
+bottom depends on it. **Decided: it goes to `main` and stays there** until pipes,
+unix sockets and UDP are all implemented, at which point it dies — and before
+deleting it, salvage the "Verified on Linux" findings and the rejected-alternative
+rationale into comments next to the code they explain. The known limits of the
+direction rule are already salvaged, in `networkconnections.go`.
 
 ## Scope of this slice
 
@@ -108,6 +108,35 @@ defensive.
 Still unverified: behaviour as root on a busy multi-user box, which is the
 environment this is ultimately for. The container ran as root but with only a
 handful of processes.
+
+### Before merging to `main`
+
+That run predates the implementation, and three assumptions have been added since
+that only macOS has been asked about. Verify on Linux as root, in a container with
+`sshd` running, and record the answers above.
+
+1. **`TST=LISTEN` arrives at all.** The three-`T`-fields requirement under "Data
+   collection" was observed on macOS. If Linux `lsof -F pfnT0` spells the state
+   differently, `Socket.Listening` is never true, and then every listening row
+   disappears and every connection is called outgoing. Cheap to check, and the
+   worst failure of the three.
+2. **The `sshd` session child renders as incoming on port 22.** This is what the
+   machine-wide listen set is for, and it has never been observed working on
+   either platform: macOS has no such child to look at. Needs a real ssh session,
+   and root, since the child and the listening parent may both be off limits
+   otherwise. Confirm too that Linux `lsof` spells the `sshd` listener `*:22`,
+   because port-only matching is what connects it to the child's
+   `10.0.0.5:22->client:54321`.
+3. **A dup'd descriptor is reported once per descriptor.** The dedup key under
+   "Aggregation" was changed on macOS evidence. Reproduce with
+   `bash -c 'exec 3<>/dev/tcp/127.0.0.1/9999; exec 4>&3; sleep 30'` against any
+   listener, and confirm one connection comes out with no `(×2)`.
+
+Worth measuring while there, though neither blocks a merge: the `-iTCP` versus
+full-lsof timing that the "Data collection" table only has macOS numbers for, on a
+box with many sockets — the rationale for the second fork is explicitly about
+Linux — and that a non-root run still returns our own sockets rather than failing
+outright.
 
 ## Model — `internal/processes`
 
