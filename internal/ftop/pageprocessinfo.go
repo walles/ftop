@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"sync"
 
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
@@ -12,6 +13,19 @@ import (
 )
 
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
+
+var getSocketsByPid = processes.GetSocketsByPid
+
+// The TCP sockets of every process we were allowed to inspect, or the error that
+// came of trying to list them.
+//
+// Both connection sections render from one listing, so that they can't disagree
+// about a connection that came or went between two lsof runs. They still render
+// their own error states, which is what the error is doing here.
+type socketListing struct {
+	byPid map[int][]processes.Socket
+	err   error
+}
 
 func (u *Ui) pageProcessInfo(proc *processes.Process) {
 	if proc == nil {
@@ -82,8 +96,9 @@ func (u *Ui) composeProcessInfo(
 
 // Composes the process info page into out, one section at a time.
 //
-// allProcesses is the process list to look for working directory friends in,
-// see processes.CwdFriends().
+// allProcesses is the process list to look for working directory friends and
+// connection peers in, see processes.CwdFriends() and
+// processes.NetworkConnections().
 //
 // This forks subprocesses and can take a while. It writes as it goes, so
 // whatever is on the other end of out will see the early sections long before
@@ -95,6 +110,13 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		titleStyle:  twin.StyleDefault.WithForeground(u.theme.BorderTitle()),
 	}
 
+	// Listed once for both sections that need it, and not before, so that the
+	// sections above it are on their way to the pager while lsof runs.
+	sockets := sync.OnceValue(func() socketListing {
+		byPid, err := getSocketsByPid()
+		return socketListing{byPid: byPid, err: err}
+	})
+
 	sections := []func(){
 		func() { u.commandLineForPaging(proc, &pt) },
 		func() { u.launchHierarchyForPaging(proc, &pt) },
@@ -102,7 +124,8 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		func() { u.closeLaunchesForPaging(proc, &pt) },
 		func() { u.usersLoggedInWhenProcessStartedForPaging(proc, &pt) },
 		func() { u.cwdFriendsForPaging(proc, allProcesses, &pt) },
-		func() { u.ipcConnectionsForPaging(proc, &pt) },
+		func() { u.ipcConnectionsForPaging(proc, allProcesses, sockets(), &pt) },
+		func() { u.networkConnectionsForPaging(proc, allProcesses, sockets(), &pt) },
 	}
 
 	for i, section := range sections {

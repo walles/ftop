@@ -2,6 +2,7 @@ package ftop
 
 import (
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -33,4 +34,22 @@ func TestPageTextWritesThrough(t *testing.T) {
 
 func stringsContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)
+}
+
+// Matches SGR escape sequences, which is everything twin emits. Improve this if
+// we ever start emitting anything else.
+var sgrSequence = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// Page text without any of the styling, for comparing against expected layouts.
+func stripAnsi(styled string) string {
+	return sgrSequence.ReplaceAllString(styled, "")
+}
+
+// Everything a section wrote below its own title, unstyled.
+//
+// Section titles end in a blank line and nothing else in a section does, so the
+// first one is where the title ends and the body begins.
+func sectionBody(page string) string {
+	_, body, _ := strings.Cut(stripAnsi(page), "\n\n")
+	return body
 }

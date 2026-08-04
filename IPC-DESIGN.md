@@ -58,9 +58,18 @@ See `cwds.go` for the established handling.
 
 **Parser requirement:** asking for the `T` field yields *three* fields, all
 starting with `T` — `TST=ESTABLISHED`, `TQR=0`, `TQS=0`. So dispatch on the value
-prefix (`ST=`), not on the type character alone, and tolerate `TQR=`/`TQS=`
-rather than erroring on them the way `lsofCwdParser` errors on unknown types.
+prefix (`ST=`), not on the type character alone. Ignoring `TQR=`/`TQS=` is what
+`lsofCwdParser` already does with every field type it doesn't recognise.
 `-Ts` does *not* narrow this down — verified, queue sizes come along anyway.
+
+**One listing, both sections.** `writeProcessInfo` lists the sockets once (behind
+a `sync.OnceValue`, so the sections above it still stream while lsof runs) and
+passes the result to both sections. Two independent calls would let the sections
+disagree about a connection that came or went in between, and the failure would
+be silent and rare. It costs each section an argument, and it departs from
+`cwdFriendsForPaging` calling `getCwdsByPid()` itself — a convention that only
+held while every section had exactly one consumer. Each section still renders its
+own error state, which is why the error rides along in the listing.
 
 ## Verified on Linux
 
@@ -152,10 +161,13 @@ child that accepted on it, and dual-stack listeners. Measured on a quiet laptop:
 `2 n*:7000`, `2 n*:5000`. On a multi-worker server as root, px misattributes
 connections to whichever process it parsed last.
 
-Known limits, neither of which the px approach solves either: the two ends may
-render the same interface differently (`127.0.0.1` vs `::ffff:127.0.0.1`), and a
-socket `dup()`ed across a fork legitimately appears twice (aggregation absorbs
-this one).
+A socket inherited across a fork does put the same key under two PIDs, so the
+index can collide after all. **Lowest PID wins** — arbitrary, but it has to be
+something, or the same connection gets attributed to a different process every
+time the page is opened, which is the nondeterminism px is faulted for above.
+
+Known limit, which the px approach doesn't solve either: the two ends may render
+the same interface differently (`127.0.0.1` vs `::ffff:127.0.0.1`).
 
 ## Direction
 
@@ -204,6 +216,11 @@ reported exactly 1 socket, see "Verified on Linux" above. px was presumably
 looking at an older lsof. The dedup costs nothing and protects against whatever
 lsof is on the target box, but it is not load-bearing.
 
+Sockets that neither listen nor have a peer are **dropped**: lsof reports those
+for a socket that is bound but was never connected, and they carry nothing worth
+a line. The parser passes them through as they are, so that this decision lives
+in one place.
+
 Then aggregate by (direction, peer, port), carrying a `Count`.
 
 Not optional. Measured on a quiet laptop, non-root: one process had **252
@@ -250,9 +267,14 @@ Network Connections
   all, so it lands in Network, directly above the incoming connections it
   explains.
 - **Sort**: listening, then incoming, then outgoing; within a group by peer name,
-  then numeric PID. Grouping by line kind keeps each column block contiguous
-  instead of the left column blinking in and out. One comparator for both
-  sections. Name-then-numeric-PID matches the existing `CwdFriends` comparator.
+  then numeric PID, then port. Grouping by line kind keeps each column block
+  contiguous instead of the left column blinking in and out. One comparator for
+  both sections. Name-then-numeric-PID matches the existing `CwdFriends`
+  comparator. Port is the tiebreaker that makes several ports on one peer come
+  out in a defined order rather than in map order.
+- **The left column is only as wide as it needs to be**, so a section with
+  nothing incoming starts its lines at the process instead of indenting past an
+  arrow nothing uses.
 - **Columns are measured per section**, not shared across the two. There is a
   title bar and two blank lines between them, so a few columns of offset is
   invisible. Sharing would force the two section functions to stop being
