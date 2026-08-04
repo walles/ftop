@@ -13,13 +13,13 @@ func TestNetworkConnections_outgoingToRemoteHost(t *testing.T) {
 	me := &Process{Pid: 42, Cmdline: "picked"}
 
 	sockets := map[int][]Socket{
-		42: {{Fd: "3", Local: "192.168.50.32:57759", Remote: "140.82.114.25:443"}},
+		42: {{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:57759", Remote: "140.82.114.25:443"}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "140.82.114.25"}, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "140.82.114.25"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
 	})
 }
 
@@ -30,16 +30,16 @@ func TestNetworkConnections_incomingFromRemoteHost(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "192.168.50.32:8080", Listening: true},
-			{Fd: "4", Local: "192.168.50.32:8080", Remote: "1.2.3.4:33102"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:8080", Remote: "1.2.3.4:33102"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
 	})
 }
 
@@ -51,16 +51,16 @@ func TestNetworkConnections_wildcardListener(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "*:8082", Listening: true},
-			{Fd: "4", Local: "192.168.50.32:8082", Remote: "1.2.3.4:48368"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "*:8082", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:8082", Remote: "1.2.3.4:48368"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8082, Listening: true, Count: 1},
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionIncoming, Port: 8082, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8082, Listening: true, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8082, Count: 1},
 	})
 }
 
@@ -72,16 +72,16 @@ func TestNetworkConnections_listenerBoundToOneAddress(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Local: "10.0.0.5:8080", Remote: "1.2.3.4:9999"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "10.0.0.5:8080", Remote: "1.2.3.4:9999"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionOutgoing, Port: 9999, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 9999, Count: 1},
 	})
 }
 
@@ -95,8 +95,8 @@ func TestNetworkConnections_incomingViaAnotherProcessesListener(t *testing.T) {
 	listeningParent := &Process{Pid: 10, Cmdline: "sshd"}
 
 	sockets := map[int][]Socket{
-		42: {{Fd: "9", Local: "192.168.50.32:22", Remote: "1.2.3.4:54321"}},
-		10: {{Fd: "3", Local: "*:22", Listening: true}},
+		42: {{Fd: "9", Protocol: ProtocolTcp, Local: "192.168.50.32:22", Remote: "1.2.3.4:54321"}},
+		10: {{Fd: "3", Protocol: ProtocolTcp, Local: "*:22", Listening: true}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me, listeningParent}, sockets)
@@ -104,7 +104,7 @@ func TestNetworkConnections_incomingViaAnotherProcessesListener(t *testing.T) {
 	// The listening row belongs to the parent, not to us: we don't hold that
 	// socket.
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionIncoming, Port: 22, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 22, Count: 1},
 	})
 }
 
@@ -115,14 +115,14 @@ func TestNetworkConnections_incomingViaAnotherProcessesBoundListener(t *testing.
 	listeningParent := &Process{Pid: 10, Cmdline: "server"}
 
 	sockets := map[int][]Socket{
-		42: {{Fd: "9", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
-		10: {{Fd: "3", Local: "127.0.0.1:8080", Listening: true}},
+		42: {{Fd: "9", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		10: {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me, listeningParent}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "127.0.0.1"}, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "127.0.0.1"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
 	})
 }
 
@@ -135,17 +135,17 @@ func TestNetworkConnections_peerIsALocalProcess(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
 		},
-		999: {{Fd: "7", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		999: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me, curl}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
-		{Peer: Peer{Name: "curl", Pid: 999}, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "curl", Pid: 999}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
 	})
 }
 
@@ -155,14 +155,14 @@ func TestNetworkConnections_peerProcessWithoutAName(t *testing.T) {
 	me := &Process{Pid: 42, Cmdline: "picked"}
 
 	sockets := map[int][]Socket{
-		42:  {{Fd: "3", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
-		999: {{Fd: "7", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		42:  {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		999: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Pid: 999}, Direction: DirectionOutgoing, Port: 8080, Count: 1},
+		{Peer: Peer{Pid: 999}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 8080, Count: 1},
 	})
 }
 
@@ -174,15 +174,15 @@ func TestNetworkConnections_peerSocketSharedByForkedProcesses(t *testing.T) {
 	worker := &Process{Pid: 300, Cmdline: "worker"}
 
 	sockets := map[int][]Socket{
-		42:  {{Fd: "3", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
-		200: {{Fd: "7", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
-		300: {{Fd: "7", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		42:  {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		200: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		300: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me, server, worker}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "server", Pid: 200}, Direction: DirectionOutgoing, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "server", Pid: 200}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 8080, Count: 1},
 	})
 }
 
@@ -193,15 +193,15 @@ func TestNetworkConnections_ignoresUnconnectedSockets(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "*:60000"},
-			{Fd: "4", Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "*:60000"},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
 	})
 }
 
@@ -213,16 +213,17 @@ func TestNetworkConnections_aggregatesIdenticalConnections(t *testing.T) {
 	var mySockets []Socket
 	for i := range 3 {
 		mySockets = append(mySockets, Socket{
-			Fd:     fmt.Sprint(i),
-			Local:  fmt.Sprintf("192.168.50.32:%d", 50000+i),
-			Remote: "140.82.114.25:443",
+			Fd:       fmt.Sprint(i),
+			Protocol: ProtocolTcp,
+			Local:    fmt.Sprintf("192.168.50.32:%d", 50000+i),
+			Remote:   "140.82.114.25:443",
 		})
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, map[int][]Socket{42: mySockets})
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "140.82.114.25"}, Direction: DirectionOutgoing, Port: 443, Count: 3},
+		{Peer: Peer{Name: "140.82.114.25"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 3},
 	})
 }
 
@@ -234,16 +235,16 @@ func TestNetworkConnections_aggregatesPerPort(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
-			{Fd: "4", Local: "192.168.50.32:50001", Remote: "1.2.3.4:80"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:50001", Remote: "1.2.3.4:80"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionOutgoing, Port: 80, Count: 1},
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 80, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
 	})
 }
 
@@ -254,15 +255,15 @@ func TestNetworkConnections_dualStackListenerIsOneRow(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "0.0.0.0:7000", Listening: true},
-			{Fd: "4", Local: "[::]:7000", Listening: true},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "0.0.0.0:7000", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "[::]:7000", Listening: true},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 7000, Listening: true, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 7000, Listening: true, Count: 1},
 	})
 }
 
@@ -275,16 +276,16 @@ func TestNetworkConnections_deduplicatesTheSameSocketReportedTwice(t *testing.T)
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
-			{Fd: "3", Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
-			{Fd: "4", Local: "192.168.50.32:50001", Remote: "1.2.3.4:443"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "1.2.3.4:443"},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:50001", Remote: "1.2.3.4:443"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "1.2.3.4"}, Direction: DirectionOutgoing, Port: 443, Count: 2},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 2},
 	})
 }
 
@@ -298,15 +299,15 @@ func TestNetworkConnections_deduplicatesOneSocketOnSeveralFileDescriptors(t *tes
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
-			{Fd: "4", Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Peer: Peer{Name: "140.82.114.25"}, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "140.82.114.25"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
 	})
 }
 
@@ -317,9 +318,9 @@ func TestNetworkConnections_selfConnectionIsShownOnce(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
-			{Fd: "5", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
+			{Fd: "5", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"},
 		},
 	}
 
@@ -328,8 +329,8 @@ func TestNetworkConnections_selfConnectionIsShownOnce(t *testing.T) {
 	// Of the two sockets, the one whose local endpoint sorts first is the one
 	// we keep, and that is the dialing end here.
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
-		{Peer: Peer{Name: "picked", Pid: 42}, Direction: DirectionOutgoing, Port: 8080, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "picked", Pid: 42}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 8080, Count: 1},
 	})
 }
 
@@ -343,26 +344,26 @@ func TestNetworkConnections_ordering(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Local: "127.0.0.1:8080", Remote: "127.0.0.1:1300"},
-			{Fd: "5", Local: "127.0.0.1:8080", Remote: "127.0.0.1:1200"},
-			{Fd: "6", Local: "127.0.0.1:8080", Remote: "127.0.0.1:1400"},
-			{Fd: "7", Local: "127.0.0.1:60000", Remote: "127.0.0.1:9999"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:1300"},
+			{Fd: "5", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:1200"},
+			{Fd: "6", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:1400"},
+			{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:60000", Remote: "127.0.0.1:9999"},
 		},
-		300: {{Fd: "3", Local: "127.0.0.1:1300", Remote: "127.0.0.1:8080"}},
-		200: {{Fd: "3", Local: "127.0.0.1:1200", Remote: "127.0.0.1:8080"}},
-		400: {{Fd: "3", Local: "127.0.0.1:1400", Remote: "127.0.0.1:8080"}},
+		300: {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:1300", Remote: "127.0.0.1:8080"}},
+		200: {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:1200", Remote: "127.0.0.1:8080"}},
+		400: {{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:1400", Remote: "127.0.0.1:8080"}},
 	}
 
 	allProcesses := []*Process{me, laterZebra, earlierZebra, aardvark}
 	connections := NetworkConnections(me, allProcesses, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
-		{Peer: Peer{Name: "aardvark", Pid: 400}, Direction: DirectionIncoming, Port: 8080, Count: 1},
-		{Peer: Peer{Name: "zebra", Pid: 200}, Direction: DirectionIncoming, Port: 8080, Count: 1},
-		{Peer: Peer{Name: "zebra", Pid: 300}, Direction: DirectionIncoming, Port: 8080, Count: 1},
-		{Peer: Peer{Name: "127.0.0.1"}, Direction: DirectionOutgoing, Port: 9999, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "aardvark", Pid: 400}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "zebra", Pid: 200}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "zebra", Pid: 300}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "127.0.0.1"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 9999, Count: 1},
 	})
 }
 
@@ -373,16 +374,173 @@ func TestNetworkConnections_ipv6(t *testing.T) {
 
 	sockets := map[int][]Socket{
 		42: {
-			{Fd: "3", Local: "[::1]:8081", Listening: true},
-			{Fd: "4", Local: "[::1]:8081", Remote: "[::1]:46208"},
+			{Fd: "3", Protocol: ProtocolTcp, Local: "[::1]:8081", Listening: true},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "[::1]:8081", Remote: "[::1]:46208"},
 		},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)
 
 	assert.SlicesEqual(t, connections, []Connection{
-		{Direction: DirectionIncoming, Port: 8081, Listening: true, Count: 1},
-		{Peer: Peer{Name: "::1"}, Direction: DirectionIncoming, Port: 8081, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8081, Listening: true, Count: 1},
+		{Peer: Peer{Name: "::1"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8081, Count: 1},
+	})
+}
+
+// UDP carries no state for lsof to report, and a UDP socket is bound as soon as
+// it sends, so there is no listening port anywhere on the machine to compare ours
+// against and no telling which end started the conversation. Of the two ports the
+// peer's is the one reported.
+func TestNetworkConnections_udpDirectionIsUnknown(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {{Fd: "3", Protocol: ProtocolUdp, Local: "192.168.50.32:51293", Remote: "8.8.8.8:53"}},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "8.8.8.8"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 53, Count: 1},
+	})
+}
+
+// Listening on a TCP port says nothing about the same port number over UDP, so a
+// UDP connection from a port we do listen on over TCP is still one nobody can tell
+// the direction of. Both halves of the listen set are TCP's alone: the ports of
+// the wildcard listeners, and the fully spelled out endpoints of the rest.
+func TestNetworkConnections_udpIgnoresTcpListeners(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Protocol: ProtocolTcp, Local: "*:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolUdp, Local: "192.168.50.32:8080", Remote: "1.2.3.4:9999"},
+			{Fd: "5", Protocol: ProtocolTcp, Local: "127.0.0.1:9090", Listening: true},
+			{Fd: "6", Protocol: ProtocolUdp, Local: "127.0.0.1:9090", Remote: "1.2.3.4:9998"},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 9090, Listening: true, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 9998, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 9999, Count: 1},
+	})
+}
+
+// A process can hold both ends of a TCP conversation and, separately, a UDP socket
+// whose endpoints happen to be the reverse of it. The UDP socket is not the far end
+// of the TCP connection, so neither of them gets dropped as a duplicate of the
+// other, and neither is named as the other's peer.
+func TestNetworkConnections_udpIsNotTheFarEndOfATcpConnection(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:1000", Remote: "127.0.0.1:2000"},
+			{Fd: "4", Protocol: ProtocolUdp, Local: "127.0.0.1:2000", Remote: "127.0.0.1:1000"},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "127.0.0.1"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 2000, Count: 1},
+		{Peer: Peer{Name: "127.0.0.1"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 1000, Count: 1},
+	})
+}
+
+// The peer of a UDP connection is found exactly the way a TCP peer is, by looking
+// for the process holding our own endpoints the other way around.
+func TestNetworkConnections_udpPeerIsALocalProcess(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+	resolver := &Process{Pid: 999, Cmdline: "dnsmasq"}
+
+	sockets := map[int][]Socket{
+		42:  {{Fd: "3", Protocol: ProtocolUdp, Local: "127.0.0.1:51293", Remote: "127.0.0.1:53"}},
+		999: {{Fd: "7", Protocol: ProtocolUdp, Local: "127.0.0.1:53", Remote: "127.0.0.1:51293"}},
+	}
+
+	connections := NetworkConnections(me, []*Process{me, resolver}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "dnsmasq", Pid: 999}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 53, Count: 1},
+	})
+}
+
+// A TCP and a UDP connection can carry the very same four endpoint numbers while
+// having nothing to do with each other. Neither may be taken for the other's peer,
+// and together they are two connections rather than one counted twice.
+func TestNetworkConnections_udpAndTcpAreToldApart(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+	tcpServer := &Process{Pid: 200, Cmdline: "tcpserver"}
+	udpServer := &Process{Pid: 300, Cmdline: "udpserver"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"},
+			{Fd: "4", Protocol: ProtocolUdp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"},
+		},
+		200: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+		300: {{Fd: "7", Protocol: ProtocolUdp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"}},
+	}
+
+	connections := NetworkConnections(me, []*Process{me, tcpServer, udpServer}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "tcpserver", Pid: 200}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "udpserver", Pid: 300}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 8080, Count: 1},
+	})
+}
+
+// Most UDP sockets are bound without ever being connected, and UDP has no
+// listening state to tell a server's socket from the ephemeral source port of
+// something that merely sent a packet. Rather than call them all one or all the
+// other, they are left out — so a process serving UDP and nothing else, holding
+// only "*:53", gets no line at all.
+func TestNetworkConnections_ignoresBoundUdpSockets(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Protocol: ProtocolUdp, Local: "*:53"},
+			{Fd: "4", Protocol: ProtocolUdp, Local: "*:*"},
+			{Fd: "5", Protocol: ProtocolUdp, Local: "127.0.0.1:51293", Remote: "127.0.0.1:53"},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "127.0.0.1"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 53, Count: 1},
+	})
+}
+
+// Every way of drawing a connection keeps to its own block of the listing:
+// listening ports, then who dialed in, then who we dialed, then the ones nobody
+// can tell the direction of.
+func TestNetworkConnections_undeterminedDirectionSortsLast(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: ProtocolUdp, Local: "127.0.0.1:51293", Remote: "1.2.3.4:53"},
+			{Fd: "5", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Remote: "1.2.3.4:33102"},
+			{Fd: "6", Protocol: ProtocolTcp, Local: "127.0.0.1:60000", Remote: "1.2.3.4:443"},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "1.2.3.4"}, Protocol: ProtocolUdp, Direction: DirectionUnknown, Port: 53, Count: 1},
 	})
 }
 
@@ -392,7 +550,7 @@ func TestNetworkConnections_noSocketsOfOurOwn(t *testing.T) {
 	me := &Process{Pid: 42, Cmdline: "picked"}
 
 	sockets := map[int][]Socket{
-		999: {{Fd: "7", Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		999: {{Fd: "7", Protocol: ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
 	}
 
 	connections := NetworkConnections(me, []*Process{me}, sockets)

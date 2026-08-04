@@ -15,9 +15,9 @@ func TestLsofSocketParser(t *testing.T) {
 
 	lines := []string{
 		"p7619\x00",
-		"f31\x00n192.168.50.32:57759->172.217.19.234:443\x00TST=ESTABLISHED\x00TQR=0\x00TQS=0\x00",
+		"f31\x00PTCP\x00n192.168.50.32:57759->172.217.19.234:443\x00TST=ESTABLISHED\x00TQR=0\x00TQS=0\x00",
 		"p28727\x00",
-		"f10\x00n*:7000\x00TST=LISTEN\x00TQR=0\x00TQS=0\x00",
+		"f10\x00PTCP\x00n*:7000\x00TST=LISTEN\x00TQR=0\x00TQS=0\x00",
 	}
 	for _, line := range lines {
 		assert.Equal(t, parser.parseLine(line), nil)
@@ -25,10 +25,38 @@ func TestLsofSocketParser(t *testing.T) {
 
 	assert.Equal(t, len(parser.socketsByPid), 2)
 	assert.SlicesEqual(t, parser.socketsByPid[7619], []Socket{
-		{Fd: "31", Local: "192.168.50.32:57759", Remote: "172.217.19.234:443"},
+		{Fd: "31", Protocol: ProtocolTcp, Local: "192.168.50.32:57759", Remote: "172.217.19.234:443"},
 	})
 	assert.SlicesEqual(t, parser.socketsByPid[28727], []Socket{
-		{Fd: "10", Local: "*:7000", Listening: true},
+		{Fd: "10", Protocol: ProtocolTcp, Local: "*:7000", Listening: true},
+	})
+}
+
+// UDP sockets are named the way TCP ones are, so one parser covers both. How much
+// lsof says about them beyond that is a platform difference: Linux 4.99.4 sends
+// the queue sizes along, macOS 4.91 sends no "T" field at all. Neither sends a
+// state, UDP having none, so no UDP socket is ever listening.
+func TestLsofSocketParser_udpSockets(t *testing.T) {
+	parser := newLsofSocketParser()
+
+	lines := []string{
+		"p863\x00",
+		// Connected, the way Linux reports it
+		"f3\x00PUDP\x00n127.0.0.1:9911->127.0.0.1:9912\x00TQR=0\x00TQS=0\x00",
+		// Connected, the way macOS reports it
+		"f4\x00PUDP\x00n127.0.0.1:59754->127.0.0.1:60125\x00",
+		// Bound, and never connected
+		"f36\x00PUDP\x00n*:65330\x00",
+	}
+	for _, line := range lines {
+		assert.Equal(t, parser.parseLine(line), nil)
+	}
+
+	assert.Equal(t, len(parser.socketsByPid), 1)
+	assert.SlicesEqual(t, parser.socketsByPid[863], []Socket{
+		{Fd: "3", Protocol: ProtocolUdp, Local: "127.0.0.1:9911", Remote: "127.0.0.1:9912"},
+		{Fd: "4", Protocol: ProtocolUdp, Local: "127.0.0.1:59754", Remote: "127.0.0.1:60125"},
+		{Fd: "36", Protocol: ProtocolUdp, Local: "*:65330"},
 	})
 }
 
@@ -143,6 +171,10 @@ func TestGetSocketsByPid(t *testing.T) {
 
 	foundOurListener := false
 	for _, socket := range socketsByPid[os.Getpid()] {
+		if socket.Protocol != ProtocolTcp {
+			continue
+		}
+
 		if !socket.Listening {
 			continue
 		}
@@ -155,4 +187,46 @@ func TestGetSocketsByPid(t *testing.T) {
 	}
 
 	assert.Equal(t, foundOurListener, true)
+}
+
+// The real lsof should report a UDP socket we just opened ourselves, and name it
+// as UDP. This is what says that asking for both protocols at once works, and that
+// lsof spells the protocol the way the parser expects.
+func TestGetSocketsByPid_udp(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof not available: ", err)
+	}
+
+	socket, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = socket.Close()
+	}()
+
+	_, port, err := net.SplitHostPort(socket.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	socketsByPid, err := GetSocketsByPid()
+	if err != nil {
+		t.Fatalf("listing sockets failed: %v", err)
+	}
+
+	foundOurSocket := false
+	for _, candidate := range socketsByPid[os.Getpid()] {
+		if candidate.Protocol != ProtocolUdp {
+			continue
+		}
+
+		if !strings.HasSuffix(candidate.Local, ":"+port) {
+			continue
+		}
+
+		foundOurSocket = true
+	}
+
+	assert.Equal(t, foundOurSocket, true)
 }
