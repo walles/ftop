@@ -287,6 +287,28 @@ func TestNetworkConnections_deduplicatesRepeatedFileDescriptors(t *testing.T) {
 	})
 }
 
+// One socket handed to a process on several file descriptors, by dup(2) or by
+// being inherited as stdin, stdout and stderr from a socket activated server, is
+// reported once per descriptor. A TCP connection is its four endpoint numbers, so
+// two sockets of ours carrying the same four are one connection, and counting
+// them separately would claim connections that don't exist.
+func TestNetworkConnections_deduplicatesOneSocketOnSeveralFileDescriptors(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			{Fd: "3", Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+			{Fd: "4", Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "140.82.114.25"}, Direction: DirectionOutgoing, Port: 443, Count: 1},
+	})
+}
+
 // A process talking to itself holds both ends of the connection. That is one
 // connection and gets one line, even though we can see it from both sides.
 func TestNetworkConnections_selfConnectionIsShownOnce(t *testing.T) {
