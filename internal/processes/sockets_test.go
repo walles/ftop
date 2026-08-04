@@ -192,12 +192,25 @@ func TestGetSocketsByPid(t *testing.T) {
 // The real lsof should report a UDP socket we just opened ourselves, and name it
 // as UDP. This is what says that asking for both protocols at once works, and that
 // lsof spells the protocol the way the parser expects.
+//
+// The socket is a connected one, that being the only kind that can produce a
+// connection: a bound socket with nobody at the other end gets dropped, see
+// NetworkConnections(). So this also says that real lsof reports the peer of a UDP
+// socket, which is what the peer matching needs.
 func TestGetSocketsByPid_udp(t *testing.T) {
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof not available: ", err)
 	}
 
-	socket, err := net.ListenPacket("udp", "127.0.0.1:0")
+	peer, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = peer.Close()
+	}()
+
+	socket, err := net.Dial("udp", peer.LocalAddr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,6 +237,9 @@ func TestGetSocketsByPid_udp(t *testing.T) {
 		if !strings.HasSuffix(candidate.Local, ":"+port) {
 			continue
 		}
+
+		// The end we dialed, so lsof owes us both ends of it
+		assert.Equal(t, candidate.Remote, peer.LocalAddr().String())
 
 		foundOurSocket = true
 	}
