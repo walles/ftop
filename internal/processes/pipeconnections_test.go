@@ -177,6 +177,111 @@ func TestPipeConnections_severalPipesToOnePeer(t *testing.T) {
 	})
 }
 
+// Two named FIFOs on different file systems can share an inode number, and then
+// their ends are not each other's however equal those numbers are. Nothing was
+// written into one that can be read out of the other.
+//
+// Captured on Linux: two tmpfs mounts, one FIFO on each, both the first file on
+// their file system and so both inode 2, told apart by their devices alone.
+func TestPipeConnections_sameInodeOnAnotherFileSystemIsNoPeer(t *testing.T) {
+	me := &Process{Pid: 1234, Cmdline: "producer"}
+	stranger := &Process{Pid: 5678, Cmdline: "consumer"}
+
+	pipeEnds := map[int][]PipeEnd{
+		1234: {{Fd: "3", Access: PipeAccessWrite, FileSystemDevice: "0x37", Inode: "2"}},
+		5678: {{Fd: "3", Access: PipeAccessRead, FileSystemDevice: "0x38", Inode: "2"}},
+	}
+
+	connections := PipeConnections(me, []*Process{me, stranger}, pipeEnds)
+
+	assert.Equal(t, len(connections), 0)
+}
+
+// Two FIFOs that happen to share an inode number are two pipes, so a peer at the
+// end of both has two of them with us and earns a count of 2.
+//
+// The same pair of tmpfs FIFOs as above, this time with both processes holding an
+// end of each.
+func TestPipeConnections_twoFifosSharingAnInodeAreTwoPipes(t *testing.T) {
+	me := &Process{Pid: 1234, Cmdline: "producer"}
+	peer := &Process{Pid: 5678, Cmdline: "consumer"}
+
+	pipeEnds := map[int][]PipeEnd{
+		1234: {
+			{Fd: "3", Access: PipeAccessWrite, FileSystemDevice: "0x37", Inode: "2"},
+			{Fd: "4", Access: PipeAccessWrite, FileSystemDevice: "0x38", Inode: "2"},
+		},
+		5678: {
+			{Fd: "3", Access: PipeAccessRead, FileSystemDevice: "0x37", Inode: "2"},
+			{Fd: "4", Access: PipeAccessRead, FileSystemDevice: "0x38", Inode: "2"},
+		},
+	}
+
+	connections := PipeConnections(me, []*Process{me, peer}, pipeEnds)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "consumer", Pid: 5678}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 2},
+	})
+}
+
+// One pipe is one line however many ends of it we hold ourselves, and the ends we
+// hold can disagree about which way the data goes: "exec 3>fifo 4<>fifo" gets us
+// a write end, which says outgoing, and a read-write end, which can't say.
+//
+// So the line goes by what our ends together let us do with the pipe, which here
+// is both reading and writing, and that gets no arrow. Two lines to the one peer
+// would claim two pipes where there is one.
+//
+// The second line is ourselves, and it is not a duplicate: we can write on fd 3
+// and read it back on fd 4, so we are one of the processes at the other end of
+// this FIFO, the same way any process holding both ends of a pipe is.
+func TestPipeConnections_writeAndReadWriteEndsOfOnePipe(t *testing.T) {
+	me := &Process{Pid: 1234, Cmdline: "shell"}
+	peer := &Process{Pid: 5678, Cmdline: "consumer"}
+
+	pipeEnds := map[int][]PipeEnd{
+		1234: {
+			{Fd: "3", Access: PipeAccessWrite, FileSystemDevice: "0x37", Inode: "2"},
+			{Fd: "4", Access: PipeAccessReadWrite, FileSystemDevice: "0x37", Inode: "2"},
+		},
+		5678: {{Fd: "3", Access: PipeAccessRead, FileSystemDevice: "0x37", Inode: "2"}},
+	}
+
+	connections := PipeConnections(me, []*Process{me, peer}, pipeEnds)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "consumer", Pid: 5678}, Protocol: ProtocolPipe, Direction: DirectionUnknown, Count: 1},
+		{Peer: Peer{Name: "shell", Pid: 1234}, Protocol: ProtocolPipe, Direction: DirectionUnknown, Count: 1},
+	})
+}
+
+// Two pipes to one peer, one each way, which is what a process in the middle of a
+// pipeline has with the process before it if that one reads its answers back.
+// Different pipes and different directions, so two lines rather than one line
+// counting two.
+func TestPipeConnections_onePipeEachWayToOnePeer(t *testing.T) {
+	me := &Process{Pid: 1234, Cmdline: "grep"}
+	peer := &Process{Pid: 5678, Cmdline: "sort"}
+
+	pipeEnds := map[int][]PipeEnd{
+		1234: {
+			{Fd: "3", Access: PipeAccessWrite, FileSystemDevice: "0xe", Inode: "16466"},
+			{Fd: "4", Access: PipeAccessRead, FileSystemDevice: "0xe", Inode: "16467"},
+		},
+		5678: {
+			{Fd: "0", Access: PipeAccessRead, FileSystemDevice: "0xe", Inode: "16466"},
+			{Fd: "1", Access: PipeAccessWrite, FileSystemDevice: "0xe", Inode: "16467"},
+		},
+	}
+
+	connections := PipeConnections(me, []*Process{me, peer}, pipeEnds)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "sort", Pid: 5678}, Protocol: ProtocolPipe, Direction: DirectionIncoming, Count: 1},
+		{Peer: Peer{Name: "sort", Pid: 5678}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+	})
+}
+
 // A pipe has as many ends as anybody cares to fork, unlike a socket, which has
 // exactly two. Everybody holding a reading end of ours can read what we write,
 // so they all get a line.

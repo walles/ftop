@@ -50,6 +50,16 @@ type PipeEnd struct {
 	// macOS for an anonymous pipe, and populated on both platforms for a named
 	// FIFO.
 	Inode string
+
+	// The number of the file system the pipe lives on, which is what tells two
+	// pipes sharing an inode number apart. Hex, "0x37", and opaque: it is
+	// compared and never counted with.
+	//
+	// Linux reports it for every pipe, an anonymous one living on pipefs and so
+	// sharing it with every other anonymous pipe on the machine. macOS reports it
+	// for no pipe at all, neither anonymous nor named, so there two pipes are
+	// told apart by their inodes and their kernel addresses alone.
+	FileSystemDevice string
 }
 
 // Maps PIDs to the pipe ends held open by the corresponding processes, named

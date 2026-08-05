@@ -3,7 +3,9 @@ package processes
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
 
 	"github.com/walles/ftop/internal/assert"
@@ -37,24 +39,53 @@ func TestLsofPipeParser_macOsPipePair(t *testing.T) {
 // How Linux names the two ends of an anonymous pipe: both by the pipe's inode,
 // with the access modes telling them apart. The name is the literal string
 // "pipe", which identifies nothing and is dropped.
+//
+// Every anonymous pipe on the machine lives on pipefs and so reports the same
+// file system device, 0xe here, which is why the inode is what tells two of them
+// apart. The device only starts saying something for a named FIFO.
 func TestLsofPipeParser_linuxPipePair(t *testing.T) {
 	parser := newLsofPipeParser()
 
 	lines := []string{
 		"p1234\x00",
-		"f1\x00aw\x00tFIFO\x00i16466\x00npipe\x00",
+		"f1\x00aw\x00tFIFO\x00D0xe\x00i16466\x00npipe\x00",
 		"p5678\x00",
-		"f0\x00ar\x00tFIFO\x00i16466\x00npipe\x00",
+		"f0\x00ar\x00tFIFO\x00D0xe\x00i16466\x00npipe\x00",
 	}
 	for _, line := range lines {
 		assert.Equal(t, parser.parseLine(line), nil)
 	}
 
 	assert.SlicesEqual(t, parser.pipeEndsByPid[1234], []PipeEnd{
-		{Fd: "1", Access: PipeAccessWrite, Inode: "16466"},
+		{Fd: "1", Access: PipeAccessWrite, FileSystemDevice: "0xe", Inode: "16466"},
 	})
 	assert.SlicesEqual(t, parser.pipeEndsByPid[5678], []PipeEnd{
-		{Fd: "0", Access: PipeAccessRead, Inode: "16466"},
+		{Fd: "0", Access: PipeAccessRead, FileSystemDevice: "0xe", Inode: "16466"},
+	})
+}
+
+// Two named FIFOs on different file systems can share an inode number, and then
+// the file system device is the only thing telling them apart. Both of these are
+// inode 2, each being the first file made on a freshly mounted tmpfs.
+//
+// lsof hands that device over under the "D" field descriptor and only under that
+// one: the lowercase "d" that carries a macOS pipe's kernel address is empty for
+// every FIFO, on both platforms.
+func TestLsofPipeParser_linuxNamedFifosSharingAnInode(t *testing.T) {
+	parser := newLsofPipeParser()
+
+	lines := []string{
+		"p188\x00",
+		"f3\x00au\x00tFIFO\x00D0x37\x00i2\x00n/mnt/a/f\x00",
+		"f4\x00au\x00tFIFO\x00D0x38\x00i2\x00n/mnt/b/f\x00",
+	}
+	for _, line := range lines {
+		assert.Equal(t, parser.parseLine(line), nil)
+	}
+
+	assert.SlicesEqual(t, parser.pipeEndsByPid[188], []PipeEnd{
+		{Fd: "3", Access: PipeAccessReadWrite, FileSystemDevice: "0x37", Inode: "2"},
+		{Fd: "4", Access: PipeAccessReadWrite, FileSystemDevice: "0x38", Inode: "2"},
 	})
 }
 
@@ -196,4 +227,71 @@ func TestGetPipeEndsByPid(t *testing.T) {
 
 	assert.Equal(t, foundReader, true)
 	assert.Equal(t, foundWriter, true)
+}
+
+// The real lsof should tell us enough about the two ends of a named FIFO for
+// arePipeEnds() to match them, on whatever platform and lsof version this is.
+//
+// A FIFO is the one pipe both platforms report an inode for, and the one Linux
+// reports a file system device for, so the two matching clauses meet here: the
+// inode has to be there, and whatever device comes along with it must not keep
+// two ends of one and the same FIFO apart.
+func TestGetPipeEndsByPid_namedFifo(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof not available: ", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "probe.fifo")
+	err := syscall.Mkfifo(path, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Read-write first: opening a FIFO that way never blocks, and it makes the
+	// reader below a reader of a FIFO somebody already has open for writing,
+	// which doesn't block either.
+	readWrite, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = readWrite.Close() }()
+
+	read, err := os.OpenFile(path, os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = read.Close() }()
+
+	readWriteFd := strconv.Itoa(int(readWrite.Fd()))
+	readFd := strconv.Itoa(int(read.Fd()))
+
+	pipeEndsByPid, err := GetPipeEndsByPid()
+	if err != nil {
+		t.Fatalf("listing pipes failed: %v", err)
+	}
+
+	var readWriteEnd *PipeEnd
+	var readEnd *PipeEnd
+	for _, end := range pipeEndsByPid[os.Getpid()] {
+		switch end.Fd {
+		case readWriteFd:
+			readWriteEnd = &end
+
+		case readFd:
+			readEnd = &end
+		}
+	}
+
+	if readWriteEnd == nil || readEnd == nil {
+		t.Fatalf("lsof reported %v, missing fd %s or %s",
+			pipeEndsByPid[os.Getpid()], readWriteFd, readFd)
+	}
+
+	// The inode is what identifies a FIFO on both platforms, and lsof reporting
+	// the access modes is what tells its ends apart.
+	assert.Equal(t, readWriteEnd.Inode != "", true)
+	assert.Equal(t, readWriteEnd.Access, PipeAccessReadWrite)
+	assert.Equal(t, readEnd.Access, PipeAccessRead)
+
+	assert.Equal(t, arePipeEnds(*readWriteEnd, *readEnd), true)
 }
