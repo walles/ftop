@@ -80,11 +80,20 @@ microseconds in Go. The indexes are also what *forces* px's platform switch: a
 map key has to be one string, so `fifo_id()` must choose inode-or-name up front,
 while a predicate can just test both.
 
-Open question, unchanged: the display grammar in the original mockup
-(`grep(1234) | proc | sort(1234)`) puts a stdin peer and a stdout peer on one
-line, which has no TCP equivalent and which `writeConnectionLines()` cannot
-express as it stands. Pipes also have no ports, so the description column has
-nothing to put there.
+**Display grammar: reuse `writeConnectionLines()` as it stands.** One line per
+pipe, so a process in the middle of a pipeline gets one line per end — the same
+shape as every other kind.
+
+Data flows from the writer to the reader, which is a direction worth an arrow and
+which maps onto the existing split — write end outgoing, read end incoming, so
+`grep(1234) --> sort(5678)` from either end's page. Linux has the access mode
+already, since matching needs `a` anyway; wherever it turns out not to be
+available, fall back to `DirectionUnknown` and `<->`.
+
+Pipes have no port, and `connectionDescription()` appends one unconditionally.
+So it needs a no-port case, rendering the bare protocol: `pipe`, and `pipe (×3)`
+where several to the same peer aggregate — the aggregation key tolerates a zero
+port without changes.
 
 ### Unix domain sockets
 
