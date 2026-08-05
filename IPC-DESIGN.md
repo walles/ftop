@@ -163,47 +163,16 @@ load. Run 3 verified UDP, and ran the Go test suite itself in a `golang:1.25`
 container against the real Linux lsof. Findings are marked with the run they came
 from where it matters.
 
-**Reversed-pair matching holds byte-for-byte, both address families.** This is
-the central mechanism of the design, and it was previously unverified on either
-platform — a quiet macOS laptop has no connected loopback sockets to observe.
-
-```
-pid 179 (listener)   n127.0.0.1:8080->127.0.0.1:33102
-pid 186 (client)     n127.0.0.1:33102->127.0.0.1:8080     exact reverse
-
-pid 180 (listener)   n[::1]:8081->[::1]:46208
-pid 187 (client)     n[::1]:46208->[::1]:8081             exact reverse
-```
-
-**It holds for UDP too** *(run 3)*, which is what made UDP cheap — the same
-mechanism, no second code path, no platform difference:
-
-```
-f3  PUDP  n127.0.0.1:9911->127.0.0.1:9912  TQR=0  TQS=0
-f5  PUDP  n127.0.0.1:9912->127.0.0.1:9911  TQR=0  TQS=0
-```
-
-**UDP carries no `TST` on Linux either** *(run 3)*, only the queue sizes, while
-the TCP listener alongside it reported `TST=LISTEN` normally. So there is no
-listen set equivalent for UDP on either platform, and `DirectionUnknown` is the
-honest answer rather than a shortcut.
-
-**IPv6 is bracketed on Linux exactly as on macOS** (`[::1]:8081`), so one
-endpoint parser covers both platforms.
-
-**Wildcard listeners behave as the direction rule assumes.** The listener
-reports `n*:8082` while the socket it accepted reports
-`n127.0.0.1:8082->127.0.0.1:48368` — concrete local address against a wildcard
-listener. Port-only matching for `*:`-bound listeners is genuinely required, not
-defensive.
+Most of what those runs established has since collapsed into the test suite:
+reversed-pair matching for both address families and both protocols, IPv6
+bracketing, wildcard listeners, `TST=LISTEN` parsing and descriptor
+deduplication all have tests now, and run 3 exercised them against real Linux
+lsof rather than only against the inline fixtures. What follows is what no test
+asserts.
 
 **No per-thread socket duplication** on this lsof, contradicting px's claim at
 `px_ipc_map.py:61`: a process with 8 threads holding 1 connection reported
 exactly 1 socket. The endpoint-keyed dedup covers that case anyway.
-
-**`TST=LISTEN` arrives verbatim, with the same three `T` fields as macOS** *(run
-2)*. Dispatching on the `ST=` value prefix is right on both platforms, so
-listening rows do render and connections aren't uniformly called outgoing.
 
 **The `sshd` session child renders as incoming on port 22** *(run 2)* — the case
 the machine-wide listen set exists for, observed working for the first time on
@@ -219,12 +188,6 @@ pid 998   sshd-session [priv]      fd 7  n127.0.0.1:22->127.0.0.1:60482
 pid 1005  sshd-session root@notty  fd 7  n127.0.0.1:22->127.0.0.1:60482
 ```
 
-```
-ssh(996)             outgoing  peer sshd-session:(998)  port 22
-sshd-session:(998)   incoming  peer ssh(996)            port 22
-sshd-session:(1005)  incoming  peer ssh(996)            port 22
-```
-
 Two more decisions get exercised by that same session. OpenSSH 10 splits the
 session into two processes that both hold the accepted socket, which is the
 fork-inheritance collision from "Peer matching" in the flesh — lowest PID wins
@@ -232,18 +195,6 @@ puts 998 on `ssh`'s line, and it is the same 998 every time the page is opened.
 And the listener's two `*:22` sockets, one per address family (Linux spells both
 `*:22`, not `[::]:22`), collapse into a single listening row with no count, which
 is the dual-stack case on real data rather than on a hand-written test.
-
-**A dup'd descriptor is reported once per descriptor, and endpoint dedup absorbs
-it** *(run 2)*. From `bash -c 'exec 3<>/dev/tcp/127.0.0.1/9999; exec 4>&3; sleep
-3000'` — reported as `sleep` because bash exec-replaces itself for its last
-command, while the descriptors are still the ones bash opened:
-
-```
-pid 995  fd 3  n127.0.0.1:48608->127.0.0.1:9999
-pid 995  fd 4  n127.0.0.1:48608->127.0.0.1:9999
-```
-
-One connection comes out of it, `Count` 1, no `(×2)`.
 
 **The socket fork earns itself on Linux as well** *(run 2)*, by less than the
 rationale hopes: with 819 socket lines against 4122 open files in total, `-iTCP`
@@ -262,14 +213,11 @@ files, but a container has a handful of processes and a single user.
 
 ## Model — `internal/processes`
 
-`Socket` and `Connection` live in `sockets.go` and `networkconnections.go`; read
-them there rather than from a copy that goes stale.
-
-The one shape decision worth keeping: **one uniform `Connection` type behind both
-page sections**, so merging the two sections later, or splitting them differently,
-is a change to the render-time partition and nothing else. Splitting the model to
-match the sections is the trap — it would make merging mean unifying two types,
-two sorts and two alignment schemes.
+**One uniform `Connection` type behind both page sections** (`sockets.go`,
+`networkconnections.go`), so merging the two sections later, or splitting them
+differently, is a change to the render-time partition and nothing else. Splitting
+the model to match the sections is the trap — it would make merging mean unifying
+two types, two sorts and two alignment schemes.
 
 ## Peer matching
 
@@ -286,34 +234,10 @@ the same interface differently (`127.0.0.1` vs `::ffff:127.0.0.1`).
 
 ## Direction
 
-States seen on a quiet laptop: 289 `ESTABLISHED`, 10 `LISTEN`, 3 `CLOSE_WAIT`.
-lsof reports the state explicitly, so nothing is inferred from the presence of
-`->`.
-
-The rule, with its rationale and its three known limits, is in
-`directionAndPort()`. The trade-off worth restating because it was a close call:
-the listen set is **machine-wide**, which buys a false positive — dialing out
-from a local port that anything on this machine listens on reads as incoming.
-That takes an ephemeral port colliding with a listening one, so it is a
-coincidence rather than a pattern, and it was accepted deliberately because the
-alternative got every `sshd` session child backwards systematically.
-
-The one-shot-listener limit that `directionAndPort()` names in passing was
-reproduced, with GNU netcat 0.7.1 (`nc -l -p 9999`), which holds only the accepted
-socket while the connection is up:
-
-```
-netcat 52943  fd 4u  TCP 127.0.0.1:9993->127.0.0.1:61683 (ESTABLISHED)
-netcat 52948  fd 3u  TCP 127.0.0.1:61683->127.0.0.1:9993 (ESTABLISHED)
-```
-
-Both ends are visible and neither is listening, so the two ends disagree about who
-dialed whom and about which port is the server's. The only rule that covers this
-is guessing from the port numbers — ephemeral ranges are platform specific and
-servers do listen high — so it is left wrong on purpose.
-
-`Direction` has three values. For TCP there is no undeterminable case; for UDP
-there is nothing but, hence `DirectionUnknown` and the `<->` arrow.
+The rule, its rationale and its three known limits are all in
+`directionAndPort()`; the one-shot-listener limit it names in passing was
+reproduced with GNU netcat 0.7.1, which does hold only the accepted socket. One
+decision the code doesn't carry:
 
 Self-connections (a process dialing its own listening port) are **shown, once** —
 deduped by keeping the socket whose local endpoint sorts first. px drops these
@@ -330,17 +254,9 @@ lines. A count is strictly more informative, and it means 252 connections are on
 DNS lookup.
 
 The dedup that runs first is keyed on the socket's own identity rather than on
-its file descriptor, which is load-bearing — see `deduplicateBySocket()` for why.
-The case that settles it, observed on a quiet macOS laptop, one kernel socket
-(note the identical device) on two descriptors:
-
-```
-bash 62476  3u  IPv4 0xb9119cc34f8832c4  TCP 127.0.0.1:62637->127.0.0.1:9994
-bash 62476  4u  IPv4 0xb9119cc34f8832c4  TCP 127.0.0.1:62637->127.0.0.1:9994
-```
-
-lsof's `DEVICE` column would identify a socket just as well, but it needs another
-`-F` field and the endpoints already settle it.
+its file descriptor — see `deduplicateBySocket()` for why. lsof's `DEVICE` column
+would identify a socket just as well, but it needs another `-F` field and the
+endpoints already settle it.
 
 No line cap. After aggregation the pathological case is repetition, not variety,
 and the output goes into a pager that handles long content. Add a cap when a
@@ -374,12 +290,10 @@ lands in Network Connections under an address instead. Both mockups are drawn to
 the real column rules, two spaces between columns and both arrows five columns
 wide, so they can be checked against `writeConnectionLines()` rather than trusted.
 
-- **Arrow points client → server**, that being the one directional fact about a
-  connection worth knowing. `<->` where nobody can tell, which for now means
-  every UDP line.
-- **The description column is the protocol plus the port, never an address.** For
-  local IPC the address is always loopback and adds nothing; for a remote peer the
-  address is already in the peer column.
+The arrow direction and the never-an-address rule for the description column are
+both stated where they are implemented, in `pageconnections.go`. The two rules
+that live nowhere else:
+
 - **Partition on `Peer.Pid != 0`** — IPC section for process peers, Network
   Connections for remote hosts and listeners. A listening socket has no peer at
   all, so it lands in Network, directly above the incoming connections it
