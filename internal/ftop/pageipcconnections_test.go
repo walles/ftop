@@ -11,6 +11,12 @@ import (
 	"github.com/walles/moor/v2/twin"
 )
 
+// No pipes, for the tests that are about sockets
+var noPipes = pipeListing{byPid: map[int][]processes.PipeEnd{}}
+
+// No sockets, for the tests that are about pipes
+var noSockets = socketListing{byPid: map[int][]processes.Socket{}}
+
 // Connections to other processes, one line each, with the arrows pointing from
 // whoever dialed to whoever was dialed — both ways for the UDP peer, since UDP says
 // nothing about who dialed whom. The listening socket on 8080 and the connection to
@@ -44,16 +50,114 @@ func TestIpcConnectionsForPagingListsProcessPeers(t *testing.T) {
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"curl(999) --> picked(42)                   tcp 8080\n" +
 		"              picked(42) --> sshd(1)       tcp 22\n" +
 		"              picked(42) <-> dnsmasq(777)  udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 
 	assert.Equal(t, stringsContains(page.String(), "──Inter Process Communication──"), true)
+}
+
+// Pipes and sockets share the section, and the lines are sorted together rather
+// than one kind after the other: incoming first, then outgoing, and each of
+// those blocks stays one protocol at a time.
+//
+// Data flows from the writer to the reader, so the writing end is the outgoing
+// one — which makes the arrow point the way the data goes.
+func TestIpcConnectionsForPagingListsPipes(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:22"}},
+		1: {
+			{Fd: "9", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Listening: true},
+			{Fd: "10", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Remote: "127.0.0.1:54322"},
+		},
+	}}
+
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		1234: {{Fd: "1", Access: processes.PipeAccessWrite, Inode: "16466"}},
+		42: {
+			{Fd: "0", Access: processes.PipeAccessRead, Inode: "16466"},
+			{Fd: "1", Access: processes.PipeAccessWrite, Inode: "16467"},
+		},
+		5678: {{Fd: "0", Access: processes.PipeAccessRead, Inode: "16467"}},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{
+		picked,
+		{Pid: 1, Cmdline: "sshd"},
+		{Pid: 1234, Cmdline: "grep"},
+		{Pid: 5678, Cmdline: "sort"},
+	}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, &pt)
+
+	expected := "" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
+		"grep(1234) --> picked(42)                 pipe\n" +
+		"               picked(42) --> sort(5678)  pipe\n" +
+		"               picked(42) --> sshd(1)     tcp 22\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+// macOS lsof won't say which end of a pipe writes, so there the arrow points
+// both ways, the way it does for UDP.
+func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		42:   {{Fd: "1", Device: "0xaaaa", PeerDevice: "0xbbbb"}},
+		5678: {{Fd: "0", Device: "0xbbbb", PeerDevice: "0xaaaa"}},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{picked, {Pid: 5678, Cmdline: "sort"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, &pt)
+
+	expected := "" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
+		"picked(42) <-> sort(5678)  pipe\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+// A pipe has no port, so its description is the bare word "pipe". Several pipes
+// to the same process still aggregate into one line with a count.
+func TestIpcConnectionsForPagingSeveralPipesToOnePeer(t *testing.T) {
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		42: {
+			{Fd: "1", Access: processes.PipeAccessWrite, Inode: "16466"},
+			{Fd: "2", Access: processes.PipeAccessWrite, Inode: "16467"},
+		},
+		5678: {
+			{Fd: "0", Access: processes.PipeAccessRead, Inode: "16466"},
+			{Fd: "3", Access: processes.PipeAccessRead, Inode: "16467"},
+		},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{picked, {Pid: 5678, Cmdline: "sort"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, &pt)
+
+	expected := "" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
+		"picked(42) --> sort(5678)  pipe (×2)\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
 // The picked process is what the whole page is about, and every other section
@@ -71,7 +175,7 @@ func TestIpcConnectionsForPagingHighlightsThePickedProcess(t *testing.T) {
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, &pt)
 
 	assert.Equal(t, stringsContains(page.String(), ui.highlight("picked(42)")), true)
 }
@@ -93,10 +197,10 @@ func TestIpcConnectionsForPagingNamelessPeer(t *testing.T) {
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, noPipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"PID 999 --> picked(42)  tcp 8080\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -116,10 +220,10 @@ func TestIpcConnectionsForPagingOutgoingOnly(t *testing.T) {
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"picked(42) --> sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -127,26 +231,25 @@ func TestIpcConnectionsForPagingOutgoingOnly(t *testing.T) {
 // The caveat has to be above the connections: it changes how they are read, and
 // this page goes into a pager where a reader may never reach the bottom.
 func TestIpcConnectionsForPagingNoConnections(t *testing.T) {
-	sockets := socketListing{byPid: map[int][]processes.Socket{}}
-
 	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, noSockets, noPipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
+		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"<No connections found>\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
-// Without a socket listing there is nothing for the caveat to be a caveat about,
-// so the error is all there is to say.
+// With no listing at all there is nothing for the caveat to be a caveat about,
+// so the errors are all there is to say.
 func TestIpcConnectionsForPagingShowsErrors(t *testing.T) {
 	sockets := socketListing{err: errors.New("boom")}
+	pipes := pipeListing{err: errors.New("bang")}
 
 	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
 
@@ -154,7 +257,79 @@ func TestIpcConnectionsForPagingShowsErrors(t *testing.T) {
 	var page strings.Builder
 	pt := pageText{out: &page}
 
-	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
+	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, pipes, &pt)
 
-	assert.Equal(t, sectionBody(page.String()), "<Unable to list sockets: boom>\n")
+	expected := "" +
+		"<Unable to list sockets: boom>\n" +
+		"<Unable to list pipes: bang>\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+// Two lsof invocations mean either one can fail on its own. What did come back
+// is still worth showing, and the caveat says what this listing is missing on
+// top of what isn't implemented at all.
+func TestIpcConnectionsForPagingPipeListingFailed(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:22"}},
+		1:  {{Fd: "9", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Remote: "127.0.0.1:54322"}},
+	}}
+	pipes := pipeListing{err: errors.New("boom")}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{picked, {Pid: 1, Cmdline: "sshd"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, &pt)
+
+	expected := "" +
+		"<Unable to list pipes: boom>\n" +
+		"<Detected: TCP, UDP. Not detected: unix sockets>\n" +
+		"picked(42) --> sshd(1)  tcp 22\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+// One listing failed and the other found nothing. Both facts matter, and
+// neither one is a reason to stop before saying the other.
+func TestIpcConnectionsForPagingPipeListingFailedAndNoSockets(t *testing.T) {
+	pipes := pipeListing{err: errors.New("boom")}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, noSockets, pipes, &pt)
+
+	expected := "" +
+		"<Unable to list pipes: boom>\n" +
+		"<Detected: TCP, UDP. Not detected: unix sockets>\n" +
+		"<No connections found>\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+func TestIpcConnectionsForPagingSocketListingFailed(t *testing.T) {
+	sockets := socketListing{err: errors.New("boom")}
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		42:   {{Fd: "1", Access: processes.PipeAccessWrite, Inode: "16466"}},
+		5678: {{Fd: "0", Access: processes.PipeAccessRead, Inode: "16466"}},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{picked, {Pid: 5678, Cmdline: "sort"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, &pt)
+
+	expected := "" +
+		"<Unable to list sockets: boom>\n" +
+		"<Detected: pipes. Not detected: unix sockets>\n" +
+		"picked(42) --> sort(5678)  pipe\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
 }

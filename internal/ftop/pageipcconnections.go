@@ -14,6 +14,7 @@ func (u *Ui) ipcConnectionsForPaging(
 	currentProcess *processes.Process,
 	allProcesses []*processes.Process,
 	sockets socketListing,
+	pipes pipeListing,
 	pt *pageText,
 ) {
 	const title = "Inter Process Communication"

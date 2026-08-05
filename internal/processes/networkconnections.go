@@ -19,21 +19,25 @@ type Peer struct {
 	Pid int
 }
 
-// Which end dialed the other.
+// Which way a connection's arrow points.
 //
-// Worked out from the ports this machine listens on, so it can come out
-// backwards for a connection whose listening socket we cannot see, and UDP has
-// no equivalent to compare against at all. See directionAndPort().
+// Two different facts share the one arrow. For a socket it is which end dialed
+// the other, worked out from the ports this machine listens on, so it can come
+// out backwards for a connection whose listening socket we cannot see; see
+// directionAndPort(). For a pipe it is which way the data flows, read off the
+// access mode of the end we hold; see pipeDirection().
 type Direction int
 
 const (
-	// The peer dialed us
+	// The peer dialed us, or writes into a pipe we read
 	DirectionIncoming Direction = iota
 
-	// We dialed the peer
+	// We dialed the peer, or write into a pipe they read
 	DirectionOutgoing
 
-	// No telling which end dialed the other. Every UDP connection is this.
+	// No telling. Every UDP connection is this, UDP having no listening state
+	// to compare a port against, and so is every anonymous pipe on macOS, whose
+	// lsof reports no access mode for one.
 	DirectionUnknown
 )
 
@@ -156,9 +160,18 @@ func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map
 		connections = append(connections, connection)
 	}
 
-	slices.SortFunc(connections, compareConnections)
+	SortConnections(connections)
 
 	return connections
+}
+
+// Sorts connections into display order, in place.
+//
+// Exported because a page section showing more than one kind of connection has
+// to merge the lists and sort the result, see compareConnections() for what the
+// order is.
+func SortConnections(connections []Connection) {
+	slices.SortFunc(connections, compareConnections)
 }
 
 // Which end of socket dialed the other, and the port worth reporting it on.
@@ -409,15 +422,19 @@ func splitEndpoint(endpoint string) (address string, port int) {
 
 // Listening ports first, then incoming connections, then outgoing ones, then the
 // ones nobody can tell the direction of, so that each way of drawing a connection
-// stays in one block of the listing. Then by peer name, peer PID and port, all of
-// which are only tie breakers, there to make the order the same every time.
+// stays in one block of the listing. Protocol next, so that a block of pipes and
+// a block of sockets don't interleave, their descriptions being the column a
+// reader scans. Then by peer name, peer PID and port, all of which are only tie
+// breakers, there to make the order the same every time.
 //
-// Protocol is not among the keys, and doesn't need to be: TCP is the only
-// protocol that ever lands in the first three groups and UDP the only one that
-// lands in the last, so the blocks come out protocol-pure anyway.
+// Sorting by protocol used to be unnecessary, TCP being the only protocol
+// reaching the first three groups and UDP the only one reaching the last, which
+// made the blocks protocol-pure for free. Pipes reach both the incoming and the
+// outgoing group and ended that.
 func compareConnections(a Connection, b Connection) int {
 	return cmp.Or(
 		cmp.Compare(sortGroup(a), sortGroup(b)),
+		strings.Compare(string(a.Protocol), string(b.Protocol)),
 		strings.Compare(a.Peer.Name, b.Peer.Name),
 		cmp.Compare(a.Peer.Pid, b.Peer.Pid),
 		cmp.Compare(a.Port, b.Port),

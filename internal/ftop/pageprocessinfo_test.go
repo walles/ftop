@@ -33,12 +33,38 @@ func fakeSockets(t *testing.T, socketsByPid map[int][]processes.Socket, err erro
 	}
 }
 
+// Replaces the lsof pipe lookup for the duration of the test. The returned
+// function tells how many times it has been called.
+//
+// Every test composing a whole page needs this: the pipe listing is the
+// unfiltered lsof, so without it the test forks one and parses every open file
+// on the machine.
+func fakePipes(t *testing.T, pipeEndsByPid map[int][]processes.PipeEnd, err error) func() int {
+	t.Helper()
+
+	original := getPipeEndsByPid
+	t.Cleanup(func() {
+		getPipeEndsByPid = original
+	})
+
+	calls := 0
+	getPipeEndsByPid = func() (map[int][]processes.PipeEnd, error) {
+		calls++
+		return pipeEndsByPid, err
+	}
+
+	return func() int {
+		return calls
+	}
+}
+
 // Both connection sections render from one and the same socket listing, so that
 // they can't disagree about a connection that came or went in between two lsof
 // runs.
 func TestWriteProcessInfoListsSocketsOnce(t *testing.T) {
 	fakeCwds(t, map[int]string{42: "/Users/johan/src/ftop"}, nil)
 	socketCalls := fakeSockets(t, map[int][]processes.Socket{}, nil)
+	fakePipes(t, map[int][]processes.PipeEnd{}, nil)
 	fakeDns(t, nil)
 
 	original := getLoggedInUsersAt
@@ -63,6 +89,7 @@ func TestWriteProcessInfoListsSocketsOnce(t *testing.T) {
 func TestWriteProcessInfoSeparatesSections(t *testing.T) {
 	fakeCwds(t, map[int]string{42: "/Users/johan/src/ftop"}, nil)
 	fakeSockets(t, map[int][]processes.Socket{}, nil)
+	fakePipes(t, map[int][]processes.PipeEnd{}, nil)
 	fakeDns(t, nil)
 
 	original := getLoggedInUsersAt

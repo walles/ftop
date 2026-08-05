@@ -557,3 +557,46 @@ func TestNetworkConnections_noSocketsOfOurOwn(t *testing.T) {
 
 	assert.Equal(t, len(connections), 0)
 }
+
+// A section showing more than one kind of connection sorts them together, and
+// the protocols must not interleave: the description column is what a reader
+// scans, and a block of pipes broken up by a socket line reads as noise.
+//
+// The peer names here are chosen so that sorting by name alone would interleave
+// them, which is what makes this test say anything.
+func TestSortConnections_keepsProtocolsApart(t *testing.T) {
+	connections := []Connection{
+		{Peer: Peer{Name: "alpha", Pid: 1}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "beta", Pid: 2}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+		{Peer: Peer{Name: "gamma", Pid: 3}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 22, Count: 1},
+		{Peer: Peer{Name: "delta", Pid: 4}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+	}
+
+	SortConnections(connections)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "beta", Pid: 2}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+		{Peer: Peer{Name: "delta", Pid: 4}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+		{Peer: Peer{Name: "alpha", Pid: 1}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 443, Count: 1},
+		{Peer: Peer{Name: "gamma", Pid: 3}, Protocol: ProtocolTcp, Direction: DirectionOutgoing, Port: 22, Count: 1},
+	})
+}
+
+// Which way a connection is drawn decides its block, and that outranks the
+// protocol: an incoming pipe belongs with the incoming sockets rather than with
+// the outgoing pipes.
+func TestSortConnections_directionOutranksProtocol(t *testing.T) {
+	connections := []Connection{
+		{Peer: Peer{Name: "alpha", Pid: 1}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+		{Peer: Peer{Name: "beta", Pid: 2}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "gamma", Pid: 3}, Protocol: ProtocolPipe, Direction: DirectionIncoming, Count: 1},
+	}
+
+	SortConnections(connections)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Peer: Peer{Name: "gamma", Pid: 3}, Protocol: ProtocolPipe, Direction: DirectionIncoming, Count: 1},
+		{Peer: Peer{Name: "beta", Pid: 2}, Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Count: 1},
+		{Peer: Peer{Name: "alpha", Pid: 1}, Protocol: ProtocolPipe, Direction: DirectionOutgoing, Count: 1},
+	})
+}

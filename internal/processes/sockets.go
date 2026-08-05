@@ -9,13 +9,15 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
-// Which transport protocol a socket speaks, lowercased so that it can go
-// straight into the page.
+// What a connection is carried by, lowercased so that it can go straight into
+// the page. A transport protocol for a socket, and the kind of thing it is for
+// everything else.
 type Protocol string
 
 const (
-	ProtocolTcp Protocol = "tcp"
-	ProtocolUdp Protocol = "udp"
+	ProtocolTcp  Protocol = "tcp"
+	ProtocolUdp  Protocol = "udp"
+	ProtocolPipe Protocol = "pipe"
 )
 
 // One TCP or UDP socket held open by some process, as reported by lsof.
