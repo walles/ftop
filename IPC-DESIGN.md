@@ -31,7 +31,7 @@ alternatives, verification findings, and the plan for what isn't built yet.
 **UDP: done.** Same lsof call, same parser, same reversed-pair peer matching —
 lsof names a UDP socket in exactly the format it names a TCP one in, so nothing
 new was needed for matching and there is no platform specific code. What UDP
-added: a `Protocol` field, `DirectionUnknown` rendered `<->`, and the protocol as
+added: a `Protocol` field, `DirectionUnknown` rendered `<?>`, and the protocol as
 part of the keys identifying a connection. Bound but unconnected UDP sockets are
 dropped, see "Deferred" below.
 
@@ -88,7 +88,8 @@ Data flows from the writer to the reader, which is a direction worth an arrow an
 which maps onto the existing split — write end outgoing, read end incoming, so
 `grep(1234) --> sort(5678)` from either end's page. Linux has the access mode
 already, since matching needs `a` anyway; wherever it turns out not to be
-available, fall back to `DirectionUnknown` and `<->`.
+available, fall back to `DirectionUnknown` and `<?>` — see "Deferred" for where
+macOS keeps the access mode when lsof won't hand it over.
 
 Pipes have no port, and `connectionDescription()` appends one unconditionally.
 So it needs a no-port case, rendering the bare protocol: `pipe`, and `pipe (×3)`
@@ -284,13 +285,13 @@ Inter Process Communication
 <Detected: TCP, UDP. Not detected: pipes, unix sockets>
 curl(999) --> picked(42)                tcp 8080
               picked(42) --> sshd(123)  tcp 22
-              picked(42) <-> peer(99)   udp 9001
+              picked(42) <?> peer(99)   udp 9001
 
 Network Connections
             picked(42)                     tcp 8080 (listening)
 1.2.3.4 --> picked(42)                     tcp 8080 (×12)
             picked(42) --> api.github.com  tcp 443 (×7)
-            picked(42) <-> dns.google      udp 53
+            picked(42) <?> dns.google      udp 53
 ```
 
 The UDP line in the IPC block needs **both** ends to have connected their
@@ -343,7 +344,7 @@ no `testdata/` directory and shouldn't grow one for this.
   2. **Its clients can't name it either.** A UDP server serves every client from
      one bound socket and never connects it, so there is no reversed pair to
      match. The client's peer comes back as an address with no PID, which puts it
-     in *Network Connections* reading `picked(42) <-> localhost  udp 53` — with
+     in *Network Connections* reading `picked(42) <?> localhost  udp 53` — with
      the server sitting right there in the same lsof listing, unnamed.
 
   So for UDP the IPC section stays empty unless both ends happen to have
@@ -385,3 +386,64 @@ no `testdata/` directory and shouldn't grow one for this.
   Connections about half the time. Direction inference elsewhere survives it,
   since `listenSets()` reads the raw listing rather than the deduplicated one.
   Predates UDP; cheap to close.
+- **Two pipe matching fixes held for the Linux pass**, both waiting on the same
+  field. `arePipeEnds()` and `pipeIdentity()` key on the inode alone, so two named
+  FIFOs on different file systems sharing an inode number are both fabricated
+  into a pair *and* counted as one pipe — a peer at the end of both gets `(×1)`
+  where it earned `(×2)`. The device tells them apart, and Linux is where a FIFO
+  carries one; macOS reports no device for a FIFO at all, so there is nothing to
+  key on and no way to write a fixture until the Linux pass. Separately, two ends
+  of one pipe held by the same process can disagree about its direction, a `u`
+  end being `DirectionUnknown` where a `w` end of that pipe is
+  `DirectionOutgoing`, and since direction is part of what identifies a line that
+  pipe draws two lines to the one peer. Both are recorded as known limits on the
+  functions themselves.
+- **Pipe direction on macOS, taken from the kernel rather than from lsof.** macOS
+  lsof reports no access mode for a `PIPE` record, so every anonymous pipe there
+  is `DirectionUnknown` and renders `<?>`. `tail -f /etc/services | sort | nl`
+  shows as `tail(40504) <?> sort(40505)  pipe` when the truth is plainly
+  `tail --> sort`.
+
+  **Not a matter of asking lsof for the right field.** `+fg` is lsof's file-flag
+  option, and it fills that column in for `CHR` and `REG` while leaving it blank
+  for `PIPE`; the FD number carries no `r`/`w` suffix either. Both ends of a real
+  pipeline, on macOS lsof 4.91:
+
+  ```
+  tail  40697  0r  CHR   R;SH          /dev/null     <- flags reported
+  tail  40697  1   PIPE                ->0x8512...   <- blank
+  sort  40698  0   PIPE                ->0xe272...   <- blank
+  sort  40698  2w  CHR   W,0x10000;SH  /dev/null     <- flags reported
+  ```
+
+  **The kernel knows.** `proc_pidfdinfo(pid, fd, PROC_PIDFDPIPEINFO)` fills in a
+  `proc_fileinfo` whose `fi_openflags` carries FREAD/FWRITE, verified against
+  that same pipeline:
+
+  ```
+  tail(40697) fd 1  fi_openflags=0x10002  FWRITE  handle=0xe272559b6a8c5e34  peer=0x8512e4a289d94ded
+  sort(40698) fd 0  fi_openflags=0x1      FREAD   handle=0x8512e4a289d94ded  peer=0xe272559b6a8c5e34
+  ```
+
+  `pipe_handle` and `pipe_peerhandle` are the same two numbers lsof prints as the
+  `DEVICE` and the `->` name, so this is the pipe end we already have with the
+  direction attached, not a second identity to join on.
+
+  Cheaper than a new data source usually is. cgo is already a macOS dependency —
+  `test.sh` builds both darwin targets with `CGO_ENABLED=1`, and
+  `sysload_darwin.go` is the established `//go:build darwin` plus inline C
+  pattern. The change lands entirely in `GetPipeEndsByPid()`, filling in the
+  `Access` lsof left empty, so `arePipeEnds()`, `pipeDirection()` and every one of
+  their tests are untouched. Linux keeps taking the access mode from lsof and
+  needs nothing. Cost is one syscall per pipe end, around 300 on a quiet laptop,
+  against the 0.36 s the unfiltered lsof already spends.
+
+  Guard the race between the lsof fork and the syscall by requiring the returned
+  `pipe_handle` to equal the `Device` lsof reported — an fd can be closed and
+  reopened in between, and then the flags describe some other file entirely.
+
+  Unverified: how this degrades for processes we don't own. `proc_pidfdinfo`
+  enforces a same-uid-or-root check, so EPERM and a fall back to
+  `DirectionUnknown` is what to expect, matching how lsof already degrades — but
+  the laptop this was measured on had no root-owned process holding a pipe to
+  probe, so that is reasoning rather than a measurement.

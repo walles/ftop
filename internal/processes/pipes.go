@@ -1,6 +1,10 @@
 package processes
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/util"
 )
@@ -91,7 +95,15 @@ func GetPipeEndsByPid() (map[int][]PipeEnd, error) {
 	return parser.pipeEndsByPid, nil
 }
 
-// Parses the output of "lsof -n -w -F pfatdin0".
+// Parses the output of "lsof -n -w -F pfatdin0", which comes in NUL terminated
+// fields, one line per process and then one line per open file:
+//
+//	p36143\0
+//	f1\0a \0tPIPE\0d0x77046c8deffe9dd1\0n->0x652aa8d44c539286\0
+//	f4\0ar\0tFIFO\0i82144503\0n/private/tmp/probe.fifo\0
+//
+// This listing is unfiltered, lsof having no flag for selecting pipes, so most
+// of what arrives here is files of other kinds and gets dropped.
 type lsofPipeParser struct {
 	pipeEndsByPid map[int][]PipeEnd
 
@@ -106,7 +118,107 @@ func newLsofPipeParser() lsofPipeParser {
 	}
 }
 
+// Note that lsof escapes non-printable characters, newlines included, so one
+// line of output is always one complete record.
 func (parser *lsofPipeParser) parseLine(line string) error {
-	// TODO: Implement
+	// Filled in by the fields of this line, whatever kind of file it describes
+	var record lsofFileRecord
+
+	for field := range strings.SplitSeq(strings.TrimSuffix(line, "\x00"), "\x00") {
+		err := parser.parseField(field, &record)
+		if err != nil {
+			return err
+		}
+	}
+
+	if record.fileType != "PIPE" && record.fileType != "FIFO" {
+		// A line naming a process, or a file of some other kind, which is most
+		// of them in an unfiltered listing. macOS names a unix domain socket
+		// exactly the way it names a pipe, so the type is what keeps those two
+		// apart.
+		return nil
+	}
+
+	if parser.pid == -1 {
+		return fmt.Errorf("lsof reported pipe on fd <%s> before any PID", record.end.Fd)
+	}
+
+	parser.pipeEndsByPid[parser.pid] = append(parser.pipeEndsByPid[parser.pid], record.end)
+
 	return nil
+}
+
+// One lsof record being decoded field by field, whether or not it turns out to
+// describe a pipe.
+type lsofFileRecord struct {
+	end PipeEnd
+
+	// lsof's type column: "PIPE", "FIFO", "REG", "IPv4" and so on
+	fileType string
+}
+
+// Applies one field to record, or to the parser itself for the PID field.
+func (parser *lsofPipeParser) parseField(field string, record *lsofFileRecord) error {
+	if field == "" {
+		return nil
+	}
+
+	identifier := field[0]
+	value := field[1:]
+
+	switch identifier {
+	case 'p':
+		pid, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("unparseable lsof PID <%s>: %w", value, err)
+		}
+
+		parser.pid = pid
+
+	case 'f':
+		record.end.Fd = value
+
+	case 'a':
+		record.end.Access = parsePipeAccess(value)
+
+	case 't':
+		record.fileType = value
+
+	case 'd':
+		record.end.Device = value
+
+	case 'i':
+		record.end.Inode = value
+
+	case 'n':
+		// macOS names an anonymous pipe end by its peer's kernel address, and
+		// that is the one name here that identifies anything. Linux calls every
+		// anonymous pipe "pipe", a named FIFO is named by its path, and neither
+		// one says who is at the other end.
+		peerDevice, namesAPeer := strings.CutPrefix(value, "->")
+		if namesAPeer {
+			record.end.PeerDevice = peerDevice
+		}
+	}
+
+	// lsof can emit fields we didn't ask for, just ignore those
+	return nil
+}
+
+// lsof's access mode column, which is a space wherever lsof has nothing to say
+// and is that for every anonymous pipe on macOS.
+func parsePipeAccess(value string) PipeAccess {
+	switch value {
+	case "r":
+		return PipeAccessRead
+
+	case "w":
+		return PipeAccessWrite
+
+	case "u":
+		return PipeAccessReadWrite
+
+	default:
+		return PipeAccessUnknown
+	}
 }

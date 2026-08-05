@@ -18,9 +18,10 @@ var noPipes = pipeListing{byPid: map[int][]processes.PipeEnd{}}
 var noSockets = socketListing{byPid: map[int][]processes.Socket{}}
 
 // Connections to other processes, one line each, with the arrows pointing from
-// whoever dialed to whoever was dialed — both ways for the UDP peer, since UDP says
-// nothing about who dialed whom. The listening socket on 8080 and the connection to
-// 1.2.3.4 belong in the Network Connections section and must not turn up here.
+// whoever dialed to whoever was dialed — a question mark for the UDP peer, since
+// UDP says nothing about who dialed whom. The listening socket on 8080 and the
+// connection to 1.2.3.4 belong in the Network Connections section and must not
+// turn up here.
 func TestIpcConnectionsForPagingListsProcessPeers(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: {
@@ -56,7 +57,7 @@ func TestIpcConnectionsForPagingListsProcessPeers(t *testing.T) {
 		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"curl(999) --> picked(42)                   tcp 8080\n" +
 		"              picked(42) --> sshd(1)       tcp 22\n" +
-		"              picked(42) <-> dnsmasq(777)  udp 53\n"
+		"              picked(42) <?> dnsmasq(777)  udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 
 	assert.Equal(t, stringsContains(page.String(), "──Inter Process Communication──"), true)
@@ -108,8 +109,8 @@ func TestIpcConnectionsForPagingListsPipes(t *testing.T) {
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
-// macOS lsof won't say which end of a pipe writes, so there the arrow points
-// both ways, the way it does for UDP.
+// macOS lsof won't say which end of a pipe writes, so there a pipe gets a
+// question mark instead of an arrow, the way a UDP connection does.
 func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
 	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
 		42:   {{Fd: "1", Device: "0xaaaa", PeerDevice: "0xbbbb"}},
@@ -127,7 +128,7 @@ func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
 
 	expected := "" +
 		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"picked(42) <-> sort(5678)  pipe\n"
+		"picked(42) <?> sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 

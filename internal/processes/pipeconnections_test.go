@@ -223,7 +223,7 @@ func TestPipeConnections_severalWriters(t *testing.T) {
 // An end opened for reading and writing both, which is what "exec 3<>fifo"
 // gets you, can send to a reader as well as any writer can.
 //
-// Which way the data goes it can't say, so the arrow points both ways.
+// Which way the data goes it can't say, so it gets no arrow.
 func TestPipeConnections_readWriteEndPairsWithAReader(t *testing.T) {
 	me := &Process{Pid: 1234, Cmdline: "shell"}
 	peer := &Process{Pid: 5678, Cmdline: "consumer"}

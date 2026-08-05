@@ -8,17 +8,18 @@ import (
 	"github.com/walles/ftop/internal/processes"
 )
 
-// Writes one line per connection, with the arrows pointing from whoever dialed
-// to whoever was dialed. That is the one directional fact about a connection
-// worth knowing, and it tells the reader which side is the service. Connections
-// nobody can tell the direction of, every UDP one included, get an arrow pointing
-// both ways instead.
+// Writes one line per connection, with the arrows pointing the way
+// processes.Direction means them: from whoever dialed to whoever was dialed for a
+// socket, which tells the reader which side is the service, and from the writer
+// to the reader for a pipe, which is the way the data goes. Connections nobody
+// can tell the direction of, every UDP one included, get "<?>" instead of an
+// arrow.
 //
 // peerLabel is what to call the peer of a connection. It is never asked about a
 // listening port, since nobody is at the other end of one of those.
 //
 // The connections are written in the order they come in, so hand them over
-// sorted, see processes.NetworkConnections().
+// sorted, see processes.SortConnections().
 //
 // The columns are only as wide as these connections need them to be, and are
 // measured over these connections alone: two sections' worth of lines are far
@@ -66,11 +67,15 @@ func (u *Ui) writeConnectionLines(
 			line.dialer = peerLabel(connection.Peer)
 
 		default:
-			// Both arrows are the same number of columns wide, so which one a line
-			// gets doesn't disturb the alignment of the lines around it.
+			// All three markers are the same number of columns wide, so which one
+			// a line gets doesn't disturb the alignment of the lines around it.
 			arrow := " --> "
 			if connection.Direction == processes.DirectionUnknown {
-				arrow = " <-> "
+				// Not "<->", which draws an arrow pointing both ways and so
+				// claims data flows both ways. That is a different fact from not
+				// knowing which way it flows, and for a pipe it is plainly false:
+				// a pipe carries data one way, we just can't always say which.
+				arrow = " <?> "
 			}
 
 			peer := peerLabel(connection.Peer)
@@ -105,11 +110,17 @@ func (u *Ui) writeConnectionLines(
 // The rightmost column of a connection line: the protocol and the port being
 // served, plus whatever makes this line more than one plain connection.
 //
+// A connection carried by something that has no ports, a pipe being one, gets
+// the bare protocol instead.
+//
 // Never an address: for a connection between processes the address is always
 // loopback and says nothing, and for a remote peer it is in the peer column
 // already.
 func connectionDescription(connection processes.Connection) string {
-	description := string(connection.Protocol) + " " + strconv.Itoa(connection.Port)
+	description := string(connection.Protocol)
+	if connection.Port != 0 {
+		description += " " + strconv.Itoa(connection.Port)
+	}
 
 	if connection.Listening {
 		return description + " (listening)"

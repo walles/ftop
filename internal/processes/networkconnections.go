@@ -51,6 +51,9 @@ type Connection struct {
 	// The port being served, never the ephemeral one the client picked. The
 	// peer's port when Direction is DirectionUnknown, there being no telling
 	// which of the two is the served one.
+	//
+	// Zero for a connection carried by something that has no ports at all, a
+	// pipe being one, and then rendered as the bare protocol.
 	Port int
 
 	// True for a port we accept connections on. Such a connection has no peer,
