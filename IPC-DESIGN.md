@@ -70,21 +70,27 @@ each of two fresh tmpfs mounts is inode 2 on both. macOS matches on **our peer's
 kernel address against their device**: `theirs.Device ==
 strings.TrimPrefix(ours.Name, "->")`.
 
-**These need no `GOOS` switch.** What makes the two clauses disjoint is
-`PeerDevice`, which is populated from an `n->0x...` name and from nothing else:
-measured on a quiet macOS laptop, 358 of 358 `PIPE` records carry such a name and
-none carries an inode, while in a Debian container all 20 `FIFO` records carry an
-inode and not one is named that way — Linux spells an anonymous pipe `npipe` and a
-named FIFO by its path. So neither platform can satisfy the other's condition, and
-one predicate that ORs the two clauses is correct everywhere.
+**These need no `GOOS` switch.** Each clause tests a condition the other platform
+cannot meet. Measured on a quiet macOS laptop, 358 of 358 `PIPE` records carry a
+lowercase `d` device and **none carries an inode**, so no macOS anonymous pipe
+reaches the inode clause; in a Debian container all 20 `FIFO` records carry an
+inode and **not one is named `->...`**, Linux spelling an anonymous pipe `npipe`
+and a named FIFO by its path, so no Linux pipe reaches the device clause. One
+predicate that ORs the two clauses is therefore correct everywhere.
 
-Note that a *device* being present says nothing about which clause applies, the
-two fields being different things. Lowercase `d` is empty for every `FIFO` record
-on both platforms — that is what the earlier "0 of 20 `FIFO` records carry a
-device" measurement really established — while uppercase `D` is a file system
-device that Linux reports for every pipe, anonymous ones living on pipefs and
-sharing `0xe`. macOS reports no `D` for a pipe of either kind, so there two pipes
-are told apart by their inodes and kernel addresses alone.
+That first measurement is about the `d` field and does not carry over to the
+`->...` name, which is the narrower of the two. Measured on the same laptop later:
+311 of 311 `PIPE` records carry a `d`, but only 303 are named `->...` — the other
+8 are pipes whose peer is gone. Those match nothing and get no line, which is what
+`PipeConnections()` does with any pipe it can find no peer for.
+
+The two *device* fields are different things, and neither is what the disjointness
+rests on. Lowercase `d` is empty for every `FIFO` record on both platforms — that
+is what the earlier "0 of 20 `FIFO` records carry a device" measurement really
+established — while uppercase `D` is a file system device Linux reports for every
+pipe, anonymous ones living on pipefs and sharing `0xe`. macOS reports no `D` for
+a pipe of either kind, so there two pipes are told apart by their inodes and
+kernel addresses alone.
 
 **Do not copy px's four index maps** (`px_ipc_map.py:191-220`). They exist to
 make `_get_other_end_pids()` O(1) per file because Python makes the scan

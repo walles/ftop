@@ -33,11 +33,14 @@ type PipeEnd struct {
 
 	Access PipeAccess
 
-	// lsof's device column, an opaque string rather than a number because the
-	// platforms don't agree on what kind of number it is: macOS gives the kernel
-	// address of this very end, "0x77046c8deffe9dd1", while Linux gives the
-	// major and minor numbers of the file system a FIFO lives on. Empty wherever
-	// lsof reports no device at all, which is macOS for a named FIFO.
+	// lsof's lowercase "d" column, the kernel address of this very end,
+	// "0x77046c8deffe9dd1". A string rather than a number because it is compared
+	// and never counted with.
+	//
+	// Populated for a macOS anonymous pipe and for nothing else: every FIFO record
+	// has it empty, on both platforms, so a set Device amounts to a statement that
+	// macOS reported this end. The file system device Linux reports for a pipe is a
+	// different field, see FileSystemDevice.
 	Device string
 
 	// The Device of the end at the other side of this pipe, which is how macOS

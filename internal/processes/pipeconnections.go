@@ -124,13 +124,14 @@ type pipeUsage struct {
 // Two mechanisms in one predicate, needing no GOOS switch because only one of
 // them can fire for any given end. The device clause tests PeerDevice, which is
 // populated from an "n->0x..." name and nothing else, and only macOS names an
-// anonymous pipe end that way; Linux calls every anonymous pipe the literal
-// string "pipe" and identifies it by its inode instead. A named FIFO carries an
-// inode on both platforms and goes the inode way.
+// anonymous pipe end that way. Such an end carries no inode, so it cannot reach
+// the inode clause; every other end can, Linux identifying an anonymous pipe by
+// its inode and a named FIFO carrying one on both platforms.
 //
-// PeerDevice rather than Device is what carries that argument. A FIFO can have a
-// device of its own — the file system it lives on, which is how Linux reports
-// one — so Device being set says nothing about which clause applies.
+// Testing PeerDevice rather than Device is not only about which platform reported
+// the end, which either field would settle. A macOS pipe keeps its Device once its
+// peer is gone, and then there is no other end left to name and nothing here for
+// it to match.
 //
 // The inode way needs the file system device as well, two named FIFOs on
 // different file systems being free to share an inode number — a FIFO on each of
