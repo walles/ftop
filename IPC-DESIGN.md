@@ -35,23 +35,30 @@ added: a `Protocol` field, `DirectionUnknown` rendered `<?>`, and the protocol a
 part of the keys identifying a connection. Bound but unconnected UDP sockets are
 dropped, see "Deferred" below.
 
-**Pipes: not started.** See "The remaining two kinds".
+**Pipes: done.** `GetPipeEndsByPid()` plus `PipeConnections()` in
+`internal/processes`, rendered into the IPC section beside the sockets. A second,
+unfiltered lsof fork, and two matching mechanisms in one predicate — see "Pipes"
+below, and "Verified on Linux" run 4 for what the page looks like. Anonymous pipes
+are `<?>` on macOS, lsof reporting no access mode there; see "Deferred".
 
 **Unix domain sockets: not started.** Hardest of the three, and for a reason no
-amount of code solves. See "The remaining two kinds".
+amount of code solves. See "Pipes and unix domain sockets".
 
-## The remaining two kinds
+## Pipes and unix domain sockets
 
 There are four kinds of IPC lsof can report: pipes (`PIPE` on macOS, `FIFO` on
 Linux), unix domain sockets (`unix`), and network sockets (`IPv4`/`IPv6`) — where
 "local" vs "remote" is not a separate detection path, just whether a peer was
 found. Network sockets came first because their peer matching is byte-identical
-on Linux and macOS.
+on Linux and macOS. Unix domain sockets are the one kind still missing; what
+follows is how pipes work, and then the plan for those.
 
-Both remaining kinds need lsof **without** an `-i` filter, since there is no
-filter flag for pipes. That is the 0.27 s / 1.24 MB invocation in the table
-below, against 0.13 s / 33 KB for the socket one, and it is a third fork unless
-the sections start sharing.
+Pipes needed lsof **without** an `-i` filter, there being no filter flag for
+pipes: the 0.27 s / 1.24 MB invocation in the table below, against 0.13 s / 33 KB
+for the socket one, and a third fork unless the sections start sharing. Unix
+domain sockets will not force that on us again — `-U` selects them — though they
+could ride the pipe listing rather than fork a fourth time. See "Deferred" for
+what sharing one fork would cost.
 
 ### Pipes
 
@@ -117,7 +124,7 @@ port without changes.
 
 ### Unix domain sockets
 
-macOS is nearly free once pipes are done — same `d0x...` device against
+macOS is nearly free now that pipes are done — same `d0x...` device against
 `n->0x...` peer scheme, plus a path for listeners.
 
 **Linux is a data problem, not a code problem.** lsof emits nothing to join a
@@ -412,7 +419,8 @@ no `testdata/` directory and shouldn't grow one for this.
 
 ## Deferred, deliberately
 
-- **Pipes** and **unix domain sockets**, both scoped above.
+- **Unix domain sockets**, scoped above. The last of the four kinds, and the only
+  thing keeping this document alive.
 - **Bound but unconnected UDP sockets get no line.** They are dropped along with
   the bound TCP sockets that never carried anything. UDP has no listening state,
   so lsof gives us no way to tell a server's bound socket from the ephemeral
@@ -441,8 +449,16 @@ no `testdata/` directory and shouldn't grow one for this.
 - `(ssh)` service-name annotations next to port numbers. Cosmetic, needs
   `/etc/services` parsing, no model change.
 - A line cap for processes with hundreds of *distinct* peers.
-- Sharing one lsof invocation across sections, once there are three of them —
-  which the pipe work forces the question on, since pipes need an unfiltered lsof.
+- **Sharing one lsof invocation across sections.** There are three forks now, and
+  the pipe one already subsumes the other two: `lsof -n -w -F pfatdDin0` lists
+  every open file of every process, so the cwd listing in `cwds.go` and the
+  `-iTCP -iUDP` one in `sockets.go` both ask for subsets of it with different `-F`
+  fields. Merging means one call with the union of the fields and three parsers
+  over it, and it trades away what "Data collection" above wants kept: `-i` scales
+  with socket count where the unfiltered listing scales with every fd on the
+  machine, and the sections stop degrading independently — which run 4 observed
+  them doing, the socket listing failing outright while pipes rendered. So this is
+  a measurement to make on a busy box, not a cleanup to do.
 - **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
   for a remote host is its address, and then render as a host name — so with
   several remote peers the visible order isn't alphabetical by what the reader
@@ -453,10 +469,6 @@ no `testdata/` directory and shouldn't grow one for this.
   reverse resolving a TEST-NET address for real — puts a network call and up to
   2 s into the test suite. The function's fallback behaviour is covered at page
   level instead, via an address the fake resolver has no answer for.
-- **A protocol sort key.** Not needed while TCP is the only protocol reaching the
-  listening/incoming/outgoing groups and UDP the only one reaching the
-  undetermined group, which makes the blocks protocol-pure for free. Pipes and
-  unix sockets will break that assumption; revisit then.
 - **A test for the `listening` half of the socket identity.**
   `deduplicateBySocket()` keys on (protocol, local, remote, listening), and
   replacing that last field with a constant passes the whole suite — verified by
