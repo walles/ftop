@@ -113,6 +113,31 @@ func TestLsofSocketParser_ignoresNamelessSockets(t *testing.T) {
 	})
 }
 
+// Asking lsof for every internet file gets us more than the two transport
+// protocols: macOS reports a process' ICMP sockets too, named "*:*" and carrying
+// neither port, peer nor state. There is no connection to be made of one, so they
+// stay out of the listing rather than taking up room in it.
+//
+// A socket lsof names no protocol for is a different case and is kept, see the
+// "P" field in parseField().
+func TestLsofSocketParser_ignoresNonTransportSockets(t *testing.T) {
+	parser := newLsofSocketParser()
+
+	lines := []string{
+		"p54721\x00",
+		"f87\x00PICMP\x00n*:*\x00",
+		"f93\x00PICMPV6\x00n*:*\x00",
+		"f94\x00PTCP\x00n*:7000\x00TST=LISTEN\x00TQR=0\x00TQS=0\x00",
+	}
+	for _, line := range lines {
+		assert.Equal(t, parser.parseLine(line), nil)
+	}
+
+	assert.SlicesEqual(t, parser.socketsByPid[54721], []Socket{
+		{Fd: "94", Protocol: ProtocolTcp, Local: "*:7000", Listening: true},
+	})
+}
+
 // A socket that is neither listening nor connected has an address and nothing
 // else to say. Reporting it as it is keeps the decision about what to do with
 // it in one place, see NetworkConnections().
