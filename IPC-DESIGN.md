@@ -58,20 +58,33 @@ the sections start sharing.
 Two mechanisms, verified against real pipe pairs on both platforms:
 
 ```
-Linux   tFIFO  i16466  npipe                 ar / aw
+Linux   tFIFO  D0xe  i16466  npipe            ar / aw
 macOS   tPIPE  d0x48d4efd2cbb7a037  n->0x7249c1bc766ed78e
 ```
 
-Linux matches on **inode plus opposing `r`/`w` access**; the name is the literal
-string `pipe` and identifies nothing, which px says outright at
-`px_file.py:85-88`. macOS matches on **our peer's kernel address against their
-device**: `theirs.Device == strings.TrimPrefix(ours.Name, "->")`.
+Linux matches on **file system device plus inode plus opposing `r`/`w` access**;
+the name is the literal string `pipe` and identifies nothing, which px says
+outright at `px_file.py:85-88`. The device is the uppercase `D` field, and it is
+needed because an inode number is only unique within one file system: a FIFO on
+each of two fresh tmpfs mounts is inode 2 on both. macOS matches on **our peer's
+kernel address against their device**: `theirs.Device ==
+strings.TrimPrefix(ours.Name, "->")`.
 
-**These need no `GOOS` switch.** The field sets are disjoint — measured on a
-quiet macOS laptop, 358 of 358 `PIPE` records carry a device and none carries an
-inode; in a Debian container, 0 of 20 `FIFO` records carry a device and all 20
-carry an inode. So neither platform can satisfy the other's condition, and one
-predicate that ORs the two clauses is correct everywhere.
+**These need no `GOOS` switch.** What makes the two clauses disjoint is
+`PeerDevice`, which is populated from an `n->0x...` name and from nothing else:
+measured on a quiet macOS laptop, 358 of 358 `PIPE` records carry such a name and
+none carries an inode, while in a Debian container all 20 `FIFO` records carry an
+inode and not one is named that way — Linux spells an anonymous pipe `npipe` and a
+named FIFO by its path. So neither platform can satisfy the other's condition, and
+one predicate that ORs the two clauses is correct everywhere.
+
+Note that a *device* being present says nothing about which clause applies, the
+two fields being different things. Lowercase `d` is empty for every `FIFO` record
+on both platforms — that is what the earlier "0 of 20 `FIFO` records carry a
+device" measurement really established — while uppercase `D` is a file system
+device that Linux reports for every pipe, anonymous ones living on pipefs and
+sharing `0xe`. macOS reports no `D` for a pipe of either kind, so there two pipes
+are told apart by their inodes and kernel addresses alone.
 
 **Do not copy px's four index maps** (`px_ipc_map.py:191-220`). They exist to
 make `_get_other_end_pids()` O(1) per file because Python makes the scan
@@ -162,7 +175,7 @@ See `cwds.go` for the established handling.
 
 ## Verified on Linux
 
-Three runs, all in a container on Debian with **lsof 4.99.4** as root. Runs 1 and
+Four runs, all in a container on Debian with **lsof 4.99.4** as root. Runs 1 and
 2 used `python:3-slim` (Debian 13.6): the first before the implementation
 existed, with real loopback connections — an IPv4 listener on `127.0.0.1:8080`,
 an IPv6 listener on `[::1]:8081`, a wildcard listener on `0.0.0.0:8082`, a client
@@ -170,8 +183,8 @@ for each, and a client with 8 threads holding one connection — and the second
 against the finished TCP code, adding `sshd` (**OpenSSH 10.0p2**) with a live ssh
 session, a socket held on two file descriptors, and 400 connections' worth of
 load. Run 3 verified UDP, and ran the Go test suite itself in a `golang:1.25`
-container against the real Linux lsof. Findings are marked with the run they came
-from where it matters.
+container against the real Linux lsof. Run 4 did the same for pipes. Findings are
+marked with the run they came from where it matters.
 
 Most of what those runs established has since collapsed into the test suite:
 reversed-pair matching for both address families and both protocols, IPv6
@@ -216,6 +229,68 @@ that grows with the machine, and this machine had a few dozen processes.
 thanks to `-w`, and exactly one PID reported — our own, its connection the right
 way round. Its peer comes back as a bare `127.0.0.1` with no PID, the listening
 process being invisible from there.
+
+**The container recipe** *(run 4)*, `--privileged` being what allows the two
+`mount` calls further down:
+
+```
+docker run --rm -it --privileged -v "$PWD:/src" -v ftop-gomod:/go/pkg/mod \
+  -v ftop-gobuild:/root/.cache/go-build -w /src golang:1.25 bash
+# then, inside:
+apt-get update && apt-get install -y lsof procps wtmpdb
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+  | sh -s -- -b "$(go env GOPATH)"/bin v2.8.0
+wtmpdb boot   # give "last" a database to read, see below
+./test.sh
+```
+
+The image has neither `lsof` nor the `ps` ftop forks, and `test.sh` wants
+golangci-lint v2.8.0, the version `.github/workflows/linux-ci.yml` installs. Two
+more things that cost a while to find, both about the container rather than about
+ftop. On Debian 13 the `last` that `loginhistory` forks comes from `wtmpdb` rather
+than from `util-linux`, and it exits 1 with no database at all, so
+`TestGetUsersAtSmoke` needs `wtmpdb boot` once. And run `test.sh` from the
+`docker run` shell rather than through a later `docker exec`: an exec'd process has
+no parent inside the container's PID namespace, so `TestGetAll`'s walk up to init
+lands on the shell instead of on PID 1. With those in place the whole suite is
+green.
+
+**The pipe display, exercised by hand** *(run 4)*. Three shells holding FIFO ends
+plus one real pipeline, which is the shape the two matching fixes are about:
+
+```
+mkdir -p /mnt/a /mnt/b
+mount -t tmpfs tmpfs /mnt/a && mount -t tmpfs tmpfs /mnt/b
+mkfifo /mnt/a/f /mnt/b/f
+stat -c 'dev=%D ino=%i %n' /mnt/a/f /mnt/b/f
+bash -c 'exec 3<>/mnt/a/f; exec 4<>/mnt/b/f; sleep 3000' &  # an end of each
+bash -c 'exec 3</mnt/a/f;  exec 4</mnt/b/f;  sleep 3000' &  # the other ends
+bash -c 'exec 3>/mnt/a/f;  exec 4<>/mnt/a/f; sleep 3000' &  # w and u, one FIFO
+tail -f /etc/services | sort | nl &                         # a real pipeline
+./ftop.sh
+```
+
+`stat` reports `dev=37 ino=2` and `dev=38 ino=2`, so the inode collision takes two
+`mount` calls rather than any luck — each FIFO is the first file on a file system
+that numbers from scratch. Open the shells' pages and the two holding an end of
+each FIFO report one another as `pipe (×2)`; the `w`-and-`u` shell draws one line
+per peer, `<?>` because its own two ends let it both write the pipe and read it,
+plus a line to itself for the FIFO it can write on fd 3 and read back on fd 4. On
+the inode alone those pages read `pipe` with no count and five lines instead of
+three, two of them arrows the `u` end contradicts, which is what the two fixes
+close.
+
+The pipeline gets its arrows, `tail(7612) --> sort(7613)` and
+`sort(7613) --> nl(7614)`, Linux reporting the access modes macOS won't — the same
+pipeline that reads `<?>` on a laptop, see "Deferred" on taking that direction from
+the kernel instead.
+
+**Both socket sections degrade on their own** *(run 4)*, which is the independence
+the two-listing decision was for, observed for the first time. A container with no
+internet files at all makes `lsof -iTCP -iUDP` exit 1 with nothing on stdout, so
+the socket listing fails outright while the unfiltered pipe listing succeeds: the
+IPC section renders `<Unable to list sockets: ...>` and then its pipe lines below
+it, and Network Connections renders the error alone.
 
 Still unverified: behaviour on a busy multi-user box, which is the environment
 this is ultimately for. Run 2 loaded the container up with sockets and open
@@ -386,18 +461,6 @@ no `testdata/` directory and shouldn't grow one for this.
   Connections about half the time. Direction inference elsewhere survives it,
   since `listenSets()` reads the raw listing rather than the deduplicated one.
   Predates UDP; cheap to close.
-- **Two pipe matching fixes held for the Linux pass**, both waiting on the same
-  field. `arePipeEnds()` and `pipeIdentity()` key on the inode alone, so two named
-  FIFOs on different file systems sharing an inode number are both fabricated
-  into a pair *and* counted as one pipe — a peer at the end of both gets `(×1)`
-  where it earned `(×2)`. The device tells them apart, and Linux is where a FIFO
-  carries one; macOS reports no device for a FIFO at all, so there is nothing to
-  key on and no way to write a fixture until the Linux pass. Separately, two ends
-  of one pipe held by the same process can disagree about its direction, a `u`
-  end being `DirectionUnknown` where a `w` end of that pipe is
-  `DirectionOutgoing`, and since direction is part of what identifies a line that
-  pipe draws two lines to the one peer. Both are recorded as known limits on the
-  functions themselves.
 - **Pipe direction on macOS, taken from the kernel rather than from lsof.** macOS
   lsof reports no access mode for a `PIPE` record, so every anonymous pipe there
   is `DirectionUnknown` and renders `<?>`. `tail -f /etc/services | sort | nl`

@@ -22,13 +22,7 @@ package processes
 //
 // Count is how many distinct pipes a line stands for, so two processes at the
 // ends of one pipe report a count of 1 however many file descriptors either of
-// them has it open on.
-//
-// Known limit: two ends of one pipe held by us can disagree about its direction,
-// an end open for reading and writing both being DirectionUnknown where a plain
-// write end of the same pipe is DirectionOutgoing. Direction is part of what
-// identifies a line, so such a pipe draws two lines to the one peer rather than
-// one. It takes "exec 3>fifo 4<>fifo" to construct.
+// them has it open on, and however many of its ends either of them holds.
 func PipeConnections(proc *Process, allProcesses []*Process, pipeEndsByPid map[int][]PipeEnd) []Connection {
 	if len(pipeEndsByPid[proc.Pid]) == 0 {
 		return nil
@@ -49,12 +43,17 @@ func PipeConnections(proc *Process, allProcesses []*Process, pipeEndsByPid map[i
 		names[candidate.Pid] = candidate.Command()
 	}
 
-	// The connections we found, mapped to the pipes carrying each of them. A set
-	// rather than a counter because one pipe can match several of a peer's ends,
-	// a process holding a FIFO for reading and for writing both being enough,
-	// and that is still one pipe. The keys carry no Count of their own, that is
-	// what the values are for.
-	pipes := map[Connection]map[string]bool{}
+	// One entry per pipe we share with a peer, holding what our own ends of that
+	// pipe let us do with it. Keyed by peer and pipe rather than by the Connection
+	// the end produces, so that several of our own ends of one pipe make one line:
+	// they can disagree about direction, an end open for reading and writing both
+	// saying nothing where a write end of that very pipe says outgoing, and the
+	// pipe is one pipe regardless.
+	//
+	// One pipe can also match several of the peer's ends, a process holding a FIFO
+	// for reading and for writing both being enough, and this collapses that as
+	// well.
+	usages := map[peerPipe]pipeUsage{}
 
 	for _, ourEnd := range ourEnds {
 		for peerPid, theirEnds := range endsByPid {
@@ -67,30 +66,56 @@ func PipeConnections(proc *Process, allProcesses []*Process, pipeEndsByPid map[i
 					continue
 				}
 
-				connection := Connection{
-					Peer:      Peer{Name: names[peerPid], Pid: peerPid},
-					Protocol:  ProtocolPipe,
-					Direction: pipeDirection(ourEnd),
-				}
+				key := peerPipe{peerPid: peerPid, pipe: pipeIdentity(ourEnd)}
 
-				if pipes[connection] == nil {
-					pipes[connection] = map[string]bool{}
-				}
-
-				pipes[connection][pipeIdentity(ourEnd)] = true
+				usage := usages[key]
+				usage.canWrite = usage.canWrite || canWrite(ourEnd)
+				usage.canRead = usage.canRead || canRead(ourEnd)
+				usages[key] = usage
 			}
 		}
 	}
 
-	connections := make([]Connection, 0, len(pipes))
-	for connection, carriedBy := range pipes {
-		connection.Count = len(carriedBy)
+	// How many pipes each line stands for. Two pipes to one peer that we use the
+	// same way are one line counting two; used opposite ways they are two lines.
+	pipeCounts := map[Connection]int{}
+	for key, usage := range usages {
+		connection := Connection{
+			Peer:      Peer{Name: names[key.peerPid], Pid: key.peerPid},
+			Protocol:  ProtocolPipe,
+			Direction: pipeDirection(usage),
+		}
+
+		pipeCounts[connection]++
+	}
+
+	connections := make([]Connection, 0, len(pipeCounts))
+	for connection, count := range pipeCounts {
+		connection.Count = count
 		connections = append(connections, connection)
 	}
 
 	SortConnections(connections)
 
 	return connections
+}
+
+// One pipe shared with one process, which is what a line stands for before the
+// lines to a peer are aggregated into one.
+type peerPipe struct {
+	peerPid int
+
+	// pipeIdentity() of the pipe
+	pipe string
+}
+
+// What our own ends of one pipe, taken together, let us do with it.
+//
+// Both false for a pipe lsof reports no access mode for, which is every anonymous
+// pipe on macOS.
+type pipeUsage struct {
+	canWrite bool
+	canRead  bool
 }
 
 // True if ours and theirs are two ends of one and the same pipe, so that what is
@@ -107,24 +132,26 @@ func PipeConnections(proc *Process, allProcesses []*Process, pipeEndsByPid map[i
 // device of its own — the file system it lives on, which is how Linux reports
 // one — so Device being set says nothing about which clause applies.
 //
-// The inode way needs the access modes as well, since every end of a pipe shares
-// its inode and two processes writing into one pipe are not talking to each
-// other. The device way needs no such thing, an end named that way pointing at
-// exactly one other end.
+// The inode way needs the file system device as well, two named FIFOs on
+// different file systems being free to share an inode number — a FIFO on each of
+// two fresh tmpfs mounts is inode 2 on both. And it needs the access modes, since
+// every end of a pipe shares its inode and two processes writing into one pipe are
+// not talking to each other. The device way needs neither, an end named that way
+// pointing at exactly one other end.
 //
 // This is no check that the two ends are distinct: an end open for reading and
 // writing both satisfies it against itself. A caller walking one process' own
 // ends has to exclude that, which PipeConnections() does via isTheReportingEnd().
-//
-// Known limit: two named FIFOs on different file systems can share an inode
-// number, and this would call their ends a pair. Telling them apart means
-// comparing the device as well, which macOS reports for no FIFO at all.
 func arePipeEnds(ours PipeEnd, theirs PipeEnd) bool {
 	if ours.PeerDevice != "" && ours.PeerDevice == theirs.Device {
 		return true
 	}
 
 	if ours.Inode == "" || ours.Inode != theirs.Inode {
+		return false
+	}
+
+	if ours.FileSystemDevice != theirs.FileSystemDevice {
 		return false
 	}
 
@@ -135,22 +162,22 @@ func arePipeEnds(ours PipeEnd, theirs PipeEnd) bool {
 	return canWrite(ours) && canRead(theirs) || canRead(ours) && canWrite(theirs)
 }
 
-// Which way the data goes through the end we hold: out of us when we write into
-// it, into us when we read from it.
+// Which way the data goes through the ends we hold of one pipe: out of us if all
+// they let us do is write into it, into us if all they let us do is read it.
 //
-// DirectionUnknown for an end that can go either way, and for one lsof names no
-// mode for, which is every anonymous pipe on macOS.
-func pipeDirection(end PipeEnd) Direction {
-	switch end.Access {
-	case PipeAccessWrite:
+// DirectionUnknown where they let us do both, since then an arrow either way is a
+// claim the other direction contradicts, and where they let us do neither, which
+// is what lsof naming no access mode comes to.
+func pipeDirection(usage pipeUsage) Direction {
+	if usage.canWrite && !usage.canRead {
 		return DirectionOutgoing
-
-	case PipeAccessRead:
-		return DirectionIncoming
-
-	default:
-		return DirectionUnknown
 	}
+
+	if usage.canRead && !usage.canWrite {
+		return DirectionIncoming
+	}
+
+	return DirectionUnknown
 }
 
 // True if ours is the end to report a pipe by, where both of its ends are held
@@ -183,17 +210,15 @@ func canRead(end PipeEnd) bool {
 // What identifies the pipe an end belongs to, for telling several pipes to one
 // peer apart from one pipe that matched several of its ends.
 //
-// The inode where there is one, that being the pipe itself. Where there isn't,
-// which is macOS for an anonymous pipe, the kernel addresses of the pipe's two
-// ends name it just as well, sorted so that either end spells it the same way.
-//
-// Known limit, the same one arePipeEnds() has: two named FIFOs on different file
-// systems sharing an inode number come out as one pipe here, so a peer at the
-// end of both gets a Count of 1 rather than 2. Closing it means keying on the
-// device as well.
+// The inode plus the file system it lives on where there is one, that pair being
+// the pipe itself — the inode alone would make one pipe of two FIFOs that share an
+// inode number on different file systems, and a peer at the end of both would get
+// a Count of 1 where it earned 2. Where there is no inode, which is macOS for an
+// anonymous pipe, the kernel addresses of the pipe's two ends name it just as
+// well, sorted so that either end spells it the same way.
 func pipeIdentity(end PipeEnd) string {
 	if end.Inode != "" {
-		return "inode " + end.Inode
+		return "inode " + end.FileSystemDevice + " " + end.Inode
 	}
 
 	return "devices " + min(end.Device, end.PeerDevice) + " " + max(end.Device, end.PeerDevice)
@@ -225,6 +250,12 @@ func deduplicatePipeEnds(ends []PipeEnd) []PipeEnd {
 
 // Everything about a pipe end except which file descriptor it arrived on, in a
 // form that can be compared and ordered.
+//
+// The file system device is part of it for the same reason arePipeEnds() compares
+// it: without it, two ends of two FIFOs that share an inode number are spelled
+// identically, and deduplicatePipeEnds() would throw one of them away before
+// anything got the chance to match it.
 func pipeEndIdentity(end PipeEnd) string {
-	return string(end.Access) + "\x00" + end.Device + "\x00" + end.PeerDevice + "\x00" + end.Inode
+	return string(end.Access) + "\x00" + end.Device + "\x00" + end.PeerDevice +
+		"\x00" + end.FileSystemDevice + "\x00" + end.Inode
 }

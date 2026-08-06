@@ -25,7 +25,7 @@ type Peer struct {
 // the other, worked out from the ports this machine listens on, so it can come
 // out backwards for a connection whose listening socket we cannot see; see
 // directionAndPort(). For a pipe it is which way the data flows, read off the
-// access mode of the end we hold; see pipeDirection().
+// access modes of the ends we hold; see pipeDirection().
 type Direction int
 
 const (

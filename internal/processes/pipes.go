@@ -78,13 +78,17 @@ func GetPipeEndsByPid() (map[int][]PipeEnd, error) {
 	// -n: Don't resolve host names, they are slow and the network sockets this
 	//   unfiltered listing drags along would otherwise be looked up one by one
 	// -w: Don't warn about processes we aren't allowed to inspect
-	// -F pfatdin0: Machine readable output with NUL terminated PID, file
-	//   descriptor, access mode, type, device, inode and name fields
+	// -F pfatdDin0: Machine readable output with NUL terminated PID, file
+	//   descriptor, access mode, type, device, file system device, inode and name
+	//   fields. The two device fields are different things and we want both: "d"
+	//   is lsof's device character code, which on macOS is a pipe end's kernel
+	//   address, while "D" is the device number of the file system the file lives
+	//   on, which is what tells two FIFOs sharing an inode number apart.
 	//
 	// No filter flag, lsof having none for pipes, so this lists every open file
 	// of every process. See GetSocketsByPid() for the cheaper filtered listing
 	// the socket sections use.
-	commandline := []string{"lsof", "-n", "-w", "-F", "pfatdin0"}
+	commandline := []string{"lsof", "-n", "-w", "-F", "pfatdDin0"}
 
 	// Locale intentionally left alone, matching GetCwdsByPid()
 	err := util.ExecInUsersLocale(commandline, parser.parseLine)
@@ -105,12 +109,16 @@ func GetPipeEndsByPid() (map[int][]PipeEnd, error) {
 	return parser.pipeEndsByPid, nil
 }
 
-// Parses the output of "lsof -n -w -F pfatdin0", which comes in NUL terminated
+// Parses the output of "lsof -n -w -F pfatdDin0", which comes in NUL terminated
 // fields, one line per process and then one line per open file:
 //
 //	p36143\0
 //	f1\0a \0tPIPE\0d0x77046c8deffe9dd1\0n->0x652aa8d44c539286\0
 //	f4\0ar\0tFIFO\0i82144503\0n/private/tmp/probe.fifo\0
+//	f3\0au\0tFIFO\0D0x37\0i2\0n/mnt/a/f\0
+//
+// The first two lines are macOS, the third Linux, which is the only platform to
+// report a "D" field for a pipe at all.
 //
 // This listing is unfiltered, lsof having no flag for selecting pipes, so most
 // of what arrives here is files of other kinds and gets dropped.
@@ -196,6 +204,9 @@ func (parser *lsofPipeParser) parseField(field string, record *lsofFileRecord) e
 
 	case 'd':
 		record.end.Device = value
+
+	case 'D':
+		record.end.FileSystemDevice = value
 
 	case 'i':
 		record.end.Inode = value
