@@ -215,8 +215,8 @@ func TestGetSocketsByPid(t *testing.T) {
 }
 
 // The real lsof should report a UDP socket we just opened ourselves, and name it
-// as UDP. This is what says that asking for both protocols at once works, and that
-// lsof spells the protocol the way the parser expects.
+// as UDP. This is what says that lsof spells the protocol the way the parser
+// expects.
 //
 // The socket is a connected one, that being the only kind that can produce a
 // connection: a bound socket with nobody at the other end gets dropped, see

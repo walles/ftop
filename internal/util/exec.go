@@ -8,6 +8,29 @@ import (
 	"strings"
 )
 
+// The command started, ran to completion and exited non-zero.
+//
+// Every line it did print was handed to the callback before this was returned,
+// so a caller with a use for a partial result can carry on with what it got.
+// Some commands, lsof above all, exit non-zero over things they still report
+// around.
+//
+// Exec() returns this type for that case alone, and a plain error for a command
+// it couldn't start or whose output wouldn't parse. Those leave nothing to carry
+// on with, so errors.As() on this type is how a caller tells the two apart.
+type ExitError struct {
+	commandName string
+	err         error
+}
+
+func (e *ExitError) Error() string {
+	return fmt.Sprintf("%s command failed: %v", e.commandName, e.err)
+}
+
+func (e *ExitError) Unwrap() error {
+	return e.err
+}
+
 // Exec command line using the default locale and invokes the callback for each
 // line.
 func Exec(commandline []string, perLineCallback func(line string) error) error {
@@ -66,7 +89,7 @@ func execWithEnv(commandline []string, env []string, perLineCallback func(line s
 
 	if err := cmd.Wait(); err != nil {
 		if readErr == nil {
-			readErr = fmt.Errorf("%s command failed: %v", commandline[0], err)
+			readErr = &ExitError{commandName: commandline[0], err: err}
 		}
 	}
 

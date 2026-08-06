@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,12 +61,11 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 	// -P: Don't resolve port numbers, service names like "ipp" for 631 don't
 	//   sort numerically
 	// -w: Don't warn about processes we aren't allowed to inspect
-	// -iTCP -iUDP: List those two kinds of socket only. Much faster than listing
-	//   every open file of every process, and narrower than a plain -i, which
-	//   also reports the ICMP sockets we have nothing to say about.
+	// -i: List internet sockets only. On macOS this reports ICMP sockets too,
+	//   which parseLine() drops.
 	// -F pfnPT0: Machine readable output with NUL terminated PID, file
 	//   descriptor, protocol, name and TCP state fields
-	commandline := []string{"lsof", "-n", "-P", "-w", "-iTCP", "-iUDP", "-F", "pfnPT0"}
+	commandline := []string{"lsof", "-n", "-P", "-w", "-i", "-F", "pfnPT0"}
 
 	// Locale intentionally left alone, matching GetCwdsByPid()
 	err := util.ExecInUsersLocale(commandline, parser.parseLine)
@@ -73,10 +73,13 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 		return parser.socketsByPid, nil
 	}
 
-	// lsof exits non-zero as soon as anything at all went wrong, and failing to
-	// inspect some process is business as usual. Whatever it did manage to
-	// report is still good, so only give up if we got nothing.
-	if len(parser.socketsByPid) == 0 {
+	// lsof exits non-zero over an idle machine having no internet socket to
+	// report, and an empty listing is the right answer there. The cost is that
+	// an lsof failing in no other way passes for that too.
+	var exitError *util.ExitError
+	if !errors.As(err, &exitError) && len(parser.socketsByPid) == 0 {
+		// Something other than a non-zero exit code from lsof, this is a real
+		// problem.
 		return nil, err
 	}
 
@@ -86,7 +89,7 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 	return parser.socketsByPid, nil
 }
 
-// Parses the output of "lsof -n -P -w -iTCP -iUDP -F pfnPT0", which comes in NUL
+// Parses the output of "lsof -n -P -w -i -F pfnPT0", which comes in NUL
 // terminated fields, one line per process and then one line per socket:
 //
 //	p7619\0
@@ -125,6 +128,16 @@ func (parser *lsofSocketParser) parseLine(line string) error {
 		return nil
 	}
 
+	if socket.Protocol != "" && socket.Protocol != ProtocolTcp && socket.Protocol != ProtocolUdp {
+		// Something beyond the two transport protocols, macOS' ICMP sockets being
+		// the ones we know of. Named "*:*" and carrying no port, no peer and no
+		// state, so there is no connection to be made of one.
+		//
+		// Sockets lsof named no protocol for are kept: an lsof that stopped
+		// reporting the field should cost us directions, not the whole listing.
+		return nil
+	}
+
 	if parser.pid == -1 {
 		return fmt.Errorf("lsof reported socket <%s> before any PID", socket.Local)
 	}
@@ -156,16 +169,6 @@ func (parser *lsofSocketParser) parseField(field string, socket *Socket) error {
 		socket.Fd = value
 
 	case 'P':
-		// "TCP" or "UDP", those being the only two we ask lsof for. Lowercased
-		// rather than checked, so that anything else lsof ever reports arrives in
-		// the page as itself instead of being dropped or renamed.
-		//
-		// An lsof that didn't report this field at all would leave every socket
-		// looking like neither protocol, which reads as undeterminable direction
-		// and would quietly spoil TCP too. lsof ignores field letters it doesn't
-		// know rather than failing, so what guards against that is
-		// TestGetSocketsByPid and its UDP sibling, both of which check the
-		// protocol of a socket they opened themselves.
 		socket.Protocol = Protocol(strings.ToLower(value))
 
 	case 'n':

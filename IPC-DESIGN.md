@@ -128,7 +128,7 @@ a new matching function.
 ## Data collection
 
 ```
-lsof -n -P -w -iTCP -iUDP -F pfnPT0
+lsof -n -P -w -i -F pfnPT0
 ```
 
 Measured on a macOS laptop, non-root:
@@ -146,18 +146,39 @@ while full lsof scales with every fd on the machine — the difference that matt
 for root on a busy multi-user Linux box. It also keeps the two page sections
 independently degradable.
 
-**`-iTCP -iUDP` rather than a plain `-i`.** Both protocols in one fork, and lsof
-ORs its selection criteria so the two `-i` options add up. Not a bare `-i`: on
-macOS that also reports `PICMP` and `PICMPV6` records, which are named `*:*` and
-carry nothing we could say anything about. Verified to yield exactly `PTCP` and
-`PUDP` on both platforms. (Linux 4.99.4 reports no ICMP sockets under `-i`
-anyway, so there the two invocations agree — the narrowing is for macOS.)
+**A plain `-i` rather than `-iTCP -iUDP`**, which is a reversal: the narrower
+pair was chosen first, for excluding the `PICMP` and `PICMPV6` records macOS adds
+under a bare `-i`. It cost more than it bought. Each `-i` is a *search item*, and
+lsof exits 1 for every item that located nothing however well the others did, so
+the pair fails whenever a machine holds no socket of one kind — a container with
+an empty `/proc/net/tcp` fails it always. With one UDP socket up and no TCP,
+lsof 4.99.4 prints the socket and still exits 1, which `-V` spells out:
+
+```
+bash 4259 root 3u IPv4 28300 0t0 UDP 127.0.0.1:44892->127.0.0.1:9999
+lsof: Internet address not located: TCP
+```
+
+One item makes a non-zero exit mean "no internet sockets at all". The two ICMP
+records are dropped in `parseLine()` instead, which is a few lines and no forks.
+An fd selection like `-d cwd` is not a search item and never exited this way,
+which is why `cwds.go` and `pipes.go` never saw it.
 
 **`-Ts` does not narrow the state field down** — verified, the queue sizes come
 along anyway. Which is why the parser dispatches on the `ST=` value prefix.
 
 Partial lsof failure is business as usual: use whatever came back, log the rest.
 See `cwds.go` for the established handling.
+
+**An lsof that ran and exited non-zero is not a failure**, which `sockets.go`
+takes further than that established handling. `cwds.go` gives up when a non-zero
+exit came with nothing to show, and for sockets that is exactly the idle machine:
+nothing to show is the true answer there, and reporting it as
+`<Unable to list sockets: ...>` in both page sections is how an empty container
+used to render. So the exit status alone no longer fails the listing —
+`util.ExitError` marks that case, and only a command that couldn't be started or
+whose output wouldn't parse still returns an error. An lsof that isn't installed
+fails to start, so that one still says so.
 
 ## Verified on Linux
 
