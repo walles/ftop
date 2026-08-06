@@ -5,6 +5,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 )
 
+// Seam for testing, see the ones in pageprocessinfo.go
 var getLoggedInUsersAt = loginhistory.GetUsersAt
 
 func (u *Ui) usersLoggedInWhenProcessStartedForPaging(proc *processes.Process, pt *pageText) {

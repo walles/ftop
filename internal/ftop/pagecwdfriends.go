@@ -4,6 +4,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 )
 
+// Seam for testing, see the ones in pageprocessinfo.go
 var getCwdsByPid = processes.GetCwdsByPid
 
 func (u *Ui) cwdFriendsForPaging(

@@ -14,6 +14,9 @@ import (
 
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 
+// Seams for testing. Every section that collects by forking a subprocess declares
+// its collector this way, so that a page test can hand it a listing and assert the
+// rendered result without an lsof on the machine having to contain one.
 var getSocketsByPid = processes.GetSocketsByPid
 var getPipeEndsByPid = processes.GetPipeEndsByPid
 
