@@ -73,12 +73,11 @@ That first measurement is about the `d` field and does not carry over to the
 `PipeConnections()` does with any pipe it can find no peer for.
 
 The two *device* fields are different things, and neither is what the disjointness
-rests on. Lowercase `d` is empty for every `FIFO` record on both platforms — that
-is what the earlier "0 of 20 `FIFO` records carry a device" measurement really
-established — while uppercase `D` is a file system device Linux reports for every
-pipe, anonymous ones living on pipefs and sharing `0xe`. macOS reports no `D` for
-a pipe of either kind, so there two pipes are told apart by their inodes and
-kernel addresses alone.
+rests on. Lowercase `d` is empty for every `FIFO` record on both platforms, while
+uppercase `D` is a file system device Linux reports for every pipe, anonymous ones
+living on pipefs and sharing `0xe`. macOS reports no `D` for a pipe of either
+kind, so there two pipes are told apart by their inodes and kernel addresses
+alone.
 
 **Do not copy px's four index maps** (`px_ipc_map.py:191-220`). They exist to
 make `_get_other_end_pids()` O(1) per file because Python makes the scan
@@ -130,20 +129,19 @@ Measured on a macOS laptop, non-root:
 | --- | --- | --- |
 | `lsof -n -P -F fnaptd0iP` (full, px-style) | 0.27 s | 1.24 MB |
 | `lsof -n -P -i -F fnaptd0iP` | 0.13 s | 33 KB |
-| `lsof -n -P -w -iTCP -F pfnT0` (the TCP slice's, since superseded) | 0.13 s | — |
 | `lsof -n -w -d cwd -F pfn0` (already in the tree) | 0.22 s | 15 KB |
 
 This is a **second lsof fork**, separate from the cwd one in `cwds.go`, and pipes
 have since added a third. Sharing one is still rejected; the cost argument is in
 `GetSocketsByPid()` and the independent-degradation one on `socketListing`, while
-"Deferred" carries the current terms, which the pipe fork changed.
+"Deferred" carries the current terms.
 
-Two measurements behind the flags `sockets.go` documents. **A plain `-i`**, which
-is a reversal: the narrower `-iTCP -iUDP` came first, for excluding the `PICMP`
-and `PICMPV6` records macOS adds under a bare `-i`, and it cost more than it
-bought. Each `-i` is a *search item*, and lsof exits 1 for every item that located
-nothing however well the others did, so the pair failed on any machine holding no
-socket of one kind — a container with an empty `/proc/net/tcp` failed it always.
+Two measurements behind the flags `sockets.go` documents. **Why a plain `-i` and
+not `-iTCP -iUDP`**, which is the narrower spelling and would keep out the `PICMP`
+and `PICMPV6` records macOS adds under a bare `-i`: the pair costs more than it
+buys. Each `-i` is a *search item*, and lsof exits 1 for every item that located
+nothing however well the others did, so the pair fails on any machine holding no
+socket of one kind — a container with an empty `/proc/net/tcp` fails it always.
 With one UDP socket up and no TCP, lsof 4.99.4 prints the socket and still exits
 1, which `-V` spells out:
 
@@ -154,8 +152,8 @@ lsof: Internet address not located: TCP
 
 One item makes a non-zero exit mean "no internet sockets at all", and the ICMP
 records get dropped in `parseLine()` instead. An fd selection like `-d cwd` is not
-a search item and never exited this way, which is why `cwds.go` and the pipe fork
-never saw it. **`-Ts` does not narrow the state field down**, also verified — the
+a search item and never exits this way, which is why `cwds.go` and the pipe fork
+never see it. **`-Ts` does not narrow the state field down**, also verified — the
 queue sizes come along regardless, which is why the parser dispatches on the `ST=`
 value prefix.
 
@@ -233,8 +231,8 @@ process being invisible from there.
 **The pipe display, exercised by hand** *(run 4)*. The container recipe has moved
 to `AGENTS.md`, being useful for verifying anything on Linux rather than pipes in
 particular; `--privileged` is what allows the two `mount` calls below. Three shells
-holding FIFO ends plus one real pipeline, which is the shape the two matching fixes
-are about:
+holding FIFO ends plus one real pipeline, which is the shape that tells the inode
+clause in `arePipeEnds()` apart from a bare inode comparison:
 
 ```
 mkdir -p /mnt/a /mnt/b
@@ -253,26 +251,16 @@ tail -f /etc/services | sort | nl &                         # a real pipeline
 that numbers from scratch. Open the shells' pages and the two holding an end of
 each FIFO report one another as `pipe (×2)`; the `w`-and-`u` shell draws one line
 per peer, `<?>` because its own two ends let it both write the pipe and read it,
-plus a line to itself for the FIFO it can write on fd 3 and read back on fd 4. On
-the inode alone those pages read `pipe` with no count and five lines instead of
-three, two of them arrows the `u` end contradicts, which is what the two fixes
-close.
+plus a line to itself for the FIFO it can write on fd 3 and read back on fd 4.
+Matching on the inode alone makes those same pages read `pipe` with no count and
+five lines instead of three, two of them arrows the `u` end contradicts — which is
+what the file system device check and the read-pairs-with-write test in the inode
+clause are each keeping out.
 
 The pipeline gets its arrows, `tail(7612) --> sort(7613)` and
 `sort(7613) --> nl(7614)`, Linux reporting the access modes macOS won't — the same
 pipeline that reads `<?>` on a laptop, see "Deferred" on taking that direction from
 the kernel instead.
-
-**Both socket sections degraded on their own** *(run 4)*, which is the independence
-the two-listing decision was for, observed for the only time so far. A container
-with no TCP socket made `lsof -iTCP -iUDP` exit 1, so the socket listing failed
-outright while the unfiltered pipe listing succeeded: the IPC section rendered
-`<Unable to list sockets: ...>` and then its pipe lines below it, and Network
-Connections rendered the error alone.
-
-That trigger is gone — an empty machine is no longer a failed listing, see "Data
-collection" — and it was the only one anybody had found, so the independence is
-back to being designed-for rather than demonstrated.
 
 Still unverified: behaviour on a busy multi-user box, which is the environment
 this is ultimately for. Run 2 loaded the container up with sockets and open
@@ -404,9 +392,8 @@ that live nowhere else:
   Merging means one call with the union of the fields and three parsers over it,
   and it trades away what "Data collection" above wants kept: `-i` scales with
   socket count where the unfiltered listing scales with every fd on the machine,
-  and the sections stop degrading independently — which run 4 observed them doing,
-  though nothing triggers that any more. So this is a measurement to make on a
-  busy box, not a cleanup to do.
+  and the sections stop degrading independently. So this is a measurement to make
+  on a busy box, not a cleanup to do.
 - **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
   for a remote host is its address, and then render as a host name — so with
   several remote peers the visible order isn't alphabetical by what the reader
