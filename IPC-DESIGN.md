@@ -176,9 +176,10 @@ exit came with nothing to show, and for sockets that is exactly the idle machine
 nothing to show is the true answer there, and reporting it as
 `<Unable to list sockets: ...>` in both page sections is how an empty container
 used to render. So the exit status alone no longer fails the listing —
-`util.ExitError` marks that case, and only a command that couldn't be started or
-whose output wouldn't parse still returns an error. An lsof that isn't installed
-fails to start, so that one still says so.
+`util.IsExitStatus()` picks that case out, and a command that couldn't be
+started, that a signal took down, or whose output wouldn't parse keeps the
+established handling. An lsof that isn't installed fails to start, so that one
+still says so.
 
 ## Verified on Linux
 

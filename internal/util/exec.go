@@ -9,41 +9,17 @@ import (
 	"strings"
 )
 
-// The command started, ran to completion and exited non-zero.
+// True for an error from Exec() meaning the command ran and exited non-zero
+// under its own steam. False for one a signal took down, and for one that never
+// started.
 //
-// Every line it did print was handed to the callback before this was returned,
-// so a caller with a use for a partial result can carry on with what it got.
+// Every line the command did print was handed to the callback before that error
+// came back, so this is what tells a caller its partial result is worth keeping.
 // Some commands, lsof above all, exit non-zero over things they still report
 // around.
-//
-// Exec() returns this type for that case alone, and a plain error for a command
-// it couldn't start or whose output wouldn't parse. Those leave nothing to carry
-// on with, so errors.As() on this type is how a caller tells the two apart.
-type ExitError struct {
-	commandName string
-	err         error
-}
-
-func (e *ExitError) Error() string {
-	return fmt.Sprintf("%s command failed: %v", e.commandName, e.err)
-}
-
-func (e *ExitError) Unwrap() error {
-	return e.err
-}
-
-// The error for a command that ran and then failed, err being what cmd.Wait()
-// returned.
-//
-// An ExitError for a command that exited under its own steam, a plain error for
-// one a signal took down.
-func waitError(commandName string, err error) error {
+func IsExitStatus(err error) bool {
 	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.Exited() {
-		return &ExitError{commandName: commandName, err: err}
-	}
-
-	return fmt.Errorf("%s command failed: %v", commandName, err)
+	return errors.As(err, &exitErr) && exitErr.Exited()
 }
 
 // Exec command line using the default locale and invokes the callback for each
@@ -104,7 +80,8 @@ func execWithEnv(commandline []string, env []string, perLineCallback func(line s
 
 	if err := cmd.Wait(); err != nil {
 		if readErr == nil {
-			readErr = waitError(commandline[0], err)
+			// Wrapped, so that IsExitStatus() can see what kind of failure it was
+			readErr = fmt.Errorf("%s command failed: %w", commandline[0], err)
 		}
 	}
 

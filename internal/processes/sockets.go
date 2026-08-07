@@ -1,7 +1,6 @@
 package processes
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -76,8 +75,7 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 	// lsof exits non-zero over an idle machine having no internet socket to
 	// report, and an empty listing is the right answer there. The cost is that
 	// an lsof failing in no other way passes for that too.
-	var exitError *util.ExitError
-	if !errors.As(err, &exitError) && len(parser.socketsByPid) == 0 {
+	if !util.IsExitStatus(err) && len(parser.socketsByPid) == 0 {
 		// Something other than a non-zero exit code from lsof, this is a real
 		// problem.
 		return nil, err
