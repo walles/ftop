@@ -49,6 +49,13 @@ func stripAnsi(styled string) string {
 //
 // Section titles end in a blank line and nothing else in a section does, so the
 // first one is where the title ends and the body begins.
+//
+// Compare this against a complete expected block rather than picking fragments
+// out of it with stringsContains(): alignment is a feature of these sections, and
+// asserting "sshd(123)" passes whether or not the columns line up. An expected
+// block doubles as documentation of what a section looks like, which is why the
+// mockups the design notes used to carry are now these strings. stringsContains()
+// is for error and empty states, where there is no layout to get wrong.
 func sectionBody(page string) string {
 	_, body, _ := strings.Cut(stripAnsi(page), "\n\n")
 	return body

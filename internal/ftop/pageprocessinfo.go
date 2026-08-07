@@ -14,7 +14,11 @@ import (
 
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 
+// Seams for testing. Every section that collects by forking a subprocess declares
+// its collector this way, so that a page test can hand it a listing and assert the
+// rendered result without an lsof on the machine having to contain one.
 var getSocketsByPid = processes.GetSocketsByPid
+var getPipeEndsByPid = processes.GetPipeEndsByPid
 
 // The TCP and UDP sockets of every process we were allowed to inspect, or the
 // error that came of trying to list them.
@@ -24,6 +28,17 @@ var getSocketsByPid = processes.GetSocketsByPid
 // their own error states, which is what the error is doing here.
 type socketListing struct {
 	byPid map[int][]processes.Socket
+	err   error
+}
+
+// The pipe ends of every process we were allowed to inspect, or the error that
+// came of trying to list them.
+//
+// A listing of its own rather than part of socketListing: it takes a second lsof
+// invocation, an unfiltered and slower one, and only the Inter Process
+// Communication section has any use for it.
+type pipeListing struct {
+	byPid map[int][]processes.PipeEnd
 	err   error
 }
 
@@ -117,6 +132,13 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		return socketListing{byPid: byPid, err: err}
 	})
 
+	// Listed lazily as well, and separately: this is the unfiltered lsof, which
+	// costs about twice what the socket one does, and only one section wants it.
+	pipes := sync.OnceValue(func() pipeListing {
+		byPid, err := getPipeEndsByPid()
+		return pipeListing{byPid: byPid, err: err}
+	})
+
 	sections := []func(){
 		func() { u.commandLineForPaging(proc, &pt) },
 		func() { u.launchHierarchyForPaging(proc, &pt) },
@@ -124,7 +146,7 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		func() { u.closeLaunchesForPaging(proc, &pt) },
 		func() { u.usersLoggedInWhenProcessStartedForPaging(proc, &pt) },
 		func() { u.cwdFriendsForPaging(proc, allProcesses, &pt) },
-		func() { u.ipcConnectionsForPaging(proc, allProcesses, sockets(), &pt) },
+		func() { u.ipcConnectionsForPaging(proc, allProcesses, sockets(), pipes(), &pt) },
 		func() { u.networkConnectionsForPaging(proc, allProcesses, sockets(), &pt) },
 	}
 

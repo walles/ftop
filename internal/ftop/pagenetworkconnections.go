@@ -11,7 +11,9 @@ import (
 	"github.com/walles/ftop/internal/processes"
 )
 
-// Seam for testing, see resolveAddressesViaDns()
+// Seam for testing, see resolveAddressesViaDns(). This one is not only about
+// asserting on a known answer: without it every page test reaching this section
+// does real reverse DNS lookups.
 var resolveAddresses = resolveAddressesViaDns
 
 // The connections between this process and the rest of the world, plus the

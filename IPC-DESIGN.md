@@ -9,10 +9,11 @@ it doesn't get relitigated.
 door at `../px`.
 
 **Lifecycle:** this outlives the implemented slices, because the deferred work at
-the bottom depends on it. **Decided: it goes to `main` and stays there** until
-pipes and unix domain sockets are both implemented, at which point it dies — and
-before deleting it, salvage the "Verified on Linux" findings and the
-rejected-alternative rationale into comments next to the code they explain.
+the bottom depends on it. **Decided: it goes to `main` and stays there** until unix
+domain sockets are implemented, at which point it dies — and before deleting it,
+salvage the "Verified on Linux" findings and the rejected-alternative rationale
+into comments next to the code they explain. Each slice that lands should be
+taking its own share of that with it, leaving less to salvage at the end.
 
 Rationale that has already been salvaged is **not repeated here**. The direction
 rule and its known limits live in `directionAndPort()`, the deduplication
@@ -24,80 +25,71 @@ alternatives, verification findings, and the plan for what isn't built yet.
 
 ## Status
 
-**TCP: done.** `GetSocketsByPid()` plus `NetworkConnections()` in
-`internal/processes`, rendered by `pageipcconnections.go` and
-`pagenetworkconnections.go` over the shared layout in `pageconnections.go`.
-
-**UDP: done.** Same lsof call, same parser, same reversed-pair peer matching —
-lsof names a UDP socket in exactly the format it names a TCP one in, so nothing
-new was needed for matching and there is no platform specific code. What UDP
-added: a `Protocol` field, `DirectionUnknown` rendered `<->`, and the protocol as
-part of the keys identifying a connection. Bound but unconnected UDP sockets are
-dropped, see "Deferred" below.
-
-**Pipes: not started.** See "The remaining two kinds".
+**TCP, UDP and pipes: done.** `GetSocketsByPid()` and `GetPipeEndsByPid()` collect,
+`NetworkConnections()` and `PipeConnections()` aggregate, all in
+`internal/processes`; `pageipcconnections.go` and `pagenetworkconnections.go`
+render over the shared layout in `pageconnections.go`. What each kind added is in
+git rather than here. Two behaviours to know before reading a page and concluding
+it is broken: a bound but unconnected UDP socket gets no line, and an anonymous
+pipe on macOS gets no arrow. Both are under "Deferred".
 
 **Unix domain sockets: not started.** Hardest of the three, and for a reason no
-amount of code solves. See "The remaining two kinds".
+amount of code solves. See "Pipes and unix domain sockets".
 
-## The remaining two kinds
+## Pipes and unix domain sockets
 
 There are four kinds of IPC lsof can report: pipes (`PIPE` on macOS, `FIFO` on
 Linux), unix domain sockets (`unix`), and network sockets (`IPv4`/`IPv6`) — where
 "local" vs "remote" is not a separate detection path, just whether a peer was
 found. Network sockets came first because their peer matching is byte-identical
-on Linux and macOS.
+on Linux and macOS. Unix domain sockets are the one kind still missing; what
+follows is how pipes work, and then the plan for those.
 
-Both remaining kinds need lsof **without** an `-i` filter, since there is no
-filter flag for pipes. That is the 0.27 s / 1.24 MB invocation in the table
-below, against 0.13 s / 33 KB for the socket one, and it is a third fork unless
-the sections start sharing.
+Pipes needed lsof **without** an `-i` filter, there being no filter flag for
+pipes: the 0.27 s / 1.24 MB invocation in the table below, against 0.13 s / 33 KB
+for the socket one, and a third fork unless the sections start sharing. Unix
+domain sockets will not force that on us again — `-U` selects them — though they
+could ride the pipe listing rather than fork a fourth time. See "Deferred" for
+what sharing one fork would cost.
 
 ### Pipes
 
-Two mechanisms, verified against real pipe pairs on both platforms:
+Both matching mechanisms, and the reason one predicate can OR them with no `GOOS`
+switch, are documented at `arePipeEnds()`; the lsof records they read are in
+`lsofPipeParser`'s doc comment. What no code comment carries is the evidence for
+that reason, and the px alternative that was rejected.
 
-```
-Linux   tFIFO  i16466  npipe                 ar / aw
-macOS   tPIPE  d0x48d4efd2cbb7a037  n->0x7249c1bc766ed78e
-```
+**Why the two clauses cannot both fire.** Each tests a condition the other
+platform cannot meet. Measured on a quiet macOS laptop, 358 of 358 `PIPE` records
+carry a lowercase `d` device and **none carries an inode**, so no macOS anonymous
+pipe reaches the inode clause; in a Debian container all 20 `FIFO` records carry an
+inode and **not one is named `->...`**, Linux spelling an anonymous pipe `npipe`
+and a named FIFO by its path, so no Linux pipe reaches the device clause.
 
-Linux matches on **inode plus opposing `r`/`w` access**; the name is the literal
-string `pipe` and identifies nothing, which px says outright at
-`px_file.py:85-88`. macOS matches on **our peer's kernel address against their
-device**: `theirs.Device == strings.TrimPrefix(ours.Name, "->")`.
+That first measurement is about the `d` field and does not carry over to the
+`->...` name, which is the narrower of the two. Measured on the same laptop later:
+311 of 311 `PIPE` records carry a `d`, but only 303 are named `->...` — the other
+8 are pipes whose peer is gone. Those match nothing and get no line, which is what
+`PipeConnections()` does with any pipe it can find no peer for.
 
-**These need no `GOOS` switch.** The field sets are disjoint — measured on a
-quiet macOS laptop, 358 of 358 `PIPE` records carry a device and none carries an
-inode; in a Debian container, 0 of 20 `FIFO` records carry a device and all 20
-carry an inode. So neither platform can satisfy the other's condition, and one
-predicate that ORs the two clauses is correct everywhere.
+The two *device* fields are different things, and neither is what the disjointness
+rests on. Lowercase `d` is empty for every `FIFO` record on both platforms, while
+uppercase `D` is a file system device Linux reports for every pipe, anonymous ones
+living on pipefs and sharing `0xe`. macOS reports no `D` for a pipe of either
+kind, so there two pipes are told apart by their inodes and kernel addresses
+alone.
 
 **Do not copy px's four index maps** (`px_ipc_map.py:191-220`). They exist to
 make `_get_other_end_pids()` O(1) per file because Python makes the scan
 expensive; matching ~20 of our own fds against a few thousand pipe files is
 microseconds in Go. The indexes are also what *forces* px's platform switch: a
 map key has to be one string, so `fifo_id()` must choose inode-or-name up front,
-while a predicate can just test both.
-
-**Display grammar: reuse `writeConnectionLines()` as it stands.** One line per
-pipe, so a process in the middle of a pipeline gets one line per end — the same
-shape as every other kind.
-
-Data flows from the writer to the reader, which is a direction worth an arrow and
-which maps onto the existing split — write end outgoing, read end incoming, so
-`grep(1234) --> sort(5678)` from either end's page. Linux has the access mode
-already, since matching needs `a` anyway; wherever it turns out not to be
-available, fall back to `DirectionUnknown` and `<->`.
-
-Pipes have no port, and `connectionDescription()` appends one unconditionally.
-So it needs a no-port case, rendering the bare protocol: `pipe`, and `pipe (×3)`
-where several to the same peer aggregate — the aggregation key tolerates a zero
-port without changes.
+while a predicate can just test both. px also says outright that a Linux pipe's
+name identifies nothing, at `px_file.py:85-88`.
 
 ### Unix domain sockets
 
-macOS is nearly free once pipes are done — same `d0x...` device against
+macOS is nearly free now that pipes are done — same `d0x...` device against
 `n->0x...` peer scheme, plus a path for listeners.
 
 **Linux is a data problem, not a code problem.** lsof emits nothing to join a
@@ -137,35 +129,33 @@ Measured on a macOS laptop, non-root:
 | --- | --- | --- |
 | `lsof -n -P -F fnaptd0iP` (full, px-style) | 0.27 s | 1.24 MB |
 | `lsof -n -P -i -F fnaptd0iP` | 0.13 s | 33 KB |
-| `lsof -n -P -w -iTCP -F pfnT0` (the TCP slice's, since superseded) | 0.13 s | — |
 | `lsof -n -w -d cwd -F pfn0` (already in the tree) | 0.22 s | 15 KB |
 
-This is a **second lsof fork**, separate from the cwd one in `cwds.go`. Rejected
-sharing a single full lsof (px's approach) because `-i` scales with socket count
-while full lsof scales with every fd on the machine — the difference that matters
-for root on a busy multi-user Linux box. It also keeps the two page sections
-independently degradable.
+This is a **second lsof fork**, separate from the cwd one in `cwds.go`, and pipes
+have since added a third. Sharing one is still rejected on the terms the
+"Deferred" bullet on sharing carries: what `-i` costs against an unfiltered
+listing, and the sections' independent degradation.
 
-**A plain `-i` rather than `-iTCP -iUDP`**, which is a reversal: the narrower
-pair was chosen first, for excluding the `PICMP` and `PICMPV6` records macOS adds
-under a bare `-i`. It cost more than it bought. Each `-i` is a *search item*, and
-lsof exits 1 for every item that located nothing however well the others did, so
-the pair fails whenever a machine holds no socket of one kind — a container with
-an empty `/proc/net/tcp` fails it always. With one UDP socket up and no TCP,
-lsof 4.99.4 prints the socket and still exits 1, which `-V` spells out:
+Two measurements behind the flags `sockets.go` documents. **Why a plain `-i` and
+not `-iTCP -iUDP`**, which is the narrower spelling and would keep out the `PICMP`
+and `PICMPV6` records macOS adds under a bare `-i`: the pair costs more than it
+buys. Each `-i` is a *search item*, and lsof exits 1 for every item that located
+nothing however well the others did, so the pair fails on any machine holding no
+socket of one kind — a container with an empty `/proc/net/tcp` fails it always.
+With one UDP socket up and no TCP, lsof 4.99.4 prints the socket and still exits
+1, which `-V` spells out:
 
 ```
 bash 4259 root 3u IPv4 28300 0t0 UDP 127.0.0.1:44892->127.0.0.1:9999
 lsof: Internet address not located: TCP
 ```
 
-One item makes a non-zero exit mean "no internet sockets at all". The two ICMP
-records are dropped in `parseLine()` instead, which is a few lines and no forks.
-An fd selection like `-d cwd` is not a search item and never exited this way,
-which is why `cwds.go` never saw it.
-
-**`-Ts` does not narrow the state field down** — verified, the queue sizes come
-along anyway. Which is why the parser dispatches on the `ST=` value prefix.
+One item makes a non-zero exit mean "no internet sockets at all", and the ICMP
+records get dropped in `parseLine()` instead. An fd selection like `-d cwd` is not
+a search item and never exits this way, which is why `cwds.go` and the pipe fork
+never see it. **`-Ts` does not narrow the state field down**, also verified — the
+queue sizes come along regardless, which is why the parser dispatches on the `ST=`
+value prefix.
 
 Partial lsof failure is business as usual: use whatever came back, log the rest.
 See `cwds.go` for the established handling.
@@ -183,7 +173,7 @@ still says so.
 
 ## Verified on Linux
 
-Three runs, all in a container on Debian with **lsof 4.99.4** as root. Runs 1 and
+Four runs, all in a container on Debian with **lsof 4.99.4** as root. Runs 1 and
 2 used `python:3-slim` (Debian 13.6): the first before the implementation
 existed, with real loopback connections — an IPv4 listener on `127.0.0.1:8080`,
 an IPv6 listener on `[::1]:8081`, a wildcard listener on `0.0.0.0:8082`, a client
@@ -191,8 +181,8 @@ for each, and a client with 8 threads holding one connection — and the second
 against the finished TCP code, adding `sshd` (**OpenSSH 10.0p2**) with a live ssh
 session, a socket held on two file descriptors, and 400 connections' worth of
 load. Run 3 verified UDP, and ran the Go test suite itself in a `golang:1.25`
-container against the real Linux lsof. Findings are marked with the run they came
-from where it matters.
+container against the real Linux lsof. Run 4 did the same for pipes. Findings are
+marked with the run they came from where it matters.
 
 Most of what those runs established has since collapsed into the test suite:
 reversed-pair matching for both address families and both protocols, IPv6
@@ -238,6 +228,40 @@ thanks to `-w`, and exactly one PID reported — our own, its connection the rig
 way round. Its peer comes back as a bare `127.0.0.1` with no PID, the listening
 process being invisible from there.
 
+**The pipe display, exercised by hand** *(run 4)*. The container recipe has moved
+to `AGENTS.md`, being useful for verifying anything on Linux rather than pipes in
+particular; `--privileged` is what allows the two `mount` calls below. Three shells
+holding FIFO ends plus one real pipeline, which is the shape that tells the inode
+clause in `arePipeEnds()` apart from a bare inode comparison:
+
+```
+mkdir -p /mnt/a /mnt/b
+mount -t tmpfs tmpfs /mnt/a && mount -t tmpfs tmpfs /mnt/b
+mkfifo /mnt/a/f /mnt/b/f
+stat -c 'dev=%D ino=%i %n' /mnt/a/f /mnt/b/f
+bash -c 'exec 3<>/mnt/a/f; exec 4<>/mnt/b/f; sleep 3000' &  # an end of each
+bash -c 'exec 3</mnt/a/f;  exec 4</mnt/b/f;  sleep 3000' &  # the other ends
+bash -c 'exec 3>/mnt/a/f;  exec 4<>/mnt/a/f; sleep 3000' &  # w and u, one FIFO
+tail -f /etc/services | sort | nl &                         # a real pipeline
+./ftop.sh
+```
+
+`stat` reports `dev=37 ino=2` and `dev=38 ino=2`, so the inode collision takes two
+`mount` calls rather than any luck — each FIFO is the first file on a file system
+that numbers from scratch. Open the shells' pages and the two holding an end of
+each FIFO report one another as `pipe (×2)`; the `w`-and-`u` shell draws one line
+per peer, `<?>` because its own two ends let it both write the pipe and read it,
+plus a line to itself for the FIFO it can write on fd 3 and read back on fd 4.
+Matching on the inode alone makes those same pages read `pipe` with no count and
+five lines instead of three, two of them arrows the `u` end contradicts — which is
+what the file system device check and the read-pairs-with-write test in the inode
+clause are each keeping out.
+
+The pipeline gets its arrows, `tail(7612) --> sort(7613)` and
+`sort(7613) --> nl(7614)`, Linux reporting the access modes macOS won't — the same
+pipeline that reads `<?>` on a laptop, see "Deferred" on taking that direction from
+the kernel instead.
+
 Still unverified: behaviour on a busy multi-user box, which is the environment
 this is ultimately for. Run 2 loaded the container up with sockets and open
 files, but a container has a handful of processes and a single user.
@@ -270,10 +294,10 @@ The rule, its rationale and its three known limits are all in
 reproduced with GNU netcat 0.7.1, which does hold only the accepted socket. One
 decision the code doesn't carry:
 
-Self-connections (a process dialing its own listening port) are **shown, once** —
-deduped by keeping the socket whose local endpoint sorts first. px drops these
-entirely (`px_ipc_map.py:173`), which loses information a diagnostic page should
-surface. Showing both sides would report `(×2)` for one connection.
+Self-connections (a process dialing its own listening port) are **shown, once**;
+`isTheFarEndOfOurOwnConnection()` says which of the two sockets stands for it. px
+drops these entirely (`px_ipc_map.py:173`), which loses information a diagnostic
+page should surface, and showing both sides would report `(×2)` for one connection.
 
 ## Aggregation
 
@@ -301,25 +325,22 @@ taking a `peerLabel` callback rather than the same code twice. The sections keep
 rendering their own error and empty states, which is the independence that
 mattered. The layout rules are all in `writeConnectionLines()`.
 
-```
-Inter Process Communication
-<Detected: TCP, UDP. Not detected: pipes, unix sockets>
-curl(999) --> picked(42)                tcp 8080
-              picked(42) --> sshd(123)  tcp 22
-              picked(42) <-> peer(99)   udp 9001
+What the two sections look like is no longer drawn here. The page tests assert
+whole blocks after ANSI stripping, so their expected strings are the mockups and
+cannot rot — `pageipcconnections_test.go` and `pagenetworkconnections_test.go`,
+covering both arrows, `<?>`, counts and the listening row. One of them, so that
+this section is readable without opening them:
 
-Network Connections
-            picked(42)                     tcp 8080 (listening)
-1.2.3.4 --> picked(42)                     tcp 8080 (×12)
-            picked(42) --> api.github.com  tcp 443 (×7)
-            picked(42) <-> dns.google      udp 53
+```
+<Detected: TCP, UDP, pipes. Not detected: unix sockets>
+grep(1234) --> picked(42)                 pipe
+               picked(42) --> sort(5678)  pipe
+               picked(42) --> sshd(1)     tcp 22
 ```
 
-The UDP line in the IPC block needs **both** ends to have connected their
-sockets, which is the uncommon shape — see "Deferred" for why a local UDP server
-lands in Network Connections under an address instead. Both mockups are drawn to
-the real column rules, two spaces between columns and both arrows five columns
-wide, so they can be checked against `writeConnectionLines()` rather than trusted.
+A UDP line in the IPC block needs **both** ends to have connected their sockets,
+which is the uncommon shape — see "Deferred" for why a local UDP server lands in
+Network Connections under an address instead.
 
 The arrow direction and the never-an-address rule for the description column are
 both stated where they are implemented, in `pageconnections.go`. The two rules
@@ -332,27 +353,10 @@ that live nowhere else:
 - The caveat line is **IPC section only** — Network Connections has nothing
   missing. Grow it as kinds land and delete it when nothing is missing.
 
-## Tests
-
-Two conventions that aren't obvious from the repo's other tests:
-
-- Page assertions are **full-block equality after ANSI stripping** (`stripAnsi()`
-  and `sectionBody()` in `pagetext_test.go`), not `stringsContains` fragments.
-  Alignment is the feature here, and a test asserting `"sshd(123)"` passes whether
-  or not the columns line up. The expected string doubles as documentation of what
-  the section looks like. `stringsContains` stays for error and empty paths, where
-  there is no layout.
-- Page sections have `var` seams for **both** the lsof call and the DNS
-  resolution. Without a DNS seam every page test does real network lookups.
-
-Parser tests use inline NUL-terminated strings, per `cwds_test.go`. This repo has
-no `testdata/` directory and shouldn't grow one for this.
-
-`./test.sh` before any PR, per `AGENTS.md`.
-
 ## Deferred, deliberately
 
-- **Pipes** and **unix domain sockets**, both scoped above.
+- **Unix domain sockets**, scoped above. The last of the four kinds, and the only
+  thing keeping this document alive.
 - **Bound but unconnected UDP sockets get no line.** They are dropped along with
   the bound TCP sockets that never carried anything. UDP has no listening state,
   so lsof gives us no way to tell a server's bound socket from the ephemeral
@@ -365,7 +369,7 @@ no `testdata/` directory and shouldn't grow one for this.
   2. **Its clients can't name it either.** A UDP server serves every client from
      one bound socket and never connects it, so there is no reversed pair to
      match. The client's peer comes back as an address with no PID, which puts it
-     in *Network Connections* reading `picked(42) <-> localhost  udp 53` — with
+     in *Network Connections* reading `picked(42) <?> localhost  udp 53` — with
      the server sitting right there in the same lsof listing, unnamed.
 
   So for UDP the IPC section stays empty unless both ends happen to have
@@ -381,8 +385,15 @@ no `testdata/` directory and shouldn't grow one for this.
 - `(ssh)` service-name annotations next to port numbers. Cosmetic, needs
   `/etc/services` parsing, no model change.
 - A line cap for processes with hundreds of *distinct* peers.
-- Sharing one lsof invocation across sections, once there are three of them —
-  which the pipe work forces the question on, since pipes need an unfiltered lsof.
+- **Sharing one lsof invocation across sections.** There are three forks now, and
+  the pipe one already subsumes the other two: `lsof -n -w -F pfatdDin0` lists
+  every open file of every process, so the cwd listing in `cwds.go` and the `-i`
+  one in `sockets.go` both ask for subsets of it with different `-F` fields.
+  Merging means one call with the union of the fields and three parsers over it,
+  and it trades away what "Data collection" above wants kept: `-i` scales with
+  socket count where the unfiltered listing scales with every fd on the machine,
+  and the sections stop degrading independently. So this is a measurement to make
+  on a busy box, not a cleanup to do.
 - **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
   for a remote host is its address, and then render as a host name — so with
   several remote peers the visible order isn't alphabetical by what the reader
@@ -393,10 +404,6 @@ no `testdata/` directory and shouldn't grow one for this.
   reverse resolving a TEST-NET address for real — puts a network call and up to
   2 s into the test suite. The function's fallback behaviour is covered at page
   level instead, via an address the fake resolver has no answer for.
-- **A protocol sort key.** Not needed while TCP is the only protocol reaching the
-  listening/incoming/outgoing groups and UDP the only one reaching the
-  undetermined group, which makes the blocks protocol-pure for free. Pipes and
-  unix sockets will break that assumption; revisit then.
 - **A test for the `listening` half of the socket identity.**
   `deduplicateBySocket()` keys on (protocol, local, remote, listening), and
   replacing that last field with a constant passes the whole suite — verified by
@@ -407,3 +414,52 @@ no `testdata/` directory and shouldn't grow one for this.
   Connections about half the time. Direction inference elsewhere survives it,
   since `listenSets()` reads the raw listing rather than the deduplicated one.
   Predates UDP; cheap to close.
+- **Pipe direction on macOS, taken from the kernel rather than from lsof.** macOS
+  lsof reports no access mode for a `PIPE` record, so every anonymous pipe there
+  is `DirectionUnknown` and renders `<?>`. `tail -f /etc/services | sort | nl`
+  shows as `tail(40504) <?> sort(40505)  pipe` when the truth is plainly
+  `tail --> sort`.
+
+  **Not a matter of asking lsof for the right field.** `+fg` is lsof's file-flag
+  option, and it fills that column in for `CHR` and `REG` while leaving it blank
+  for `PIPE`; the FD number carries no `r`/`w` suffix either. Both ends of a real
+  pipeline, on macOS lsof 4.91:
+
+  ```
+  tail  40697  0r  CHR   R;SH          /dev/null     <- flags reported
+  tail  40697  1   PIPE                ->0x8512...   <- blank
+  sort  40698  0   PIPE                ->0xe272...   <- blank
+  sort  40698  2w  CHR   W,0x10000;SH  /dev/null     <- flags reported
+  ```
+
+  **The kernel knows.** `proc_pidfdinfo(pid, fd, PROC_PIDFDPIPEINFO)` fills in a
+  `proc_fileinfo` whose `fi_openflags` carries FREAD/FWRITE, verified against
+  that same pipeline:
+
+  ```
+  tail(40697) fd 1  fi_openflags=0x10002  FWRITE  handle=0xe272559b6a8c5e34  peer=0x8512e4a289d94ded
+  sort(40698) fd 0  fi_openflags=0x1      FREAD   handle=0x8512e4a289d94ded  peer=0xe272559b6a8c5e34
+  ```
+
+  `pipe_handle` and `pipe_peerhandle` are the same two numbers lsof prints as the
+  `DEVICE` and the `->` name, so this is the pipe end we already have with the
+  direction attached, not a second identity to join on.
+
+  Cheaper than a new data source usually is. cgo is already a macOS dependency —
+  `test.sh` builds both darwin targets with `CGO_ENABLED=1`, and
+  `sysload_darwin.go` is the established `//go:build darwin` plus inline C
+  pattern. The change lands entirely in `GetPipeEndsByPid()`, filling in the
+  `Access` lsof left empty, so `arePipeEnds()`, `pipeDirection()` and every one of
+  their tests are untouched. Linux keeps taking the access mode from lsof and
+  needs nothing. Cost is one syscall per pipe end, around 300 on a quiet laptop,
+  against the 0.36 s the unfiltered lsof already spends.
+
+  Guard the race between the lsof fork and the syscall by requiring the returned
+  `pipe_handle` to equal the `Device` lsof reported — an fd can be closed and
+  reopened in between, and then the flags describe some other file entirely.
+
+  Unverified: how this degrades for processes we don't own. `proc_pidfdinfo`
+  enforces a same-uid-or-root check, so EPERM and a fall back to
+  `DirectionUnknown` is what to expect, matching how lsof already degrades — but
+  the laptop this was measured on had no root-owned process holding a pipe to
+  probe, so that is reasoning rather than a measurement.

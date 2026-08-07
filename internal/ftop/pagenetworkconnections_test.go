@@ -82,9 +82,9 @@ func TestNetworkConnectionsForPagingListsRemotePeers(t *testing.T) {
 	assert.Equal(t, stringsContains(page.String(), "──Network Connections──"), true)
 }
 
-// UDP says nothing about who dialed whom, so its lines get an arrow pointing both
-// ways. That arrow is as wide as the one way arrow, so a section holding both kinds
-// of line still lines up.
+// UDP says nothing about who dialed whom, so its lines get a question mark rather
+// than an arrow. That marker is as wide as the arrow, so a section holding both
+// kinds of line still lines up.
 func TestNetworkConnectionsForPagingUndeterminedDirection(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: {
@@ -104,7 +104,7 @@ func TestNetworkConnectionsForPagingUndeterminedDirection(t *testing.T) {
 
 	expected := "" +
 		"picked(42) --> api.github.com  tcp 443\n" +
-		"picked(42) <-> dns.google      udp 53\n"
+		"picked(42) <?> dns.google      udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
