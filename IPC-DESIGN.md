@@ -132,9 +132,9 @@ Measured on a macOS laptop, non-root:
 | `lsof -n -w -d cwd -F pfn0` (already in the tree) | 0.22 s | 15 KB |
 
 This is a **second lsof fork**, separate from the cwd one in `cwds.go`, and pipes
-have since added a third. Sharing one is still rejected; the cost argument is in
-`GetSocketsByPid()` and the independent-degradation one on `socketListing`, while
-"Deferred" carries the current terms.
+have since added a third. Sharing one is still rejected on the terms the
+"Deferred" bullet on sharing carries: what `-i` costs against an unfiltered
+listing, and the sections' independent degradation.
 
 Two measurements behind the flags `sockets.go` documents. **Why a plain `-i` and
 not `-iTCP -iUDP`**, which is the narrower spelling and would keep out the `PICMP`

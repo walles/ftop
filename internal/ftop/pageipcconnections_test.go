@@ -287,7 +287,7 @@ func TestIpcConnectionsForPagingPipeListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list pipes: boom>\n" +
-		"<Detected: TCP, UDP. Not detected: unix sockets>\n" +
+		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
 		"picked(42) --> sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -307,7 +307,7 @@ func TestIpcConnectionsForPagingPipeListingFailedAndNoSockets(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list pipes: boom>\n" +
-		"<Detected: TCP, UDP. Not detected: unix sockets>\n" +
+		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
 		"<No connections found>\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -330,7 +330,7 @@ func TestIpcConnectionsForPagingSocketListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list sockets: boom>\n" +
-		"<Detected: pipes. Not detected: unix sockets>\n" +
+		"<Detected: pipes. Not detected: TCP, UDP, unix sockets>\n" +
 		"picked(42) --> sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }

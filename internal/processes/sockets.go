@@ -9,17 +9,6 @@ import (
 	"github.com/walles/ftop/internal/util"
 )
 
-// What a connection is carried by, lowercased so that it can go straight into
-// the page. A transport protocol for a socket, and the kind of thing it is for
-// everything else.
-type Protocol string
-
-const (
-	ProtocolTcp  Protocol = "tcp"
-	ProtocolUdp  Protocol = "udp"
-	ProtocolPipe Protocol = "pipe"
-)
-
 // One TCP or UDP socket held open by some process, as reported by lsof.
 type Socket struct {
 	// lsof's file descriptor number, "31" or similar. Not an identity: one socket

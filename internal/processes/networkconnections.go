@@ -41,6 +41,17 @@ const (
 	DirectionUnknown
 )
 
+// What a connection is carried by, lowercased so that it can go straight into
+// the page. A transport protocol for a socket, and the kind of thing it is for
+// everything else.
+type Protocol string
+
+const (
+	ProtocolTcp  Protocol = "tcp"
+	ProtocolUdp  Protocol = "udp"
+	ProtocolPipe Protocol = "pipe"
+)
+
 // Some number of connections between one process and one peer, all of them
 // speaking the same protocol to or from the same port.
 type Connection struct {

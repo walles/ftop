@@ -75,24 +75,35 @@ func (u *Ui) ipcConnectionsForPaging(
 
 // The caveat line, naming the kinds of IPC this listing does and doesn't cover.
 //
-// haveSockets and havePipes say which listings we got, a failed one being just
-// as undetected as an unimplemented kind for the reader's purposes. At least one
-// of them has to be true: with neither there is nothing for a caveat to be a
-// caveat about, and the caller has errors to print instead.
+// haveSockets and havePipes say which listings we got, the kinds from a failed
+// one going among the undetected: missing from the list below is missing from the
+// list below, whether because we couldn't look or because nobody implemented
+// looking. At least one of them has to be true: with neither there is nothing for
+// a caveat to be a caveat about, and the caller has errors to print instead.
 //
 // Grow this as more kinds land, and delete it once nothing is missing.
 func ipcCaveat(haveSockets bool, havePipes bool) string {
 	var detected []string
+	var undetected []string
 
 	if haveSockets {
 		detected = append(detected, "TCP", "UDP")
+	} else {
+		undetected = append(undetected, "TCP", "UDP")
 	}
 
 	if havePipes {
 		detected = append(detected, "pipes")
+	} else {
+		undetected = append(undetected, "pipes")
 	}
 
-	return "<Detected: " + strings.Join(detected, ", ") + ". Not detected: unix sockets>"
+	// Last, so that the kinds we do implement stay together at the front however
+	// many of them failed.
+	undetected = append(undetected, "unix sockets")
+
+	return "<Detected: " + strings.Join(detected, ", ") +
+		". Not detected: " + strings.Join(undetected, ", ") + ">"
 }
 
 // What to call a peer process: its command name and PID, or its PID alone when
