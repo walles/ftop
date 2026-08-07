@@ -42,8 +42,20 @@ type Socket struct {
 //
 // Pipes and unix domain sockets are not included.
 //
-// This forks lsof, which takes a fraction of a second. Too slow for calling
-// once per frame, fine for on-demand lookups.
+// This forks lsof, which takes a fraction of a second, and the filter is what
+// makes it worth a fork of its own rather than a share of the unfiltered listing
+// GetPipeEndsByPid() has to use — see there for the two of them timed side by
+// side on macOS. It earns itself on Linux as well, by less: in a Debian container
+// holding 819 socket lines out of 4122 open files, "-iTCP" took 0.047 s for 55 KB
+// where full lsof took 0.085 s for 180 KB, three runs each and under 0.02 s of
+// spread. A container understates it, full lsof being the side that grows with
+// every file descriptor on the machine. Too slow for calling once per frame, fine
+// for on-demand lookups.
+//
+// Non-root degrades instead of failing, verified in that container: exit code 0,
+// stderr empty thanks to "-w", and exactly one PID reported — our own, its
+// connection the right way round. Its peer comes back as a bare address with no
+// PID, the listening process being invisible from there.
 func GetSocketsByPid() (map[int][]Socket, error) {
 	parser := newLsofSocketParser()
 
@@ -55,6 +67,22 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 	//   which parseLine() drops.
 	// -F pfnPT0: Machine readable output with NUL terminated PID, file
 	//   descriptor, protocol, name and TCP state fields
+	//
+	// A plain "-i" rather than "-iTCP -iUDP", which is the narrower spelling and
+	// would keep those ICMP records out to begin with: the pair costs more than it
+	// buys. Each "-i" is a search item, and lsof exits 1 for every item that
+	// located nothing however well the others did, so the pair fails on any machine
+	// holding no socket of one kind — a container with an empty /proc/net/tcp fails
+	// it always. With one UDP socket up and no TCP, lsof 4.99.4 printed the socket
+	// and still exited 1, which "-V" spelled out as "lsof: Internet address not
+	// located: TCP". One item makes a non-zero exit mean "no internet sockets at
+	// all", which is what the error handling below rests on, and the ICMP records
+	// get dropped in parseLine() instead. An fd selection like the "-d cwd" in
+	// cwds.go is not a search item and never exits this way.
+	//
+	// "-Ts" would ask for the TCP state alone and does not narrow the field down,
+	// also verified: the queue sizes come along regardless, which is why
+	// parseField() dispatches on the "ST=" value prefix.
 	commandline := []string{"lsof", "-n", "-P", "-w", "-i", "-F", "pfnPT0"}
 
 	// Locale intentionally left alone, matching GetCwdsByPid()

@@ -55,6 +55,13 @@ const (
 
 // Some number of connections between one process and one peer, all of them
 // speaking the same protocol to or from the same port.
+//
+// One uniform type behind both page sections, whatever carries the connection, so
+// that merging the Inter Process Communication and Network Connections sections
+// later, or splitting them differently, is a change to the render-time partition
+// and nothing else. Splitting the model to match the sections is the trap: it
+// would make merging them mean unifying two types, two sorts and two alignment
+// schemes.
 type Connection struct {
 	Peer      Peer
 	Protocol  Protocol
@@ -122,6 +129,15 @@ type Connection struct {
 // The ordering is listening ports first, then incoming connections, then
 // outgoing ones, then the ones we can't tell the direction of; by peer name, PID
 // and port within each group.
+//
+// Aggregating rather than reporting one line per socket is not optional at this
+// scale: one process on a quiet laptop held 252 connections, all of them to the
+// same peer endpoint. px renders that as 252 identical lines. A count is strictly
+// more informative, and it means those 252 connections are one DNS lookup.
+//
+// No cap on the number of lines. After aggregation the pathological case is
+// repetition rather than variety, and the output goes into a pager that handles
+// long content. Add a cap when a machine demands one.
 func NetworkConnections(proc *Process, allProcesses []*Process, socketsByPid map[int][]Socket) []Connection {
 	ourSockets := deduplicateBySocket(socketsByPid[proc.Pid])
 	if len(ourSockets) == 0 {
@@ -213,6 +229,23 @@ func SortConnections(connections []Connection) {
 // accept-then-fork server keeps the listener in the parent, every sshd session
 // child being one, and a socket activated server never holds one at all.
 //
+// That case, observed on a live ssh session into a Debian container running
+// OpenSSH 10.0p2, is what the machine-wide set exists for:
+//
+//	pid 985   sshd [listener]          fd 6  n*:22                          LISTEN
+//	pid 985   sshd [listener]          fd 7  n*:22                          LISTEN
+//	pid 996   ssh                      fd 3  n127.0.0.1:60482->127.0.0.1:22
+//	pid 998   sshd-session [priv]      fd 7  n127.0.0.1:22->127.0.0.1:60482
+//	pid 1005  sshd-session root@notty  fd 7  n127.0.0.1:22->127.0.0.1:60482
+//
+// Neither session process holds a listening socket of its own, and the listener is
+// spelled "*:22", so it is the port-only wildcard matching that ties the child's
+// concrete "127.0.0.1:22" to it. The same session exercises two more decisions:
+// OpenSSH 10 splits it into two processes that both hold the accepted socket,
+// which is the fork inheritance peerPidsByEndpointPair() breaks with lowest PID
+// wins, and the listener's two "*:22" sockets — Linux spells both address families
+// that way, not "[::]:22" — collapse into a single listening row with no count.
+//
 // Known limit: a server that closes its listening socket once it has accepted,
 // as "nc -l" does, leaves no listening port anywhere on the machine, so its
 // connections come out backwards, as if it had dialed the client on the client's
@@ -278,6 +311,11 @@ func peerOf(socket Socket, peerPids map[string]int, names map[int]string) Peer {
 // that is one connection deserving one line. Which of the two sockets to keep is
 // arbitrary, so it goes by whichever local endpoint sorts first, for the sake of
 // reporting the same one every time.
+//
+// Shown at all, which px decides the other way: it drops self connections
+// entirely (px_ipc_map.py:173), and that loses information a diagnostic page is
+// there to surface. Showing both sides instead would report a count of 2 for one
+// connection.
 func isTheFarEndOfOurOwnConnection(socket Socket, ourPairs map[string]bool) bool {
 	if socket.Local <= socket.Remote {
 		return false
@@ -312,8 +350,17 @@ func endpointPairs(sockets []Socket) map[string]bool {
 // protocol plus its four endpoint numbers, so two sockets of one process carrying
 // the same five are the same socket, whichever descriptors they arrived on.
 //
+// The per-thread duplication is px's claim (px_ipc_map.py:61) rather than
+// something seen here: on lsof 4.99.4 a process with 8 threads holding one
+// connection reported exactly one socket. The endpoint-keyed identity covers that
+// case either way, so the claim went unchased.
+//
 // Listening is part of what identifies a socket as well, so that a listener isn't
 // mistaken for the bound but unconnected socket that shares its address.
+//
+// lsof's DEVICE column would identify a socket just as well, the way it does for a
+// unix socket in unixSocketsByDevice(), but it needs another "-F" field and the
+// endpoints already settle it.
 func deduplicateBySocket(sockets []Socket) []Socket {
 	type socketIdentity struct {
 		protocol  Protocol
@@ -383,6 +430,19 @@ func listenSets(socketsByPid map[int][]Socket) (endpoints map[string]bool, wildc
 // A socket inherited across a fork is held by parent and child alike, and then
 // the lowest PID is the one we keep. Arbitrary, but stable: naming a different
 // process every time the same connection is looked at would be worse.
+//
+// Keyed on the endpoint pair rather than on the local endpoint alone, which is
+// what px's _local_endpoint_to_pid map does (px_ipc_map.py:206): it maps one local
+// endpoint to one PID and lets later entries overwrite earlier ones. Endpoints are
+// shared in practice — a listener plus every forked child that accepted on it, and
+// dual-stack listeners, measured as "2 n*:7000" and "2 n*:5000" on a quiet laptop
+// — so on a multi-worker server as root px attributes connections to whichever
+// process it happened to parse last. The reversed pair plus lowest PID wins is
+// what replaces that.
+//
+// Known limit, which px's approach doesn't solve either: the two ends of a
+// connection may render the same interface differently, "127.0.0.1" against
+// "::ffff:127.0.0.1", and then the reversed lookup finds nothing.
 func peerPidsByEndpointPair(socketsByPid map[int][]Socket) map[string]int {
 	peerPids := map[string]int{}
 

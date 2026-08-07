@@ -73,8 +73,14 @@ type PipeEnd struct {
 // running as root. Processes without any pipes are missing as well.
 //
 // This forks lsof without a filter, since lsof has no flag for selecting pipes,
-// so it costs about twice what the filtered socket listing does. Too slow for
-// calling once per frame, fine for on-demand lookups.
+// so it costs about twice what the filtered socket listing does: measured on a
+// quiet macOS laptop, non-root, median of three, 0.39 s for 1.4 MB of output
+// against 0.18 s for 34 KB from the "-i" listing in GetSocketsByPid() and 0.17 s
+// for 26 KB from the "-U" one in GetUnixSocketsByPid(). This is the expensive one,
+// and the reason the other two got invocations of their own rather than riding it:
+// they scale with a machine's socket count where this one scales with every file
+// descriptor on it. Too slow for calling once per frame, fine for on-demand
+// lookups.
 func GetPipeEndsByPid() (map[int][]PipeEnd, error) {
 	parser := newLsofPipeParser()
 
