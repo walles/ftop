@@ -33,8 +33,10 @@ git rather than here. Two behaviours to know before reading a page and concludin
 it is broken: a bound but unconnected UDP socket gets no line, and an anonymous
 pipe on macOS gets no arrow. Both are under "Deferred".
 
-**Unix domain sockets: not started.** Hardest of the three, and for a reason no
-amount of code solves. See "Pipes and unix domain sockets".
+**Unix domain sockets: not started.** Hardest of the three, and the one kind whose
+two platforms need different amounts of work — macOS reuses the pipe machinery,
+Linux needs a data source neither lsof nor `/proc` provides. macOS goes first and
+lands on `main` on its own. See "Pipes and unix domain sockets".
 
 ## Pipes and unix domain sockets
 
@@ -89,33 +91,89 @@ name identifies nothing, at `px_file.py:85-88`.
 
 ### Unix domain sockets
 
-macOS is nearly free now that pipes are done — same `d0x...` device against
-`n->0x...` peer scheme, plus a path for listeners.
+**Decided: macOS first, merged to `main`, then Linux.** macOS is a matching and
+rendering change over the pipe machinery with no new collector, on the platform
+where `./test.sh` runs and the page can be looked at. It also settles the model
+questions first, the optional path at the end of this section above all. Building
+the netlink collector first would mean iterating on the render layer through a
+container.
 
-**Linux is a data problem, not a code problem.** lsof emits nothing to join a
-connected pair on. From a real connected pair in a Debian container:
+#### macOS: the pipe scheme, with two differences
+
+Same `d0x...` device against `n->0x...` peer scheme, plus a path for listeners.
+Measured on a quiet laptop, non-root, `lsof -n -P -w -U -F pfnid0`, 566 records:
+481 carry a peer, 83 carry a path, one is `->(none)`, and **no record carries
+both** a path and a peer.
+
+**Compare peers numerically, not as strings.** lsof zero-pads the device and not
+the peer — `d0x41437afcb244b221` against `n->0x28cfa77e3695bc2`, 16 hex digits
+against 15.
+
+**The pair is not mutual, the way a pipe's is.** 378 of the 481 peers resolve to
+a device in the listing. 348 of those point back; all **30** that don't resolve
+to a *listening* socket with a path. So a client's peer is either the server's
+accepted socket or the server's listener, and `arePipeEnds()`'s assumption of a
+mutual pair does not carry over. One listener had 58 clients naming it, which is
+the existing aggregation case rather than a new one.
+
+The remaining 103 peers are held by processes a non-root lsof cannot see. They
+match nothing and get no line, which is how a pipe whose peer is gone already
+degrades.
+
+#### Linux: a netlink collector, not `ss`
+
+**`/proc` alone cannot do it.** Verified against a real connected pair plus a
+listener in a `golang:1.25` container. `/proc/net/unix` has no peer column, and
+its `Num` field is the socket's own kernel address — the same number lsof prints
+as `d0x...`, so lsof's device field is this file reformatted and neither source
+knows a peer:
 
 ```
-server side   f4  d0x000000005e76eec1  i13448  n/tmp/probe.sock type=STREAM
-client side   f4  d0x00000000dc23b55d  i16570  ntype=STREAM
+Num       RefCount Protocol Flags    Type St Inode Path
+00000000609cd1bd: 00000003 00000000 00000000 0001 03   378                   <- client end
+000000001942c573: 00000003 00000000 00000000 0001 03   379 /tmp/probe.sock   <- accepted end
+00000000ee2a9915: 00000002 00000000 00010000 0001 01   369 /tmp/probe.sock   <- listener
 ```
 
-Different inodes, different devices, no cross-reference, and the client's
-connected socket carries **no path at all**. px's Linux fallback — device_number
-to files-with-the-same-name, `px_ipc_map.py:260-267` — can only relate processes
-sharing a path, which the client end doesn't have, so those files land in px's
-`UNKNOWN destinations: Running with sudo might help` bucket
+The client's connected socket carries **no path at all**, which is what sinks
+px's Linux fallback — device_number to files-with-the-same-name,
+`px_ipc_map.py:260-267`, can only relate processes sharing a path. Those files
+land in px's `UNKNOWN destinations: Running with sudo might help` bucket
 (`px_ipc_map.py:152-153`).
 
-The peer information exists, but only via `ss`, which reports the peer's inode:
+**Take the peer from `sock_diag` netlink, not by forking `ss`.** `ss -x` reports
+nothing beyond what a `UNIX_DIAG_SHOW_PEER` dump carries, and asking for that
+dump ourselves is around 60 lines. Same container, non-root:
 
 ```
-u_str ESTAB /tmp/probe.sock 10610    * 16721     <- local inode, peer inode
+ino=378   state=1  peer=379   name=""                   <- client end
+ino=379   state=1  peer=378   name="/tmp/probe.sock"    <- accepted end
+ino=9391  state=1  peer=381   name=""
+ino=381   state=1  peer=9391  name="/tmp/probe.sock"
+ino=369   state=10 peer=0     name="/tmp/probe.sock"    <- listener, no peer
 ```
 
-So doing this properly on Linux means a **second data source** and inode-keyed
-joining, with lsof still carrying the macOS path. Budget for a new collector, not
-a new matching function.
+Four things that set the budget:
+
+- **No new dependency and no fourth fork.** `golang.org/x/sys/unix` is already
+  required and `syscall.ParseNetlinkMessage` is stdlib, so this is a socket and a
+  parse rather than another `exec`. The "sharing one lsof invocation" bullet under
+  "Deferred" is untouched by it.
+- **It works non-root**, where lsof degrades: re-running the dump as `nobody`
+  gave byte-identical output, peers included. That was a container, so how it
+  behaves against another user's sockets on a real box is reasoning rather than a
+  measurement.
+- **The pairing is exact and symmetric**, so joining is a lookup with no
+  tiebreaking — none of the lowest-PID-wins that fork inheritance forces on TCP.
+- **Netlink carries no PID.** `ss -p` gets those by walking `/proc/*/fd` itself.
+  So lsof stays the pid/fd/inode source and netlink supplies only the peer edge,
+  keyed on inode. Inodes matched across `/proc/net/unix`, `ss -x`, `lsof -U` and
+  the netlink dump in that run.
+
+**The platform asymmetry to design for:** on Linux the netlink name gives an
+accepted socket its path, while on macOS a record has a peer or a path and never
+both. So the path is optional on a connected unix socket, and macOS is the
+platform that leaves it empty.
 
 ## Data collection
 
