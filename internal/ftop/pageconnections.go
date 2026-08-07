@@ -111,15 +111,22 @@ func (u *Ui) writeConnectionLines(
 // served, plus whatever makes this line more than one plain connection.
 //
 // A connection carried by something that has no ports, a pipe being one, gets
-// the bare protocol instead.
+// the bare protocol instead. A unix domain socket has a path where a network
+// socket has a port, so that goes here too, and it is the one thing on the line
+// naming which service of a process' several a connection reaches.
 //
 // Never an address: for a connection between processes the address is always
 // loopback and says nothing, and for a remote peer it is in the peer column
-// already.
+// already. A unix socket path is not an address in that sense — it is local by
+// definition, and it identifies the service rather than the machine.
 func connectionDescription(connection processes.Connection) string {
 	description := string(connection.Protocol)
 	if connection.Port != 0 {
 		description += " " + strconv.Itoa(connection.Port)
+	}
+
+	if connection.Path != "" {
+		description += " " + connection.Path
 	}
 
 	if connection.Listening {

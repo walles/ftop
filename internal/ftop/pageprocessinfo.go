@@ -19,6 +19,7 @@ const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"
 // rendered result without an lsof on the machine having to contain one.
 var getSocketsByPid = processes.GetSocketsByPid
 var getPipeEndsByPid = processes.GetPipeEndsByPid
+var getUnixSocketsByPid = processes.GetUnixSocketsByPid
 
 // The TCP and UDP sockets of every process we were allowed to inspect, or the
 // error that came of trying to list them.
@@ -39,6 +40,20 @@ type socketListing struct {
 // Communication section has any use for it.
 type pipeListing struct {
 	byPid map[int][]processes.PipeEnd
+	err   error
+}
+
+// The unix domain sockets of every process we were allowed to inspect, or the
+// error that came of trying to list them.
+//
+// A listing of its own rather than part of the pipe one, though both of them
+// feed the Inter Process Communication section and nothing else. "-U" selects
+// unix sockets, where pipes have no filter flag at all and cost an unfiltered
+// listing of every open file on the machine, so riding along would make this the
+// slower of two jobs it doesn't need — and would take both kinds down whenever
+// either lsof failed.
+type unixSocketListing struct {
+	byPid map[int][]processes.UnixSocket
 	err   error
 }
 
@@ -139,6 +154,13 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		return pipeListing{byPid: byPid, err: err}
 	})
 
+	// Filtered by "-U", so cheap the way the socket listing is, and lazy for the
+	// same reason both the others are.
+	unixSockets := sync.OnceValue(func() unixSocketListing {
+		byPid, err := getUnixSocketsByPid()
+		return unixSocketListing{byPid: byPid, err: err}
+	})
+
 	sections := []func(){
 		func() { u.commandLineForPaging(proc, &pt) },
 		func() { u.launchHierarchyForPaging(proc, &pt) },
@@ -146,7 +168,7 @@ func (u *Ui) writeProcessInfo(proc *processes.Process, allProcesses []*processes
 		func() { u.closeLaunchesForPaging(proc, &pt) },
 		func() { u.usersLoggedInWhenProcessStartedForPaging(proc, &pt) },
 		func() { u.cwdFriendsForPaging(proc, allProcesses, &pt) },
-		func() { u.ipcConnectionsForPaging(proc, allProcesses, sockets(), pipes(), &pt) },
+		func() { u.ipcConnectionsForPaging(proc, allProcesses, sockets(), pipes(), unixSockets(), &pt) },
 		func() { u.networkConnectionsForPaging(proc, allProcesses, sockets(), &pt) },
 	}
 
