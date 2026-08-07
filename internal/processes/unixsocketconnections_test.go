@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/walles/ftop/internal/assert"
@@ -52,6 +51,61 @@ func TestUnixSocketConnections_server(t *testing.T) {
 		1: {
 			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
 			{Fd: "4", Device: "0x2222", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "curl", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionIncoming,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// The same client and server as reported on Linux, where a netlink peer edge is
+// symmetric: both ends name each other, so the naming says nothing about who
+// dialed and the arrow comes off the paths instead.
+func TestUnixSocketConnections_linuxClient(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222"}},
+		1: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionOutgoing,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// That same Linux listing from the server's side, which is one connection and not
+// two however many ends of it name each other.
+func TestUnixSocketConnections_linuxServer(t *testing.T) {
+	me := &Process{Pid: 1, Cmdline: "dockerd"}
+	client := &Process{Pid: 42, Cmdline: "curl"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222"}},
+		1: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
 		},
 	}
 
@@ -397,6 +451,37 @@ func TestUnixSocketConnections_selfConnection(t *testing.T) {
 	})
 }
 
+// The same self connection as reported on Linux, where the peer edge is symmetric
+// and so finds it twice over from either end.
+//
+// Which is what makes the direction of a self connection unknown here: the two
+// notes disagree about whose end carries the path, so both of them end up
+// carrying one. The answer has to be the same whichever order they arrive in,
+// map iteration order being what decides it.
+func TestUnixSocketConnections_linuxSelfConnection(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+			{Fd: "5", Device: "0x3333", PeerDevice: "0x2222"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
 // lsof runs after the process listing, so a peer can be a process we have no
 // name for. Its PID is still worth showing.
 func TestUnixSocketConnections_namelessPeer(t *testing.T) {
@@ -431,19 +516,12 @@ func TestUnixSocketConnections_noUnixSocketsAtAll(t *testing.T) {
 	assert.SlicesEqual(t, connections, []Connection(nil))
 }
 
-// The real lsof should tell us enough about a real connected pair to match it.
+// A real listing should tell us enough about a real connected pair to match it,
+// on either platform.
 //
 // Both ends are held by this very process, so the connection this finds is one
 // to ourselves, over the path we made it on.
-//
-// macOS only, for the reason TestGetUnixSocketsByPid() gives: Linux lsof reports
-// no peer for a unix socket, so there is nothing here to match on until the
-// netlink collector lands.
 func TestUnixSocketConnections_realUnixSocket(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("lsof only reports a unix socket's peer on macOS")
-	}
-
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof not available: ", err)
 	}

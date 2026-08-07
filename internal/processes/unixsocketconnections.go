@@ -14,10 +14,7 @@ import "cmp"
 // held by a process we aren't allowed to inspect, 106 of 489 named peers on a
 // quiet non-root laptop being invisible that way, and a socket whose peer is gone
 // looks no different. A listening socket nobody has dialed is left out for the
-// same reason: nobody names it, so it is no connection.
-//
-// Nothing here comes back for a listing collected on Linux, where lsof reports no
-// peer for a unix socket at all. See applyUnixSocketName().
+// same reason: it has no peer, so it is no connection.
 //
 // Every connection comes back with Protocol ProtocolUnix and Port 0, a unix
 // socket having no port, and with the Path it was made over where there is one.
@@ -60,11 +57,15 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 	// entry instead of making two lines of it.
 	matches := map[string]unixSocketMatch{}
 
-	// The connections we dialed ourselves. Our socket names the one at the other
-	// end, so finding it is an index lookup.
+	// The connections a socket of ours names the other end of, which is an index
+	// lookup each. On macOS that is the ones we dialed and on Linux it is all of
+	// them, the netlink peer edge being symmetric — either way the direction comes
+	// from the paths rather than from which loop found it.
 	for _, ourSocket := range ourSockets {
 		if ourSocket.PeerDevice == "" {
-			// Either a socket carrying a path instead, or one whose peer is gone
+			// Nothing at the other end that we can name: a listener, a socket whose
+			// peer is gone, a peer we aren't allowed to see, or on macOS one lsof
+			// named by its path rather than by a peer.
 			continue
 		}
 
@@ -75,20 +76,21 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 			continue
 		}
 
-		noteUnixSocketMatch(matches, ourSocket, theirs, weNamedThem)
+		noteUnixSocketMatch(matches, ourSocket, theirs)
 	}
 
-	// The connections somebody else dialed. No socket of ours names those, so
-	// finding them means scanning the whole listing for a socket naming one of
-	// ours. A socket naming nobody names none of ours either, an empty peer being
-	// a device nothing is indexed under.
+	// The connections named the other way around, which no socket of ours points
+	// at: finding those means scanning the whole listing for a socket naming one of
+	// ours. On macOS that is the connections somebody else dialed, and on Linux it
+	// is the same set the loop above found. A socket naming nobody names none of
+	// ours either, an empty peer being a device nothing is indexed under.
 	for _, theirs := range socketsByDevice {
 		ourSocket, isOurs := ourSocketsByDevice[theirs.socket.PeerDevice]
 		if !isOurs {
 			continue
 		}
 
-		noteUnixSocketMatch(matches, ourSocket, theirs, theyNamedUs)
+		noteUnixSocketMatch(matches, ourSocket, theirs)
 	}
 
 	// How many connections each line stands for. Two connections to one peer over
@@ -99,7 +101,11 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 			Peer:      Peer{Name: names[match.peerPid], Pid: match.peerPid},
 			Protocol:  ProtocolUnix,
 			Direction: unixSocketDirection(match),
-			Path:      match.path,
+
+			// At most one end of a connection carries the path, that being the
+			// listening socket or one accepted on it, so whichever end has one has
+			// the connection's.
+			Path: cmp.Or(match.ourPath, match.theirPath),
 		}]++
 	}
 
@@ -114,29 +120,22 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 	return connections
 }
 
-// Which way round a match was found, which is what says who dialed whom; see
-// unixSocketDirection().
-type unixSocketNaming int
-
-const (
-	weNamedThem unixSocketNaming = iota
-	theyNamedUs
-)
-
 // One unix socket connection we hold an end of, as far as the matching has got
 // with it.
 //
-// Both naming flags are set for a connection found both ways around, which is
-// what makes its direction unknown; see unixSocketDirection().
+// The two paths are what the direction is read off, so they are kept apart rather
+// than collapsed into the one path a connection renders with; see
+// unixSocketDirection().
 type unixSocketMatch struct {
 	// The lowest numbered PID holding the socket at the other end
 	peerPid int
 
-	// The path the connection was made over, empty for a socketpair(2)
-	path string
+	// The path our end of the connection is bound to, empty for the end that
+	// dialed and for a socketpair(2)
+	ourPath string
 
-	oursNamedTheirs bool
-	theirsNamedOurs bool
+	// The same for the socket at the other end
+	theirPath string
 }
 
 // A unix socket together with the lowest numbered PID holding it, which is who a
@@ -151,14 +150,13 @@ type unixSocketHolder struct {
 // whatever the same connection was already found to be.
 //
 // One connection can be noted several times over: from either end where both ends
-// name each other, and once per end where both ends are ours. Every field here
-// has to come out the same whichever order those arrive in, map iteration order
-// being what decides it.
+// name each other, which is every connected pair on Linux, and once per end where
+// both ends are ours. Every field here has to come out the same whichever order
+// those arrive in, map iteration order being what decides it.
 func noteUnixSocketMatch(
 	matches map[string]unixSocketMatch,
 	ours UnixSocket,
 	theirs unixSocketHolder,
-	naming unixSocketNaming,
 ) {
 	identity := unixSocketConnectionIdentity(ours, theirs.socket)
 
@@ -170,50 +168,60 @@ func noteUnixSocketMatch(
 		match.peerPid = theirs.pid
 	}
 
-	// At most one end of a connection carries the path, that being the listening
-	// socket or one accepted on it, so whichever end has one has the connection's.
-	match.path = cmp.Or(match.path, ours.Path, theirs.socket.Path)
-
-	match.oursNamedTheirs = match.oursNamedTheirs || naming == weNamedThem
-	match.theirsNamedOurs = match.theirsNamedOurs || naming == theyNamedUs
+	// Both paths kept, and both filled in for a connection whose two ends are
+	// ours: noting that one from either end swaps which socket is "ours", so this
+	// is where the direction of a self connection becomes unknown.
+	match.ourPath = cmp.Or(match.ourPath, ours.Path)
+	match.theirPath = cmp.Or(match.theirPath, theirs.socket.Path)
 
 	matches[identity] = match
 }
 
-// Which end of a connection dialed the other: the one that names the other did.
+// Which end of a connection dialed the other: the end without a path did.
 //
 // That is the whole of the rule, and unlike the socket one in directionAndPort()
-// it needs nothing but the two sockets themselves — no listening ports to
-// compare against, and no access modes of the kind pipeDirection() reads. There
-// would be nothing to read there anyway: lsof reports the mode "u" for every
-// unix socket record and says nothing by it.
+// it needs nothing but the two sockets themselves — no listening ports to compare
+// against, and no access modes of the kind pipeDirection() reads. There would be
+// nothing to read there anyway: lsof reports the mode "u" for every unix socket
+// record and says nothing by it.
 //
-// A client's socket names the socket it was accepted on, and no socket of a
-// server's names anybody.
+// A path is what a socket is dialed by, so a listener and every socket accepted
+// on one carry it while whoever dialed carries nothing. Both platforms agree,
+// which is why this needs no GOOS switch — and it is the only fact about a unix
+// socket that they do agree on, macOS having the client name its peer where a
+// netlink peer edge makes both ends of every Linux pair name each other.
 //
-// The evidence for that, measured on a quiet macOS laptop, non-root, on a later
-// run than the one lsofUnixSocketParser cites: of 577 unix sockets, 489 named a
-// peer and 383 of those named one we could see. All 383 came in one of exactly
-// two shapes — 354 records in 164 mutual pairs, none of them carrying a path,
-// which is socketpair(2), and 29 naming a socket that does carry a path and never
-// gets named back, which is a client naming its server. Nothing in between.
+// The evidence on macOS, measured on a quiet laptop, non-root, on a later run
+// than the one lsofUnixSocketParser cites: of 577 unix sockets, 489 named a peer
+// and 383 of those named one we could see. All 383 came in one of exactly two
+// shapes — 354 records in 164 mutual pairs, none of them carrying a path, which
+// is socketpair(2), and 29 naming a socket that does carry a path and never gets
+// named back, which is a client naming its server. Nothing in between. On Linux,
+// verified against two real pairs and a socketpair(2) in a container: the client's
+// end came back from the netlink dump with no name while the accepted end carried
+// the path, and neither end of the socketpair(2) had one.
 //
-// DirectionUnknown for a connection found both ways around, which happens two
-// ways and neither leaves an arrow to draw. Each end naming the other is a
-// socketpair(2), dialed by nobody, its two ends coming into being connected. Both
-// ends being ours is a process that dialed a socket of its own, which makes us
-// the dialer and the dialed at once.
+// DirectionUnknown when the two ends have a path each or neither has one, which
+// happens two ways and neither leaves an arrow to draw. Neither end having one is
+// a socketpair(2), dialed by nobody, its two ends coming into being connected.
+// Both ends having one is a process that dialed a socket of its own: noting that
+// connection from either end fills both paths in with the accepted end's, which
+// makes us the dialer and the dialed at once.
 //
 // Never a backwards arrow, whatever we cannot see: both ends have to be in the
 // listing for there to be a match at all, so a connection with an invisible end
 // gets no line rather than a guessed direction. directionAndPort() has no such
 // guarantee, inferring from a listen set that may be missing the listener.
 func unixSocketDirection(match unixSocketMatch) Direction {
-	if match.oursNamedTheirs && match.theirsNamedOurs {
+	weDialed := match.ourPath == ""
+	theyDialed := match.theirPath == ""
+
+	if weDialed == theyDialed {
+		// Both of us, or neither, and no arrow to draw either way
 		return DirectionUnknown
 	}
 
-	if match.oursNamedTheirs {
+	if weDialed {
 		return DirectionOutgoing
 	}
 
