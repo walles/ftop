@@ -38,21 +38,37 @@ two platforms need different amounts of work — macOS reuses the pipe machinery
 Linux needs a data source neither lsof nor `/proc` provides. macOS goes first and
 lands on `main` on its own. See "Pipes and unix domain sockets".
 
+## Choosing a data source
+
+lsof is a means, not the design. Pick the source per kind of IPC and per
+platform, and let them differ: lsof where it is the best fit, netlink where it
+carries an edge lsof cannot see, `proc_pidfdinfo` where the kernel knows
+something lsof drops. Two of the plans below already leave lsof for exactly
+those reasons.
+
+**Fork count is not a design constraint.** Don't fork inside a loop — that is
+the shape that scales with the machine. Beyond that, fork as many times as the
+job needs, and fix it if a measurement says it hurts. Where the text below
+argues from "one fewer fork", read it as a tiebreaker between otherwise equal
+options, never as a reason to reuse a listing that fits the job worse.
+
 ## Pipes and unix domain sockets
 
-There are four kinds of IPC lsof can report: pipes (`PIPE` on macOS, `FIFO` on
-Linux), unix domain sockets (`unix`), and network sockets (`IPv4`/`IPv6`) — where
-"local" vs "remote" is not a separate detection path, just whether a peer was
-found. Network sockets came first because their peer matching is byte-identical
+There are four kinds of IPC this page covers: pipes (`PIPE` on macOS, `FIFO` on
+Linux), unix domain sockets (`unix`), and network sockets (`IPv4`/`IPv6`) — the
+spellings being lsof's, which is today's source for all of them but not what
+defines the list. "Local" vs "remote" is not a separate detection path, just
+whether a peer was found. Network sockets came first because their peer matching is byte-identical
 on Linux and macOS. Unix domain sockets are the one kind still missing; what
 follows is how pipes work, and then the plan for those.
 
 Pipes needed lsof **without** an `-i` filter, there being no filter flag for
 pipes: the 0.27 s / 1.24 MB invocation in the table below, against 0.13 s / 33 KB
-for the socket one, and a third fork unless the sections start sharing. Unix
-domain sockets will not force that on us again — `-U` selects them — though they
-could ride the pipe listing rather than fork a fourth time. See "Deferred" for
-what sharing one fork would cost.
+for the socket one, and a third fork. Unix domain sockets will not force that on
+us again — `-U` selects them — so give them their own invocation rather than
+riding the pipe listing: a fourth fork is not a cost worth coupling two sections'
+failure modes to avoid. Sharing one listing is rejected at the bottom, on those
+terms.
 
 ### Pipes
 
@@ -153,22 +169,33 @@ ino=381   state=1  peer=9391  name="/tmp/probe.sock"
 ino=369   state=10 peer=0     name="/tmp/probe.sock"    <- listener, no peer
 ```
 
-Four things that set the budget:
+Why netlink, in the order that decides it:
 
-- **No new dependency and no fourth fork.** `golang.org/x/sys/unix` is already
-  required and `syscall.ParseNetlinkMessage` is stdlib, so this is a socket and a
-  parse rather than another `exec`. The "sharing one lsof invocation" bullet under
-  "Deferred" is untouched by it.
+- **Nothing else has the peer.** lsof and `/proc/net/unix` both report a socket's
+  own kernel address and stop there, and `ss -x` gets its peer column from this
+  same dump. Netlink is not a cheaper way to the same data, it is the only way to
+  the edge.
+- **The pairing is exact and symmetric**, so joining is a lookup with no
+  tiebreaking — none of the lowest-PID-wins that fork inheritance forces on TCP.
 - **It works non-root**, where lsof degrades: re-running the dump as `nobody`
   gave byte-identical output, peers included. That was a container, so how it
   behaves against another user's sockets on a real box is reasoning rather than a
   measurement.
-- **The pairing is exact and symmetric**, so joining is a lookup with no
-  tiebreaking — none of the lowest-PID-wins that fork inheritance forces on TCP.
 - **Netlink carries no PID.** `ss -p` gets those by walking `/proc/*/fd` itself.
   So lsof stays the pid/fd/inode source and netlink supplies only the peer edge,
   keyed on inode. Inodes matched across `/proc/net/unix`, `ss -x`, `lsof -U` and
   the netlink dump in that run.
+
+Cheap on top of that, but not why: `golang.org/x/sys/unix` is already required
+and `syscall.ParseNetlinkMessage` is stdlib, so this is a socket and a parse
+rather than another `exec`.
+
+**Why lsof and not `/proc/*/fd` for the pid/fd/inode side.** Reading the fd
+symlinks ourselves gives the same join — they spell out `socket:[378]` — with no
+fork at all. lsof keeps the job because the record shape and the parser are then
+shared with macOS, which has no `/proc` to walk; a Linux-only collector would be
+a second code path for the half of the data both platforms already agree on.
+Revisit if lsof turns out to be the slow part, not to save the fork.
 
 **The platform asymmetry to design for:** on Linux the netlink name gives an
 accepted socket its path, while on macOS a record has a peer or a path and never
@@ -445,15 +472,17 @@ which is the one gap specific enough to earn a line.
 - `(ssh)` service-name annotations next to port numbers. Cosmetic, needs
   `/etc/services` parsing, no model change.
 - A line cap for processes with hundreds of *distinct* peers.
-- **Sharing one lsof invocation across sections.** There are three forks now, and
-  the pipe one already subsumes the other two: `lsof -n -w -F pfatdDin0` lists
-  every open file of every process, so the cwd listing in `cwds.go` and the `-i`
-  one in `sockets.go` both ask for subsets of it with different `-F` fields.
-  Merging means one call with the union of the fields and three parsers over it,
-  and it trades away what "Data collection" above wants kept: `-i` scales with
-  socket count where the unfiltered listing scales with every fd on the machine,
-  and the sections stop degrading independently. So this is a measurement to make
-  on a busy box, not a cleanup to do.
+- **Sharing one lsof invocation across sections — rejected, not pending.** There
+  are three forks now, and the pipe one already subsumes the other two:
+  `lsof -n -w -F pfatdDin0` lists every open file of every process, so the cwd
+  listing in `cwds.go` and the `-i` one in `sockets.go` both ask for subsets of
+  it with different `-F` fields. Merging means one call with the union of the
+  fields and three parsers over it. Saving a fork is not a reason to want that —
+  see "Choosing a data source" — and it trades away what "Data collection" wants
+  kept: `-i` scales with socket count where the unfiltered listing scales with
+  every fd on the machine, and the sections stop degrading independently. Only a
+  measurement on a busy box, showing the forks themselves are what hurts, would
+  reopen it.
 - **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
   for a remote host is its address, and then render as a host name — so with
   several remote peers the visible order isn't alphabetical by what the reader
