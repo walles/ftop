@@ -33,10 +33,11 @@ git rather than here. Two behaviours to know before reading a page and concludin
 it is broken: a bound but unconnected UDP socket gets no line, and an anonymous
 pipe on macOS gets no arrow. Both are under "Deferred".
 
-**Unix domain sockets: not started.** Hardest of the three, and the one kind whose
-two platforms need different amounts of work — macOS reuses the pipe machinery,
-Linux needs a data source neither lsof nor `/proc` provides. macOS goes first and
-lands on `main` on its own. See "Pipes and unix domain sockets".
+**Unix domain sockets: macOS in progress** on branch `johan/unix-sockets`. The
+model, the page wiring and the whole test suite are committed and failing;
+`GetUnixSocketsByPid()` and `UnixSocketConnections()` are stubs marked `FIXME`.
+Linux needs a data source neither lsof nor `/proc` provides and is a slice of its
+own. See "Pipes and unix domain sockets".
 
 ## Choosing a data source
 
@@ -116,25 +117,77 @@ container.
 
 #### macOS: the pipe scheme, with two differences
 
-Same `d0x...` device against `n->0x...` peer scheme, plus a path for listeners.
-Measured on a quiet laptop, non-root, `lsof -n -P -w -U -F pfnid0`, 566 records:
-481 carry a peer, 83 carry a path, one is `->(none)`, and **no record carries
-both** a path and a peer.
+Same `d0x...` device against `n->0x...` peer scheme, plus a path. Measured on a
+quiet laptop, non-root, `lsof -n -w -U -F pfnd0`, **577 records: 489 carry a
+peer, 85 carry a path, 3 are `->(none)`, and none carries both.** `-U` yields
+nothing but `unix` records, so unlike the pipe parser this needs no type field to
+recognize its own. The access mode is `u` for every record and says nothing.
 
-**Compare peers numerically, not as strings.** lsof zero-pads the device and not
-the peer — `d0x41437afcb244b221` against `n->0x28cfa77e3695bc2`, 16 hex digits
-against 15.
+Two claims in earlier drafts of this section were **wrong**, and both are
+corrected below rather than deleted, because each one would send an implementer
+the wrong way.
 
-**The pair is not mutual, the way a pipe's is.** 378 of the 481 peers resolve to
-a device in the listing. 348 of those point back; all **30** that don't resolve
-to a *listening* socket with a path. So a client's peer is either the server's
-accepted socket or the server's listener, and `arePipeEnds()`'s assumption of a
-mutual pair does not carry over. One listener had 58 clients naming it, which is
-the existing aggregation case rather than a new one.
+**Compare peers as strings, the way `arePipeEnds()` already does.** The earlier
+claim was that lsof zero-pads the device and not the peer, citing
+`d0x41437afcb244b221` against `n->0x28cfa77e3695bc2`. Those are just two numbers
+of different magnitudes. lsof pads neither: 94.7% of distinct devices and 94.8%
+of distinct peers are 16 hex digits, the same distribution, and **0 of 489 peers
+resolve numerically but not textually.**
 
-The remaining 103 peers are held by processes a non-root lsof cannot see. They
-match nothing and get no line, which is how a pipe whose peer is gone already
-degrades.
+**A resolved peer comes in exactly two shapes**, and which one it is settles the
+direction. 383 of the 489 peers resolve to a socket in the listing:
+
+- **354 records are mutual pairs carrying no path** — `socketpair(2)`. 164
+  distinct pairs.
+- **29 name a socket that carries a path**, and that socket never names back:
+  a client naming its server. Whether it names the listener or the socket it was
+  accepted on makes no difference, both carrying the same path.
+
+The remaining 106 are held by processes a non-root lsof cannot see. They match
+nothing and get no line, which is how a pipe whose peer is gone already degrades.
+
+So: **the end that names the other is the one that dialed.** That is the
+direction rule, and it needs neither access modes nor an `isTheReportingEnd()`
+the way the pipe one does. A mutual pair means both dialed or neither did, so it
+gets `<?>`.
+
+**The accepted socket carries the path**, which the other wrong claim denied —
+see the correction under "Linux" below, where it was stated as a platform
+asymmetry. A `net.Listen`/`net.Dial` probe, edited down to the columns that
+matter:
+
+```
+Python 78879 3u unix 0xe396ab59862314e8 /tmp/ftop-probe.sock   <- listener
+Python 78879 4u unix 0xd82e0ac85b8e6a97 /tmp/ftop-probe.sock   <- accepted
+Python 78881 3u unix 0x628a5982efaac095 ->0xd82e0ac85b8e6a97   <- client
+```
+
+So a path-based connection can be labelled with its path from either side: the
+server's own record has it, and the client's peer points at a record that has it.
+It goes in the description column, where a network socket's port goes, and it is
+the one thing on the line saying which of a server's several services this
+connection reaches. A `socketpair(2)` has no path and renders as a bare `unix`.
+
+**A device can be held by several PIDs**, fork inheritance as with TCP, so lowest
+PID wins. Two of 577 here, and one of each kind: the `forkexecd.sock` listener
+held by 5 processes, and a *client* socket held by 2. Both matching directions
+need the rule — finding the process at the other end of a socket we named is an
+index lookup, while finding the processes that named a socket of ours is a scan
+of the listing, and it is the scan that will otherwise hand out one line per
+holder.
+
+**A path is not always absolute.** One of the 85 is `docker-desktop-build.sock`,
+with no leading slash, and 4 contain spaces. So a name is a peer when it starts
+with `->` and a path in every other case; testing for a leading slash silently
+drops the relative one.
+
+**Treat a non-zero exit the way `sockets.go` does**, via `util.IsExitStatus()`,
+rather than the way `pipes.go` does. `-U` is a filter like `-i`, so a machine
+holding no unix socket at all is the same "nothing to show is the true answer"
+case that "Data collection" describes below. Unverified: whether lsof actually
+counts `-U` as a search item — there is no reachable machine with zero unix
+sockets to try it on, so this is the cheap defensive choice rather than a
+measurement.
 
 #### Linux: a netlink collector, not `ss`
 
@@ -197,10 +250,12 @@ shared with macOS, which has no `/proc` to walk; a Linux-only collector would be
 a second code path for the half of the data both platforms already agree on.
 Revisit if lsof turns out to be the slow part, not to save the fork.
 
-**The platform asymmetry to design for:** on Linux the netlink name gives an
-accepted socket its path, while on macOS a record has a peer or a path and never
-both. So the path is optional on a connected unix socket, and macOS is the
-platform that leaves it empty.
+**The platform asymmetry to design for: none, as it turned out.** This used to
+say that the netlink name gives an accepted socket its path on Linux while macOS
+leaves it empty, and that the path is therefore optional with macOS the platform
+doing without. The macOS half is wrong — measured above, an accepted socket there
+is named by its path too. Both platforms fill the path in the same way, and what
+leaves it empty is a `socketpair(2)`, on either of them.
 
 ## Data collection
 
@@ -386,7 +441,10 @@ page should surface, and showing both sides would report `(×2)` for one connect
 
 ## Aggregation
 
-Aggregate by (protocol, direction, peer, port), carrying a `Count`.
+Aggregate by (protocol, direction, peer, port, path), carrying a `Count`. The
+path is in the key because two unix socket connections to one peer over two
+different paths reach two different services of it, and one line counting two
+would claim they were the same thing.
 
 **Not optional.** Measured on a quiet laptop, non-root: one process had **252
 connections, all to the same peer endpoint**. px renders that as 252 identical
@@ -442,8 +500,16 @@ which is the one gap specific enough to earn a line.
 
 ## Deferred, deliberately
 
-- **Unix domain sockets**, scoped above. The last of the four kinds, and the only
-  thing keeping this document alive.
+- **Unix domain sockets on Linux**, scoped above. The last thing keeping this
+  document alive, macOS being in progress.
+- **Listening unix sockets get no line.** A listener has a path and no peer, and
+  the partition rule sends a peerless connection to Network Connections — which
+  would file `/tmp/foo.sock` under "Network". Wrong section, and an exception to a
+  settled rule was not worth carving out for it in the macOS slice. The cost is
+  small: every client actually using the listener already gets a line, so what
+  goes missing is only "this process offers a socket nobody is using". Reopen it
+  along with whatever eventually decides where a local endpoint that isn't a
+  process belongs.
 - **Bound but unconnected UDP sockets get no line.** They are dropped along with
   the bound TCP sockets that never carried anything. UDP has no listening state,
   so lsof gives us no way to tell a server's bound socket from the ephemeral
