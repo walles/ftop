@@ -332,7 +332,6 @@ covering both arrows, `<?>`, counts and the listening row. One of them, so that
 this section is readable without opening them:
 
 ```
-<Detected: TCP, UDP, pipes. Not detected: unix sockets>
 grep(1234) --> picked(42)                 pipe
                picked(42) --> sort(5678)  pipe
                picked(42) --> sshd(1)     tcp 22
@@ -343,15 +342,18 @@ which is the uncommon shape — see "Deferred" for why a local UDP server lands 
 Network Connections under an address instead.
 
 The arrow direction and the never-an-address rule for the description column are
-both stated where they are implemented, in `pageconnections.go`. The two rules
-that live nowhere else:
+both stated where they are implemented, in `pageconnections.go`. The one rule that
+lives nowhere else:
 
 - **Partition on `Peer.Pid != 0`** — IPC section for process peers, Network
   Connections for remote hosts and listeners. A listening socket has no peer at
   all, so it lands in Network, directly above the incoming connections it
   explains.
-- The caveat line is **IPC section only** — Network Connections has nothing
-  missing. Grow it as kinds land and delete it when nothing is missing.
+
+**No line naming the kinds this section covers**, unix sockets included.
+`<No connections found>` is true of them too — we found none, having never looked —
+and every tool has limits it doesn't recite. A listing that fails still says so,
+which is the one gap specific enough to earn a line.
 
 ## Deferred, deliberately
 

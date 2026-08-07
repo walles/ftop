@@ -54,7 +54,6 @@ func TestIpcConnectionsForPagingListsProcessPeers(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"curl(999) --> picked(42)                   tcp 8080\n" +
 		"              picked(42) --> sshd(1)       tcp 22\n" +
 		"              picked(42) <?> dnsmasq(777)  udp 53\n"
@@ -102,7 +101,6 @@ func TestIpcConnectionsForPagingListsPipes(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, &pt)
 
 	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
 		"grep(1234) --> picked(42)                 pipe\n" +
 		"               picked(42) --> sort(5678)  pipe\n" +
 		"               picked(42) --> sshd(1)     tcp 22\n"
@@ -126,9 +124,7 @@ func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, &pt)
 
-	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"picked(42) <?> sort(5678)  pipe\n"
+	expected := "picked(42) <?> sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -155,9 +151,7 @@ func TestIpcConnectionsForPagingSeveralPipesToOnePeer(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, &pt)
 
-	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"picked(42) --> sort(5678)  pipe (×2)\n"
+	expected := "picked(42) --> sort(5678)  pipe (×2)\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -200,9 +194,7 @@ func TestIpcConnectionsForPagingNamelessPeer(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, noPipes, &pt)
 
-	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"PID 999 --> picked(42)  tcp 8080\n"
+	expected := "PID 999 --> picked(42)  tcp 8080\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -223,14 +215,12 @@ func TestIpcConnectionsForPagingOutgoingOnly(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, &pt)
 
-	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"picked(42) --> sshd(1)  tcp 22\n"
+	expected := "picked(42) --> sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
-// The caveat has to be above the connections: it changes how they are read, and
-// this page goes into a pager where a reader may never reach the bottom.
+// A process talking to nobody gets a line saying so, rather than a section that
+// looks unfinished.
 func TestIpcConnectionsForPagingNoConnections(t *testing.T) {
 	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
 
@@ -240,14 +230,12 @@ func TestIpcConnectionsForPagingNoConnections(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, noSockets, noPipes, &pt)
 
-	expected := "" +
-		"<Detected: TCP, UDP, pipes. Not detected: unix sockets>\n" +
-		"<No connections found>\n"
+	expected := "<No connections found>\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
-// With no listing at all there is nothing for the caveat to be a caveat about,
-// so the errors are all there is to say.
+// Having looked nowhere, "no connections found" would be a lie, so the errors are
+// all there is to say.
 func TestIpcConnectionsForPagingShowsErrors(t *testing.T) {
 	sockets := socketListing{err: errors.New("boom")}
 	pipes := pipeListing{err: errors.New("bang")}
@@ -267,8 +255,7 @@ func TestIpcConnectionsForPagingShowsErrors(t *testing.T) {
 }
 
 // Two lsof invocations mean either one can fail on its own. What did come back
-// is still worth showing, and the caveat says what this listing is missing on
-// top of what isn't implemented at all.
+// is still worth showing, below an error naming what didn't.
 func TestIpcConnectionsForPagingPipeListingFailed(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: {{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:22"}},
@@ -287,7 +274,6 @@ func TestIpcConnectionsForPagingPipeListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list pipes: boom>\n" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
 		"picked(42) --> sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -307,7 +293,6 @@ func TestIpcConnectionsForPagingPipeListingFailedAndNoSockets(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list pipes: boom>\n" +
-		"<Detected: TCP, UDP. Not detected: pipes, unix sockets>\n" +
 		"<No connections found>\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
@@ -330,7 +315,6 @@ func TestIpcConnectionsForPagingSocketListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list sockets: boom>\n" +
-		"<Detected: pipes. Not detected: TCP, UDP, unix sockets>\n" +
 		"picked(42) --> sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }

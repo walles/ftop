@@ -133,8 +133,8 @@ func TestNetworkConnectionsForPagingResolvesRemotePeersOnly(t *testing.T) {
 	assert.SlicesEqual(t, asked(), []string{"1.2.3.4"})
 }
 
-// Nothing is missing from this section, so it has no caveat line to put an empty
-// message under.
+// A process talking to nobody gets a line saying so, rather than a section that
+// looks unfinished.
 func TestNetworkConnectionsForPagingNoConnections(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{}}
 	fakeDns(t, nil)
