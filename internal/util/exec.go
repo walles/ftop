@@ -2,11 +2,25 @@ package util
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 )
+
+// True for an error from Exec() meaning the command ran and exited non-zero
+// under its own steam. False for one a signal took down, and for one that never
+// started.
+//
+// Every line the command did print was handed to the callback before that error
+// came back, so this is what tells a caller its partial result is worth keeping.
+// Some commands, lsof above all, exit non-zero over things they still report
+// around.
+func IsExitStatus(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.Exited()
+}
 
 // Exec command line using the default locale and invokes the callback for each
 // line.
@@ -66,7 +80,8 @@ func execWithEnv(commandline []string, env []string, perLineCallback func(line s
 
 	if err := cmd.Wait(); err != nil {
 		if readErr == nil {
-			readErr = fmt.Errorf("%s command failed: %v", commandline[0], err)
+			// Wrapped, so that IsExitStatus() can see what kind of failure it was
+			readErr = fmt.Errorf("%s command failed: %w", commandline[0], err)
 		}
 	}
 

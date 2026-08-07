@@ -121,7 +121,7 @@ a new matching function.
 ## Data collection
 
 ```
-lsof -n -P -w -iTCP -iUDP -F pfnPT0
+lsof -n -P -w -i -F pfnPT0
 ```
 
 Measured on a macOS laptop, non-root:
@@ -138,12 +138,40 @@ have since added a third. Sharing one is still rejected; the cost argument is in
 `GetSocketsByPid()` and the independent-degradation one on `socketListing`, while
 "Deferred" carries the current terms, which the pipe fork changed.
 
-Two measurements behind the flags `sockets.go` documents. **`-iTCP -iUDP`** was
-verified to yield exactly `PTCP` and `PUDP` on both platforms, and Linux 4.99.4
-reports no ICMP sockets under a bare `-i` anyway, so narrowing away macOS's
-`PICMP` records is what that buys. **`-Ts` does not narrow the state field down**,
-also verified — the queue sizes come along regardless, which is why the parser
-dispatches on the `ST=` value prefix.
+Two measurements behind the flags `sockets.go` documents. **A plain `-i`**, which
+is a reversal: the narrower `-iTCP -iUDP` came first, for excluding the `PICMP`
+and `PICMPV6` records macOS adds under a bare `-i`, and it cost more than it
+bought. Each `-i` is a *search item*, and lsof exits 1 for every item that located
+nothing however well the others did, so the pair failed on any machine holding no
+socket of one kind — a container with an empty `/proc/net/tcp` failed it always.
+With one UDP socket up and no TCP, lsof 4.99.4 prints the socket and still exits
+1, which `-V` spells out:
+
+```
+bash 4259 root 3u IPv4 28300 0t0 UDP 127.0.0.1:44892->127.0.0.1:9999
+lsof: Internet address not located: TCP
+```
+
+One item makes a non-zero exit mean "no internet sockets at all", and the ICMP
+records get dropped in `parseLine()` instead. An fd selection like `-d cwd` is not
+a search item and never exited this way, which is why `cwds.go` and the pipe fork
+never saw it. **`-Ts` does not narrow the state field down**, also verified — the
+queue sizes come along regardless, which is why the parser dispatches on the `ST=`
+value prefix.
+
+Partial lsof failure is business as usual: use whatever came back, log the rest.
+See `cwds.go` for the established handling.
+
+**An lsof that ran and exited non-zero is not a failure**, which `sockets.go`
+takes further than that established handling. `cwds.go` gives up when a non-zero
+exit came with nothing to show, and for sockets that is exactly the idle machine:
+nothing to show is the true answer there, and reporting it as
+`<Unable to list sockets: ...>` in both page sections is how an empty container
+used to render. So the exit status alone no longer fails the listing —
+`util.IsExitStatus()` picks that case out, and a command that couldn't be
+started, that a signal took down, or whose output wouldn't parse keeps the
+established handling. An lsof that isn't installed fails to start, so that one
+still says so.
 
 ## Verified on Linux
 
@@ -235,12 +263,16 @@ The pipeline gets its arrows, `tail(7612) --> sort(7613)` and
 pipeline that reads `<?>` on a laptop, see "Deferred" on taking that direction from
 the kernel instead.
 
-**Both socket sections degrade on their own** *(run 4)*, which is the independence
-the two-listing decision was for, observed for the first time. A container with no
-internet files at all makes `lsof -iTCP -iUDP` exit 1 with nothing on stdout, so
-the socket listing fails outright while the unfiltered pipe listing succeeds: the
-IPC section renders `<Unable to list sockets: ...>` and then its pipe lines below
-it, and Network Connections renders the error alone.
+**Both socket sections degraded on their own** *(run 4)*, which is the independence
+the two-listing decision was for, observed for the only time so far. A container
+with no TCP socket made `lsof -iTCP -iUDP` exit 1, so the socket listing failed
+outright while the unfiltered pipe listing succeeded: the IPC section rendered
+`<Unable to list sockets: ...>` and then its pipe lines below it, and Network
+Connections rendered the error alone.
+
+That trigger is gone — an empty machine is no longer a failed listing, see "Data
+collection" — and it was the only one anybody had found, so the independence is
+back to being designed-for rather than demonstrated.
 
 Still unverified: behaviour on a busy multi-user box, which is the environment
 this is ultimately for. Run 2 loaded the container up with sockets and open
@@ -367,14 +399,14 @@ that live nowhere else:
 - A line cap for processes with hundreds of *distinct* peers.
 - **Sharing one lsof invocation across sections.** There are three forks now, and
   the pipe one already subsumes the other two: `lsof -n -w -F pfatdDin0` lists
-  every open file of every process, so the cwd listing in `cwds.go` and the
-  `-iTCP -iUDP` one in `sockets.go` both ask for subsets of it with different `-F`
-  fields. Merging means one call with the union of the fields and three parsers
-  over it, and it trades away what "Data collection" above wants kept: `-i` scales
-  with socket count where the unfiltered listing scales with every fd on the
-  machine, and the sections stop degrading independently — which run 4 observed
-  them doing, the socket listing failing outright while pipes rendered. So this is
-  a measurement to make on a busy box, not a cleanup to do.
+  every open file of every process, so the cwd listing in `cwds.go` and the `-i`
+  one in `sockets.go` both ask for subsets of it with different `-F` fields.
+  Merging means one call with the union of the fields and three parsers over it,
+  and it trades away what "Data collection" above wants kept: `-i` scales with
+  socket count where the unfiltered listing scales with every fd on the machine,
+  and the sections stop degrading independently — which run 4 observed them doing,
+  though nothing triggers that any more. So this is a measurement to make on a
+  busy box, not a cleanup to do.
 - **Re-sorting remote peers by resolved name.** Rows sort on `Peer.Name`, which
   for a remote host is its address, and then render as a host name — so with
   several remote peers the visible order isn't alphabetical by what the reader
