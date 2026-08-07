@@ -162,7 +162,7 @@ lsof: Internet address not located: TCP
 One item makes a non-zero exit mean "no internet sockets at all". The two ICMP
 records are dropped in `parseLine()` instead, which is a few lines and no forks.
 An fd selection like `-d cwd` is not a search item and never exited this way,
-which is why `cwds.go` and `pipes.go` never saw it.
+which is why `cwds.go` never saw it.
 
 **`-Ts` does not narrow the state field down** — verified, the queue sizes come
 along anyway. Which is why the parser dispatches on the `ST=` value prefix.

@@ -2,6 +2,7 @@ package util
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,6 +30,20 @@ func (e *ExitError) Error() string {
 
 func (e *ExitError) Unwrap() error {
 	return e.err
+}
+
+// The error for a command that ran and then failed, err being what cmd.Wait()
+// returned.
+//
+// An ExitError for a command that exited under its own steam, a plain error for
+// one a signal took down.
+func waitError(commandName string, err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.Exited() {
+		return &ExitError{commandName: commandName, err: err}
+	}
+
+	return fmt.Errorf("%s command failed: %v", commandName, err)
 }
 
 // Exec command line using the default locale and invokes the callback for each
@@ -89,7 +104,7 @@ func execWithEnv(commandline []string, env []string, perLineCallback func(line s
 
 	if err := cmd.Wait(); err != nil {
 		if readErr == nil {
-			readErr = &ExitError{commandName: commandline[0], err: err}
+			readErr = waitError(commandline[0], err)
 		}
 	}
 

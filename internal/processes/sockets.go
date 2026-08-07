@@ -83,7 +83,7 @@ func GetSocketsByPid() (map[int][]Socket, error) {
 		return nil, err
 	}
 
-	log.Infof("Listing sockets partially failed, got %d processes' worth: %v",
+	log.Infof("Kept %d processes' worth of sockets despite: %v",
 		len(parser.socketsByPid), err)
 
 	return parser.socketsByPid, nil
