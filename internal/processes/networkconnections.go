@@ -50,6 +50,7 @@ const (
 	ProtocolTcp  Protocol = "tcp"
 	ProtocolUdp  Protocol = "udp"
 	ProtocolPipe Protocol = "pipe"
+	ProtocolUnix Protocol = "unix"
 )
 
 // Some number of connections between one process and one peer, all of them
@@ -66,6 +67,14 @@ type Connection struct {
 	// Zero for a connection carried by something that has no ports at all, a
 	// pipe being one, and then rendered as the bare protocol.
 	Port int
+
+	// The file system path a unix domain socket connection was made over, which
+	// is what a port is to a network one. Never set together with Port.
+	//
+	// Empty for every other protocol, and for a unix socket connection that was
+	// never made over a path at all: socketpair(2) gives out two connected
+	// sockets with no name anywhere on the file system.
+	Path string
 
 	// True for a port we accept connections on. Such a connection has no peer,
 	// and its Direction is DirectionIncoming for lack of anything better.
@@ -445,6 +454,10 @@ func splitEndpoint(endpoint string) (address string, port int) {
 // reaching the first three groups and UDP the only one reaching the last, which
 // made the blocks protocol-pure for free. Pipes reach both the incoming and the
 // outgoing group and ended that.
+//
+// The path is a tie breaker like the port is, and for the same reason: two unix
+// socket connections to one peer over two different paths are two lines, and
+// they should come out in the same order every time.
 func compareConnections(a Connection, b Connection) int {
 	return cmp.Or(
 		cmp.Compare(sortGroup(a), sortGroup(b)),
@@ -452,6 +465,7 @@ func compareConnections(a Connection, b Connection) int {
 		strings.Compare(a.Peer.Name, b.Peer.Name),
 		cmp.Compare(a.Peer.Pid, b.Peer.Pid),
 		cmp.Compare(a.Port, b.Port),
+		strings.Compare(a.Path, b.Path),
 	)
 }
 

@@ -15,13 +15,14 @@ func (u *Ui) ipcConnectionsForPaging(
 	allProcesses []*processes.Process,
 	sockets socketListing,
 	pipes pipeListing,
+	unixSockets unixSocketListing,
 	pt *pageText,
 ) {
 	const title = "Inter Process Communication"
 
 	pt.writeTitle(title)
 
-	// Two lsof invocations, so either one can fail while the other returns
+	// One lsof invocation each, so any of them can fail while the others return
 	// something worth showing.
 	if sockets.err != nil {
 		pt.writeLine("<Unable to list sockets: " + sockets.err.Error() + ">")
@@ -31,7 +32,11 @@ func (u *Ui) ipcConnectionsForPaging(
 		pt.writeLine("<Unable to list pipes: " + pipes.err.Error() + ">")
 	}
 
-	if sockets.err != nil && pipes.err != nil {
+	if unixSockets.err != nil {
+		pt.writeLine("<Unable to list unix sockets: " + unixSockets.err.Error() + ">")
+	}
+
+	if sockets.err != nil && pipes.err != nil && unixSockets.err != nil {
 		// Having looked nowhere, "no connections found" below would be a lie, so
 		// the errors are all there is to say.
 		return
@@ -50,10 +55,13 @@ func (u *Ui) ipcConnectionsForPaging(
 		ipcConnections = append(ipcConnections, connection)
 	}
 
-	// No such partitioning for pipes: a pipe is between processes by nature, so
-	// every one of these belongs here.
+	// No such partitioning for pipes and unix sockets: both are between processes
+	// by nature, so every one of these belongs here.
 	pipeConnections := processes.PipeConnections(currentProcess, allProcesses, pipes.byPid)
 	ipcConnections = append(ipcConnections, pipeConnections...)
+
+	unixSocketConnections := processes.UnixSocketConnections(currentProcess, allProcesses, unixSockets.byPid)
+	ipcConnections = append(ipcConnections, unixSocketConnections...)
 
 	// Two sorted lists appended is not a sorted list, and the sections' blocks
 	// are what the ordering is for.

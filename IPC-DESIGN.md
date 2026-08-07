@@ -10,7 +10,7 @@ door at `../px`.
 
 **Lifecycle:** this outlives the implemented slices, because the deferred work at
 the bottom depends on it. **Decided: it goes to `main` and stays there** until unix
-domain sockets are implemented, at which point it dies — and before deleting it,
+domain sockets work on Linux too, at which point it dies — and before deleting it,
 salvage the "Verified on Linux" findings and the rejected-alternative rationale
 into comments next to the code they explain. Each slice that lands should be
 taking its own share of that with it, leaving less to salvage at the end.
@@ -19,24 +19,34 @@ Rationale that has already been salvaged is **not repeated here**. The direction
 rule and its known limits live in `directionAndPort()`, the deduplication
 reasoning in `deduplicateBySocket()`, the whole reverse DNS design in
 `resolveAddressesViaDns()`, the one-listing-two-sections decision on
-`socketListing`, and the column layout rules in `writeConnectionLines()`. What
-remains below is what no code comment carries: measurements, rejected
+`socketListing`, and the column layout rules in `writeConnectionLines()`. The
+macOS unix socket slice took its own share the same way: the direction rule and
+the measurements behind it are in `unixSocketDirection()`, the record shapes in
+`lsofUnixSocketParser` and `applyUnixSocketName()`, lowest-PID-wins in
+`unixSocketsByDevice()`, why devices compare as strings on `UnixSocket.Device`,
+the flags and the exit status in `GetUnixSocketsByPid()`, and why it is a listing
+of its own on `unixSocketListing`.
+
+What remains below is what no code comment carries: measurements, rejected
 alternatives, verification findings, and the plan for what isn't built yet.
 
 ## Status
 
-**TCP, UDP and pipes: done.** `GetSocketsByPid()` and `GetPipeEndsByPid()` collect,
-`NetworkConnections()` and `PipeConnections()` aggregate, all in
+**TCP, UDP and pipes: done on both platforms. Unix domain sockets: done on
+macOS.** `GetSocketsByPid()`,
+`GetPipeEndsByPid()` and `GetUnixSocketsByPid()` collect, `NetworkConnections()`,
+`PipeConnections()` and `UnixSocketConnections()` aggregate, all in
 `internal/processes`; `pageipcconnections.go` and `pagenetworkconnections.go`
 render over the shared layout in `pageconnections.go`. What each kind added is in
-git rather than here. Two behaviours to know before reading a page and concluding
-it is broken: a bound but unconnected UDP socket gets no line, and an anonymous
-pipe on macOS gets no arrow. Both are under "Deferred".
+git rather than here. Three behaviours to know before reading a page and
+concluding it is broken: a bound but unconnected UDP socket gets no line, an
+anonymous pipe on macOS gets no arrow, and a unix socket nobody has dialed gets
+no line either. All three are under "Deferred".
 
-**Unix domain sockets: not started.** Hardest of the three, and the one kind whose
-two platforms need different amounts of work — macOS reuses the pipe machinery,
-Linux needs a data source neither lsof nor `/proc` provides. macOS goes first and
-lands on `main` on its own. See "Pipes and unix domain sockets".
+**Unix domain sockets on Linux: not started**, and the last thing keeping this
+document alive. lsof there reports a unix socket's own kernel address and no
+peer, so the peer edge has to come from netlink instead. See "Unix domain
+sockets".
 
 ## Choosing a data source
 
@@ -59,16 +69,15 @@ Linux), unix domain sockets (`unix`), and network sockets (`IPv4`/`IPv6`) — th
 spellings being lsof's, which is today's source for all of them but not what
 defines the list. "Local" vs "remote" is not a separate detection path, just
 whether a peer was found. Network sockets came first because their peer matching is byte-identical
-on Linux and macOS. Unix domain sockets are the one kind still missing; what
-follows is how pipes work, and then the plan for those.
+on Linux and macOS. Unix domain sockets came last, and are the one kind whose two
+platforms need two different sources; what follows is how pipes work, and then
+what Linux still needs.
 
 Pipes needed lsof **without** an `-i` filter, there being no filter flag for
 pipes: the 0.27 s / 1.24 MB invocation in the table below, against 0.13 s / 33 KB
-for the socket one, and a third fork. Unix domain sockets will not force that on
-us again — `-U` selects them — so give them their own invocation rather than
-riding the pipe listing: a fourth fork is not a cost worth coupling two sections'
-failure modes to avoid. Sharing one listing is rejected at the bottom, on those
-terms.
+for the socket one, and a third fork. `-U` spared unix sockets that, and why they
+got a listing of their own rather than riding the pipe one is on
+`unixSocketListing`. Sharing one listing is rejected at the bottom.
 
 ### Pipes
 
@@ -107,34 +116,21 @@ name identifies nothing, at `px_file.py:85-88`.
 
 ### Unix domain sockets
 
-**Decided: macOS first, merged to `main`, then Linux.** macOS is a matching and
-rendering change over the pipe machinery with no new collector, on the platform
-where `./test.sh` runs and the page can be looked at. It also settles the model
-questions first, the optional path at the end of this section above all. Building
-the netlink collector first would mean iterating on the render layer through a
-container.
+**macOS is done, Linux is the slice that is left.** macOS went first because it
+was a matching and rendering change over the pipe machinery with no new
+collector, on the platform where `./test.sh` runs and the page can be looked at,
+and because it settled the model questions — whether a connection gets a path
+above all — before the netlink collector forced iterating on the render layer
+through a container.
 
-#### macOS: the pipe scheme, with two differences
+What the macOS half established is in the code, pointed at from the top of this
+document. Two of its decisions bind the Linux slice as well:
 
-Same `d0x...` device against `n->0x...` peer scheme, plus a path for listeners.
-Measured on a quiet laptop, non-root, `lsof -n -P -w -U -F pfnid0`, 566 records:
-481 carry a peer, 83 carry a path, one is `->(none)`, and **no record carries
-both** a path and a peer.
-
-**Compare peers numerically, not as strings.** lsof zero-pads the device and not
-the peer — `d0x41437afcb244b221` against `n->0x28cfa77e3695bc2`, 16 hex digits
-against 15.
-
-**The pair is not mutual, the way a pipe's is.** 378 of the 481 peers resolve to
-a device in the listing. 348 of those point back; all **30** that don't resolve
-to a *listening* socket with a path. So a client's peer is either the server's
-accepted socket or the server's listener, and `arePipeEnds()`'s assumption of a
-mutual pair does not carry over. One listener had 58 clients naming it, which is
-the existing aggregation case rather than a new one.
-
-The remaining 103 peers are held by processes a non-root lsof cannot see. They
-match nothing and get no line, which is how a pipe whose peer is gone already
-degrades.
+- **A connection is its two sockets, labelled by the path it was made over.** So
+  whatever Linux reads, it has to come up with the same two facts per socket —
+  who is at the other end, and the path where there is one.
+- **A socket nobody has dialed gets no line**, listeners included, which is the
+  partition rule rather than a macOS limitation. See "Deferred".
 
 #### Linux: a netlink collector, not `ss`
 
@@ -197,10 +193,45 @@ shared with macOS, which has no `/proc` to walk; a Linux-only collector would be
 a second code path for the half of the data both platforms already agree on.
 Revisit if lsof turns out to be the slow part, not to save the fork.
 
-**The platform asymmetry to design for:** on Linux the netlink name gives an
-accepted socket its path, while on macOS a record has a peer or a path and never
-both. So the path is optional on a connected unix socket, and macOS is the
-platform that leaves it empty.
+**The platform asymmetry to design for: none, as it turned out.** This used to
+say that the netlink name gives an accepted socket its path on Linux while macOS
+leaves it empty, so the path had to be optional with macOS the platform doing
+without. The macOS half was wrong: an accepted socket there is named by its path
+too, which is what `UnixSocket.Path` now documents. Both platforms fill the path
+in the same way, and what leaves it empty is a `socketpair(2)`, on either of them.
+
+**Direction is an open question here**, and the one part of the model macOS did
+not settle. The rule there is that the end naming the other is the one that
+dialed, see `unixSocketDirection()`, and it cannot carry over: a netlink peer edge
+is symmetric, so both ends of every pair name each other and every pair Linux can
+see both ends of reads `<?>`. The same fact is available in another shape — in the
+dump above the client's end has `name=""` while the accepted end carries the path,
+so **the end without a path is the one that dialed**, and a `socketpair(2)` has
+neither.
+
+macOS corroborates that rule rather than contradicting it: its 29 client records
+carry no path while the socket each of them names does, and a `socketpair(2)` there
+has no path on either end. So Linux would be reading the same fact off the path
+instead of off who names whom. Still only one observed Linux pair, so verify it
+before building on it.
+
+**lsof's Linux name field is not a bare path.** Verified in a `golang:1.25`
+container with lsof 4.99.4 against a real connected pair, where
+`lsof -n -w -U -F pfnd0` reports:
+
+```
+f4\0d0x00000000185fc59b\0n/tmp/probe.sock type=STREAM\0   <- listener
+f5\0d0x000000001e605e5a\0ntype=STREAM\0                   <- client end
+f8\0d0x00000000752931c2\0n/tmp/probe.sock type=STREAM\0   <- accepted end
+```
+
+A ` type=STREAM` suffix on every name, and the client end named by nothing else at
+all — no peer anywhere, as the rest of this section says. So the path comes from
+netlink, or from this with the suffix cut off — which `applyUnixSocketName()`
+knowingly does not do. Until then `GetUnixSocketsByPid()` does work on Linux and
+returns sockets with that suffix in `Path` and `PeerDevice` empty on all of them,
+so `UnixSocketConnections()` matches no pair and contributes no line to the IPC
+section. Pipes and TCP still fill it. That is the deferred state and not a bug.
 
 ## Data collection
 
@@ -216,10 +247,25 @@ Measured on a macOS laptop, non-root:
 | `lsof -n -P -i -F fnaptd0iP` | 0.13 s | 33 KB |
 | `lsof -n -w -d cwd -F pfn0` (already in the tree) | 0.22 s | 15 KB |
 
-This is a **second lsof fork**, separate from the cwd one in `cwds.go`, and pipes
-have since added a third. Sharing one is still rejected on the terms the
-"Deferred" bullet on sharing carries: what `-i` costs against an unfiltered
-listing, and the sections' independent degradation.
+This is a **second lsof fork**, separate from the cwd one in `cwds.go`; pipes have
+since added a third and unix sockets a fourth. Sharing one is still rejected on
+the terms the "Deferred" bullet on sharing carries: what `-i` costs against an
+unfiltered listing, and the sections' independent degradation.
+
+**`-U` costs what `-i` costs**, which is what `GetUnixSocketsByPid()` claims and
+this is the measurement behind it. A later run on the same laptop, median of
+three, timing the invocations actually in the tree rather than the px-style ones
+above:
+
+| invocation | time | output |
+| --- | --- | --- |
+| `lsof -n -w -U -F pfnd0` (unix sockets) | 0.17 s | 26 KB |
+| `lsof -n -P -w -i -F pfnPT0` (network sockets) | 0.18 s | 34 KB |
+| `lsof -n -w -F pfatdDin0` (pipes, unfiltered) | 0.39 s | 1.4 MB |
+
+So the fourth fork is a fifth of the third one's cost, and the pipe listing
+remains the expensive one — the reason `-U` got an invocation of its own rather
+than riding it.
 
 Two measurements behind the flags `sockets.go` documents. **Why a plain `-i` and
 not `-iTCP -iUDP`**, which is the narrower spelling and would keep out the `PICMP`
@@ -245,9 +291,10 @@ value prefix.
 Partial lsof failure is business as usual: use whatever came back, log the rest.
 See `cwds.go` for the established handling.
 
-**An lsof that ran and exited non-zero is not a failure**, which `sockets.go`
-takes further than that established handling. `cwds.go` gives up when a non-zero
-exit came with nothing to show, and for sockets that is exactly the idle machine:
+**An lsof that ran and exited non-zero is not a failure**, which `sockets.go` and
+`unixsockets.go` both take further than that established handling. `cwds.go` gives
+up when a non-zero exit came with nothing to show, and for sockets that is exactly
+the idle machine:
 nothing to show is the true answer there, and reporting it as
 `<Unable to list sockets: ...>` in both page sections is how an empty container
 used to render. So the exit status alone no longer fails the listing —
@@ -258,7 +305,8 @@ still says so.
 
 ## Verified on Linux
 
-Four runs, all in a container on Debian with **lsof 4.99.4** as root. Runs 1 and
+Five runs, all in a container on Debian with **lsof 4.99.4**, the first four as
+root. Runs 1 and
 2 used `python:3-slim` (Debian 13.6): the first before the implementation
 existed, with real loopback connections — an IPv4 listener on `127.0.0.1:8080`,
 an IPv6 listener on `[::1]:8081`, a wildcard listener on `0.0.0.0:8082`, a client
@@ -266,8 +314,10 @@ for each, and a client with 8 threads holding one connection — and the second
 against the finished TCP code, adding `sshd` (**OpenSSH 10.0p2**) with a live ssh
 session, a socket held on two file descriptors, and 400 connections' worth of
 load. Run 3 verified UDP, and ran the Go test suite itself in a `golang:1.25`
-container against the real Linux lsof. Run 4 did the same for pipes. Findings are
-marked with the run they came from where it matters.
+container against the real Linux lsof. Run 4 did the same for pipes. Run 5 came
+with the macOS unix socket slice: a `golang:1.25` `test.sh` run, where the two real
+lsof unix socket tests skip by design, plus the two `-U` findings in the Linux
+subsection above. Findings are marked with the run they came from where it matters.
 
 Most of what those runs established has since collapsed into the test suite:
 reversed-pair matching for both address families and both protocols, IPv6
@@ -386,7 +436,8 @@ page should surface, and showing both sides would report `(×2)` for one connect
 
 ## Aggregation
 
-Aggregate by (protocol, direction, peer, port), carrying a `Count`.
+Aggregate by (protocol, direction, peer, port, path), carrying a `Count`. Why the
+path is in that key is on `UnixSocketConnections()`.
 
 **Not optional.** Measured on a quiet laptop, non-root: one process had **252
 connections, all to the same peer endpoint**. px renders that as 252 identical
@@ -442,8 +493,16 @@ which is the one gap specific enough to earn a line.
 
 ## Deferred, deliberately
 
-- **Unix domain sockets**, scoped above. The last of the four kinds, and the only
-  thing keeping this document alive.
+- **Unix domain sockets on Linux**, scoped above. The last thing keeping this
+  document alive, macOS having landed.
+- **Listening unix sockets get no line.** A listener has a path and no peer, and
+  the partition rule sends a peerless connection to Network Connections — which
+  would file `/tmp/foo.sock` under "Network". Wrong section, and an exception to a
+  settled rule was not worth carving out for it in the macOS slice. The cost is
+  small: every client actually using the listener already gets a line, so what
+  goes missing is only "this process offers a socket nobody is using". Reopen it
+  along with whatever eventually decides where a local endpoint that isn't a
+  process belongs.
 - **Bound but unconnected UDP sockets get no line.** They are dropped along with
   the bound TCP sockets that never carried anything. UDP has no listening state,
   so lsof gives us no way to tell a server's bound socket from the ephemeral
@@ -473,11 +532,11 @@ which is the one gap specific enough to earn a line.
   `/etc/services` parsing, no model change.
 - A line cap for processes with hundreds of *distinct* peers.
 - **Sharing one lsof invocation across sections — rejected, not pending.** There
-  are three forks now, and the pipe one already subsumes the other two:
+  are four forks now, and the pipe one already subsumes the other three:
   `lsof -n -w -F pfatdDin0` lists every open file of every process, so the cwd
-  listing in `cwds.go` and the `-i` one in `sockets.go` both ask for subsets of
-  it with different `-F` fields. Merging means one call with the union of the
-  fields and three parsers over it. Saving a fork is not a reason to want that —
+  listing in `cwds.go`, the `-i` one in `sockets.go` and the `-U` one in
+  `unixsockets.go` all ask for subsets of it with different `-F` fields. Merging
+  means one call with the union of the fields and four parsers over it. Saving a fork is not a reason to want that —
   see "Choosing a data source" — and it trades away what "Data collection" wants
   kept: `-i` scales with socket count where the unfiltered listing scales with
   every fd on the machine, and the sections stop degrading independently. Only a
