@@ -207,20 +207,24 @@ func TestGetUnixSocketsByPid(t *testing.T) {
 
 	ourSockets := unixSocketsByPid[os.Getpid()]
 
-	// The listener and the socket accepted on it, both named by the path
+	// The listener and the socket accepted on it, both named by the path.
+	//
+	// Identified the way the matching identifies a socket, which is by inode on
+	// Linux and by kernel address on macOS, so that this asks the same question of
+	// both platforms.
 	ourPath := map[string]bool{}
 	for _, socket := range ourSockets {
 		if socket.Path != path {
 			continue
 		}
 
-		ourPath[socket.Device] = true
+		ourPath[unixSocketIdentity(socket)] = true
 	}
 
 	// The client's socket, which carries no path and names one of those two
 	namesOurPath := false
 	for _, socket := range ourSockets {
-		if !ourPath[socket.PeerDevice] {
+		if !ourPath[unixSocketPeerIdentity(socket)] {
 			continue
 		}
 

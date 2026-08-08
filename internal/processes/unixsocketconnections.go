@@ -33,18 +33,19 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 		return nil
 	}
 
-	socketsByDevice := unixSocketsByDevice(unixSocketsByPid)
+	socketsByIdentity := unixSocketsByIdentity(unixSocketsByPid)
 
-	ourSocketsByDevice := map[string]UnixSocket{}
+	ourSocketsByIdentity := map[string]UnixSocket{}
 	for _, socket := range ourSockets {
-		if socket.Device == "" {
+		identity := unixSocketIdentity(socket)
+		if identity == "" {
 			// Nothing identifies this one, so nothing can name it either. Indexing
 			// it under the empty string would make it the peer of every socket
-			// lsof named no peer for.
+			// nothing named a peer for.
 			continue
 		}
 
-		ourSocketsByDevice[socket.Device] = socket
+		ourSocketsByIdentity[identity] = socket
 	}
 
 	names := map[int]string{}
@@ -58,18 +59,19 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 	matches := map[string]unixSocketMatch{}
 
 	// The connections a socket of ours names the other end of, which is an index
-	// lookup each. On macOS that is the ones we dialed and on Linux it is all of
-	// them, the netlink peer edge being symmetric — either way the direction comes
-	// from the paths rather than from which loop found it.
+	// lookup each. On macOS that is the ones we dialed, and on Linux very nearly
+	// all of them, the netlink peer edge being symmetric for every socket type but
+	// datagram — either way the direction comes from the paths rather than from
+	// which loop found it.
 	for _, ourSocket := range ourSockets {
-		if ourSocket.PeerDevice == "" {
-			// Nothing at the other end that we can name: a listener, a socket whose
-			// peer is gone, a peer we aren't allowed to see, or on macOS one lsof
-			// named by its path rather than by a peer.
+		peerIdentity := unixSocketPeerIdentity(ourSocket)
+		if peerIdentity == "" {
+			// Nothing at the other end to name: a listener, a socket whose peer is
+			// gone, or on macOS one lsof named by its path rather than by a peer.
 			continue
 		}
 
-		theirs, found := socketsByDevice[ourSocket.PeerDevice]
+		theirs, found := socketsByIdentity[peerIdentity]
 		if !found {
 			// The socket at the other end is held by processes we aren't allowed
 			// to inspect. Nothing to name it by.
@@ -82,10 +84,11 @@ func UnixSocketConnections(proc *Process, allProcesses []*Process, unixSocketsBy
 	// The connections named the other way around, which no socket of ours points
 	// at: finding those means scanning the whole listing for a socket naming one of
 	// ours. On macOS that is the connections somebody else dialed, and on Linux it
-	// is the same set the loop above found. A socket naming nobody names none of
-	// ours either, an empty peer being a device nothing is indexed under.
-	for _, theirs := range socketsByDevice {
-		ourSocket, isOurs := ourSocketsByDevice[theirs.socket.PeerDevice]
+	// is very nearly the same set, a connected datagram socket being the one shape
+	// whose peer edge points one way. A socket naming nobody names none of ours
+	// either, an empty peer being an identity nothing is indexed under.
+	for _, theirs := range socketsByIdentity {
+		ourSocket, isOurs := ourSocketsByIdentity[unixSocketPeerIdentity(theirs.socket)]
 		if !isOurs {
 			continue
 		}
@@ -187,9 +190,9 @@ func noteUnixSocketMatch(
 //
 // A path is what a socket is dialed by, so a listener and every socket accepted
 // on one carry it while whoever dialed carries nothing. Both platforms agree,
-// which is why this needs no GOOS switch — and it is the only fact about a unix
-// socket that they do agree on, macOS having the client name its peer where a
-// netlink peer edge makes both ends of every Linux pair name each other.
+// which is why this needs no GOOS switch — where they part ways is on which end
+// names which, macOS having the client name its peer while a netlink peer edge
+// makes both ends of a Linux stream or seqpacket pair name each other.
 //
 // The evidence on macOS, measured on a quiet laptop, non-root, on a later run
 // than the one lsofUnixSocketParser cites: of 577 unix sockets, 489 named a peer
@@ -228,18 +231,48 @@ func unixSocketDirection(match unixSocketMatch) Direction {
 	return DirectionIncoming
 }
 
+// What identifies one unix socket, in whichever of the two ways the listing has
+// to offer.
+//
+// The inode where there is one, which is every Linux record, and lsof's kernel
+// address otherwise, which is every macOS one: lsof reports no inode for a unix
+// socket there. So this needs no GOOS switch, each platform having exactly one of
+// the two.
+//
+// Inode first rather than address first, and that order is the whole point.
+// Linux prints the address /proc/net/unix hands lsof with "%pK", which comes out
+// all zeroes for a reader without CAP_SYSLOG under kernel.kptr_restrict=1 — what
+// Ubuntu ships. Preferring it would make every unix socket on such a machine the
+// same socket, and so a peer of every other; see UnixSocket.PeerInode.
+func unixSocketIdentity(socket UnixSocket) string {
+	return cmp.Or(socket.Inode, socket.Device)
+}
+
+// The same for the socket at the other end, in the same spelling, so that a peer
+// can be looked up among the sockets unixSocketIdentity() keyed.
+//
+// Empty for a socket with no peer, which is a listener, one nobody dialed, or one
+// whose peer is gone — and on macOS every socket carrying a Path, lsof there
+// naming those by the path instead.
+func unixSocketPeerIdentity(socket UnixSocket) string {
+	return cmp.Or(socket.PeerInode, socket.PeerDevice)
+}
+
 // What identifies the connection between two unix sockets, in a form that spells
 // it the same way from either end.
 //
-// The two kernel addresses, sorted. A connection is its two sockets, so this
+// The two socket identities, sorted. A connection is its two sockets, so this
 // collapses every way of arriving at the same one into a single entry: both ends
 // naming each other finds it from either side, and both ends being ours finds it
 // once per end. Either way it is one connection and deserves one line.
 func unixSocketConnectionIdentity(ours UnixSocket, theirs UnixSocket) string {
-	return min(ours.Device, theirs.Device) + "\x00" + max(ours.Device, theirs.Device)
+	oursIdentity := unixSocketIdentity(ours)
+	theirsIdentity := unixSocketIdentity(theirs)
+
+	return min(oursIdentity, theirsIdentity) + "\x00" + max(oursIdentity, theirsIdentity)
 }
 
-// Sockets lsof reported no kernel address for are left out, having nothing to be
+// Sockets the listing identifies neither way are left out, having nothing to be
 // indexed by: keyed under the empty string they would collapse into one entry and
 // stand in as the peer of one another.
 //
@@ -256,23 +289,24 @@ func unixSocketConnectionIdentity(ours UnixSocket, theirs UnixSocket) string {
 // socket has to say — the path it is bound to, and the peer it names — belongs to
 // the socket rather than to its holder, so its several holders report it
 // identically and which of them this keeps matters for the PID alone.
-func unixSocketsByDevice(unixSocketsByPid map[int][]UnixSocket) map[string]unixSocketHolder {
-	byDevice := map[string]unixSocketHolder{}
+func unixSocketsByIdentity(unixSocketsByPid map[int][]UnixSocket) map[string]unixSocketHolder {
+	byIdentity := map[string]unixSocketHolder{}
 
 	for pid, sockets := range unixSocketsByPid {
 		for _, socket := range sockets {
-			if socket.Device == "" {
+			identity := unixSocketIdentity(socket)
+			if identity == "" {
 				continue
 			}
 
-			lowestSoFar, found := byDevice[socket.Device]
+			lowestSoFar, found := byIdentity[identity]
 			if found && lowestSoFar.pid <= pid {
 				continue
 			}
 
-			byDevice[socket.Device] = unixSocketHolder{socket: socket, pid: pid}
+			byIdentity[identity] = unixSocketHolder{socket: socket, pid: pid}
 		}
 	}
 
-	return byDevice
+	return byIdentity
 }

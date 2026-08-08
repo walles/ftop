@@ -57,10 +57,24 @@ type unixDiagMsg struct {
 // dump has no record of comes out with no peer and no path, which is what we
 // know about it.
 //
-// Only ever a peer we can see. The dump names one by its inode, and turning that
-// back into a Device takes an lsof record of the socket, which a process we
-// aren't allowed to inspect gives us none of. A peer we cannot name is one that
-// gets no line, the same way an invisible peer already degrades on macOS.
+// The peer comes out named by its inode, which is how the dump names one and how
+// UnixSocketConnections() identifies a socket wherever there are inodes to be had.
+// Translating it into the Device that identifies a socket on macOS would be the
+// wrong move: that column is all zeroes on a machine whose kernel withholds its
+// pointers, and the inodes are what stays distinct there; see
+// UnixSocket.PeerInode.
+//
+// Inodes are unique per socket rather than per process, so one holder naming a
+// peer says the same as any other. They are unique across network namespaces as
+// well, which matters because the dump covers ours while lsof lists every process
+// on the machine: sockfs numbers its inodes off one global counter, so a peer
+// inode of ours cannot name a container's socket by accident. That much is
+// reasoning about the kernel rather than something measured here.
+//
+// A peer we aren't allowed to see gets named all the same, there being nothing to
+// gain by dropping it here. The matching leaves it out instead, finding no socket
+// of that inode in a listing that skips the processes we cannot inspect — the way
+// an invisible peer already degrades on macOS.
 //
 // Fails if the dump does, there being nothing worth showing without it: sockets
 // with no peers make no connections, so what would render is an empty IPC
@@ -69,28 +83,6 @@ func fillInPeersAndPaths(unixSocketsByPid map[int][]UnixSocket) error {
 	peersByInode, err := unixSocketPeersByInode()
 	if err != nil {
 		return err
-	}
-
-	// What to call the socket a dump record names by its inode. Inodes are unique
-	// per socket rather than per process, so one entry per inode is enough however
-	// many processes hold it.
-	//
-	// They are unique across network namespaces as well, which matters because the
-	// dump covers ours while lsof lists every process on the machine: sockfs
-	// numbers its inodes off one global counter, so a peer inode of ours cannot
-	// name a container's socket by accident. That much is reasoning about the
-	// kernel rather than something measured here.
-	devicesByInode := map[string]string{}
-	for _, sockets := range unixSocketsByPid {
-		for _, socket := range sockets {
-			if socket.Inode == "" {
-				// Nothing to index it under, and the empty string is the inode
-				// of every socket the dump reports no peer for
-				continue
-			}
-
-			devicesByInode[socket.Inode] = socket.Device
-		}
 	}
 
 	for _, sockets := range unixSocketsByPid {
@@ -102,7 +94,7 @@ func fillInPeersAndPaths(unixSocketsByPid map[int][]UnixSocket) error {
 			peer := peersByInode[socket.Inode]
 
 			socket.Path = peer.path
-			socket.PeerDevice = devicesByInode[peer.peerInode]
+			socket.PeerInode = peer.peerInode
 		}
 	}
 
@@ -114,8 +106,11 @@ type unixSocketPeer struct {
 	// The inode of the socket at the other end, "379". Empty for a socket that
 	// has no peer: a listener, or one that was never connected.
 	//
-	// The pairing is symmetric, unlike the naming on macOS: both ends of a
-	// connected pair name each other, listeners excepted.
+	// The pairing is symmetric for stream and seqpacket sockets, unlike the naming
+	// on macOS: both ends of such a connected pair name each other, listeners
+	// excepted. A connected datagram socket, /dev/log's clients being the everyday
+	// ones, names its server and is not named back — sk_diag_dump_peer() reporting
+	// what unix_peer() holds, which a server never sets.
 	peerInode string
 
 	// The path this socket is bound to, "/tmp/probe.sock", or "@name" for one in

@@ -24,18 +24,24 @@ import (
 //
 // Which end names which says nothing about direction, the two platforms
 // disagreeing about it: a macOS client names the socket it dialed and nothing
-// names it back, while a netlink peer edge is symmetric and both ends of every
-// Linux pair name each other.
+// names it back, while the netlink peer edge is symmetric for stream and
+// seqpacket sockets, both ends of such a Linux pair naming each other. A
+// connected datagram socket is the exception at either end of that — it names its
+// server and the server names nobody back, the way macOS has it.
 type UnixSocket struct {
 	// lsof's file descriptor number, "3" or similar. Not an identity: one socket
-	// is reported once per descriptor it is open on, and the Device is what
-	// identifies it instead.
+	// is reported once per descriptor it is open on, and unixSocketIdentity() is
+	// what identifies it instead.
 	Fd string
 
 	// lsof's lowercase "d" column, the kernel address of this very socket,
 	// "0xd82e0ac85b8e6a97". A string rather than a number because it is compared
-	// and never counted with. On Linux it is /proc/net/unix's Num column
-	// reformatted, and identifies a socket there just as well.
+	// and never counted with.
+	//
+	// What identifies a socket on macOS. On Linux it is /proc/net/unix's Num
+	// column with an "0x" in front, which identifies one only where the kernel is
+	// willing to print its pointers, so the Inode is preferred there; see
+	// PeerInode and unixSocketIdentity().
 	//
 	// Comparing the text is enough, lsof padding neither this nor PeerDevice:
 	// 94.7% of distinct devices and 94.8% of distinct peers are 16 hex digits,
@@ -48,22 +54,18 @@ type UnixSocket struct {
 	// reports no inode for a unix socket, and asking for the field there costs
 	// nothing.
 	//
-	// Only ever used to join lsof's records to the netlink dump, which is keyed
-	// on the inode and knows nothing of kernel addresses. The peer it finds that
-	// way lands in PeerDevice like any other, so nothing outside
-	// fillInPeersAndPaths() has any use for this.
+	// What joins lsof's records to the netlink dump, which is keyed on the inode
+	// and knows nothing of kernel addresses, and what identifies a socket on
+	// Linux once they are joined; see unixSocketIdentity().
 	Inode string
 
-	// The Device of the socket at the other end: from lsof's "n->0x..." name on
-	// macOS, and on Linux from the netlink dump, whose peer inode gets translated
-	// back into a Device.
+	// The Device of the socket at the other end, from lsof's "n->0x..." name.
+	// macOS only — a Linux peer arrives from the netlink dump as an inode and
+	// stays one, see PeerInode.
 	//
 	// Empty for a socket with no peer, which is a listener, a socket nobody
-	// dialed, or one whose peer is gone — and on macOS also every socket carrying
-	// a Path, lsof there naming those by the path instead. Empty on Linux for a
-	// peer we cannot see as well: the dump names it by an inode, and turning that
-	// into a Device takes an lsof record we don't have for a process we aren't
-	// allowed to inspect. Either way a peer with no Device gets no line.
+	// dialed, or one whose peer is gone — and also every socket carrying a Path,
+	// lsof naming those by the path instead. A peer with no Device gets no line.
 	PeerDevice string
 
 	// The inode of the socket at the other end, "14602". Linux only, straight
@@ -72,16 +74,16 @@ type UnixSocket struct {
 	//
 	// This rather than PeerDevice is what identifies a peer on Linux, lsof's
 	// device being no identity there whenever the kernel withholds its pointers.
-	// /proc/net/unix prints them with "%pK", which comes out
-	// "0x0000000000000000" for a reader without CAP_SYSLOG under
+	// /proc/net/unix prints the address that column comes from with "%pK", which
+	// the kernel fills with zeroes for a reader without CAP_SYSLOG under
 	// kernel.kptr_restrict=1 — what Ubuntu ships in
-	// /etc/sysctl.d/10-kernel-hardening.conf. Every unix socket on the machine
-	// then has the same device and none of them a usable one, while the inodes
-	// stay distinct.
+	// /etc/sysctl.d/10-kernel-hardening.conf — and for every reader at all under
+	// kptr_restrict=2. Measured non-root in a container: nine sockets, nine
+	// inodes, one device between them.
 	//
-	// Empty for a socket with no peer, and for a peer we cannot see: naming one
-	// takes an lsof record we don't have for a process we aren't allowed to
-	// inspect.
+	// Empty for a socket with no peer, which is a listener, one nobody dialed, or
+	// one whose peer is gone. A peer we aren't allowed to see is named here all
+	// the same, and left out by the matching finding no socket of that inode.
 	PeerInode string
 
 	// The path this socket is bound to, "/tmp/probe.sock", or "@name" for one in
