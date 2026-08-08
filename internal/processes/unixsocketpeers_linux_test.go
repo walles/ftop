@@ -1,6 +1,8 @@
 package processes
 
 import (
+	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -100,6 +102,154 @@ func TestUnixSocketPath(t *testing.T) {
 
 	// A socket bound to nothing has no name
 	assert.Equal(t, unixSocketPath(""), "")
+}
+
+// One record of a dump, decoded into the inode it is about and what the dump says
+// about that socket.
+func TestParseUnixDiagRecord(t *testing.T) {
+	record := unixDiagRecordBytes(378,
+		netlinkAttributeBytes(unixDiagName, []byte("/tmp/probe.sock\x00")),
+		netlinkAttributeBytes(unixDiagPeer, inodeAttributeValue(379)))
+
+	inode, peer, err := parseUnixDiagRecord(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, inode, "378")
+	assert.Equal(t, peer, unixSocketPeer{peerInode: "379", path: "/tmp/probe.sock"})
+}
+
+// Attributes start on four byte boundaries, so one whose value does not end on
+// one is followed by padding that belongs to nobody. Reading the next attribute
+// from the wrong offset would make nonsense of the rest of the record, and an
+// abstract name of this length is what puts padding between the two.
+func TestParseUnixDiagRecord_paddedName(t *testing.T) {
+	record := unixDiagRecordBytes(378,
+		netlinkAttributeBytes(unixDiagName, []byte("\x00ftop")),
+		netlinkAttributeBytes(unixDiagPeer, inodeAttributeValue(379)))
+
+	inode, peer, err := parseUnixDiagRecord(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, inode, "378")
+	assert.Equal(t, peer, unixSocketPeer{peerInode: "379", path: "@ftop"})
+}
+
+// A socket bound to nothing that nobody is connected to: the dump reports it,
+// with neither of the attributes we asked for, and there is nothing to say about
+// it beyond its inode.
+func TestParseUnixDiagRecord_noAttributes(t *testing.T) {
+	inode, peer, err := parseUnixDiagRecord(unixDiagRecordBytes(378))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, inode, "378")
+	assert.Equal(t, peer, unixSocketPeer{})
+}
+
+// A record too short to hold even the fixed size head is one we can make nothing
+// of, inode included, so it fails rather than reporting a socket we invented.
+func TestParseUnixDiagRecord_shortRecord(t *testing.T) {
+	_, _, err := parseUnixDiagRecord(unixDiagRecordBytes(378)[:8])
+	if err == nil {
+		t.Fatal("expected a record shorter than the head to fail")
+	}
+}
+
+// A peer attribute is an inode, and one too short to hold a four byte inode fails
+// rather than being read past its end.
+func TestParseUnixDiagRecord_shortPeer(t *testing.T) {
+	record := unixDiagRecordBytes(378, netlinkAttributeBytes(unixDiagPeer, []byte{1, 2}))
+
+	_, _, err := parseUnixDiagRecord(record)
+	if err == nil {
+		t.Fatal("expected a peer attribute shorter than an inode to fail")
+	}
+}
+
+// The error an NLMSG_ERROR message carries is a negative errno, and comes back as
+// the errno itself so that a caller can match on it.
+func TestNetlinkError(t *testing.T) {
+	// A variable rather than an expression: the kernel writes a negative errno
+	// here, which is not a constant Go will convert to unsigned for us
+	negativeErrno := -int32(unix.EACCES)
+
+	err := netlinkError(binary.NativeEndian.AppendUint32(nil, uint32(negativeErrno)))
+	if !errors.Is(err, unix.EACCES) {
+		t.Fatalf("got %v, expected it to be EACCES", err)
+	}
+}
+
+// An error message too short to hold an errno still has to fail, there being no
+// success to report either way.
+func TestNetlinkError_short(t *testing.T) {
+	err := netlinkError([]byte{1, 2})
+	if err == nil {
+		t.Fatal("expected a truncated error message to fail")
+	}
+}
+
+// A truncated attribute ends the list rather than failing it: the attributes
+// before it parsed, and are worth as much as they ever were.
+func TestNetlinkAttributes_truncated(t *testing.T) {
+	first := netlinkAttributeBytes(unixDiagName, []byte("/tmp/probe.sock\x00"))
+	second := netlinkAttributeBytes(unixDiagPeer, inodeAttributeValue(379))
+
+	// Everything but the last byte of the peer attribute
+	data := append(first, second[:len(second)-1]...)
+
+	attributes := netlinkAttributes(data)
+
+	assert.Equal(t, len(attributes), 1)
+	assert.Equal(t, attributes[0].kind, uint16(unixDiagName))
+	assert.Equal(t, string(attributes[0].value), "/tmp/probe.sock\x00")
+}
+
+// An attribute claiming to be shorter than its own header describes no value at
+// all, and ends the list the way any other unreadable one does.
+func TestNetlinkAttributes_impossibleLength(t *testing.T) {
+	data := binary.NativeEndian.AppendUint16(nil, 2)
+	data = binary.NativeEndian.AppendUint16(data, unixDiagName)
+
+	assert.Equal(t, len(netlinkAttributes(data)), 0)
+}
+
+// One unix_diag_msg record as a dump lays it out: the fixed size head naming the
+// socket by inode, and then the attributes the dump was asked for.
+func unixDiagRecordBytes(inode uint32, attributes ...[]byte) []byte {
+	record := []byte{unix.AF_UNIX, unix.SOCK_STREAM, 0 /* state */, 0 /* pad */}
+	record = binary.NativeEndian.AppendUint32(record, inode)
+	record = binary.NativeEndian.AppendUint32(record, 0)
+	record = binary.NativeEndian.AppendUint32(record, 0)
+
+	for _, attribute := range attributes {
+		record = append(record, attribute...)
+	}
+
+	return record
+}
+
+// One netlink attribute, the TLV struct rtattr heads, padded out to the four byte
+// boundary the next one starts on.
+func netlinkAttributeBytes(kind uint16, value []byte) []byte {
+	attribute := binary.NativeEndian.AppendUint16(nil, uint16(unix.SizeofRtAttr+len(value)))
+	attribute = binary.NativeEndian.AppendUint16(attribute, kind)
+	attribute = append(attribute, value...)
+
+	for len(attribute)%4 != 0 {
+		attribute = append(attribute, 0)
+	}
+
+	return attribute
+}
+
+// The value of a UNIX_DIAG_PEER attribute, which is an inode and nothing else.
+func inodeAttributeValue(inode uint32) []byte {
+	return binary.NativeEndian.AppendUint32(nil, inode)
 }
 
 // A client connected to a server over path, plus the listener it was accepted on.

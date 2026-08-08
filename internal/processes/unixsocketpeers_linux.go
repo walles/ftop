@@ -2,6 +2,7 @@ package processes
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -168,14 +169,25 @@ func unixSocketPeersByInode() (map[string]unixSocketPeer, error) {
 
 	peersByInode := map[string]unixSocketPeer{}
 
-	// A dump arrives in chunks of several records each. The kernel sizes a chunk
-	// to what the reader asked for, never more, so any buffer of at least a page
-	// gets whole records; this one holds a few hundred of them.
+	// A dump arrives in chunks of several records each, and this is sized so that
+	// a chunk always fits whole: netlink_dump() grows its allocation to the
+	// largest recvmsg the socket has seen, and netlink_recvmsg() caps what it
+	// remembers at SKB_WITH_OVERHEAD(32768) — just under 32 KiB, whatever a reader
+	// asks for. That cap is what makes this number enough rather than the number
+	// itself.
+	//
+	// Nothing much to gain by shrinking it, and a floor to respect if anybody
+	// tries: the first chunk is sized before the kernel has seen a recvmsg at all,
+	// to NLMSG_GOODSIZE, which is a page or 8 KiB wherever pages are bigger. A
+	// buffer under that truncates, and truncation is silent from here — unix.Read
+	// reports no MSG_TRUNC, and netlinkAttributes() makes what it can of a
+	// truncated tail by design, so the lost records would surface as missing
+	// connections rather than as an error.
 	buffer := make([]byte, 32*1024)
 
 	for {
 		count, err := unix.Read(fd, buffer)
-		if err == unix.EINTR {
+		if errors.Is(err, unix.EINTR) {
 			// A signal arrived, and the Go runtime sends itself plenty of those to
 			// preempt goroutines with. Nothing was read, so just ask again.
 			continue

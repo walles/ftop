@@ -602,6 +602,44 @@ func TestUnixSocketConnections_linuxSelfConnection(t *testing.T) {
 	})
 }
 
+// A client that bound an address of its own before dialing carries a path just
+// like the socket it dialed, and then there is no telling which of the two is the
+// server. The connection is still worth a line — it is the arrow that goes
+// missing, not the peer.
+//
+// Binding first is cheap in the abstract namespace and some D-Bus and X11 clients
+// do it. Telling this apart from a server would take knowing who called listen(2),
+// which neither lsof nor the netlink dump reports; see unixSocketDirection().
+//
+// The path reported is our own bound address rather than the server's, both ends
+// having one and our own being the one preferred. Whoever is looked at gets their
+// own, so the two ends of this connection describe it differently — the same
+// missing fact as the direction, showing up in the other field.
+func TestUnixSocketConnections_clientWithAPathOfItsOwn(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222", Path: "@curl-4711"}},
+		1: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "@curl-4711",
+			Count:     1,
+		},
+	})
+}
+
 // lsof runs after the process listing, so a peer can be a process we have no
 // name for. Its PID is still worth showing.
 func TestUnixSocketConnections_namelessPeer(t *testing.T) {

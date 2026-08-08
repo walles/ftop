@@ -205,11 +205,18 @@ func noteUnixSocketMatch(
 // the path, and neither end of the socketpair(2) had one.
 //
 // DirectionUnknown when the two ends have a path each or neither has one, which
-// happens two ways and neither leaves an arrow to draw. Neither end having one is
-// a socketpair(2), dialed by nobody, its two ends coming into being connected.
-// Both ends having one is a process that dialed a socket of its own: noting that
-// connection from either end fills both paths in with the accepted end's, which
-// makes us the dialer and the dialed at once.
+// happens three ways and none of them leaves an arrow to draw. Neither end having
+// one is a socketpair(2), dialed by nobody, its two ends coming into being
+// connected. Both ends having one is either a process that dialed a socket of its
+// own — noting that connection from either end fills both paths in with the
+// accepted end's, which makes us the dialer and the dialed at once — or a client
+// that bound an address of its own before dialing, which the abstract namespace
+// makes cheap enough that some D-Bus and X11 clients do it.
+//
+// That last one is a real client whose arrow we decline to draw, and the listing
+// gives us nothing better: a bound address looks the same whether it was bound to
+// be dialed or bound to be replied to, so the only way to tell would be knowing
+// who called listen(2), which neither lsof nor the dump reports.
 //
 // Never a backwards arrow, whatever we cannot see: both ends have to be in the
 // listing for there to be a match at all, so a connection with an invisible end
