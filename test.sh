@@ -24,6 +24,16 @@ if [ "$(go env GOARCH)" == "386" ]; then
 fi
 go test $RACE -timeout 20s ./...
 
+# The cross compilation below just builds ftop itself, not its tests. This
+# section makes sure that tests are at least valid Go code on supported
+# platforms.
+echo
+echo "Type checking prod+tests..."
+echo "  Linux..."
+GOOS=linux go vet ./...
+echo "  macOS..."
+GOOS=darwin go vet ./...
+
 # Ensure we can build for all platforms we release for
 #
 # NOTE: Keep this list in sync with the release builds in release.sh
