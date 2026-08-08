@@ -25,6 +25,15 @@ const (
 	unixDiagPeer = 2
 )
 
+// linux/tcp_states.h's TCP_LISTEN, which is the udiag_state of a unix socket
+// listen(2) was called on. The states are TCP's whatever the family, and a unix
+// socket only ever reports this one or TCP_ESTABLISHED or TCP_CLOSE.
+//
+// Measured in a container: dbus-daemon's /run/dbus/system_bus_socket came back
+// with 10 while the two sockets accepted on it came back with 1, and so did the
+// abstract addresses two sd-bus clients had bound for themselves.
+const tcpListen = 10
+
 // linux/unix_diag.h's struct unix_diag_req, the body of a dump request.
 //
 // Laid out to match that struct byte for byte, which it does on every
@@ -96,6 +105,7 @@ func fillInPeersAndPaths(unixSocketsByPid map[int][]UnixSocket) error {
 
 			socket.Path = peer.path
 			socket.PeerInode = peer.peerInode
+			socket.Listening = peer.listening
 		}
 	}
 
@@ -118,6 +128,10 @@ type unixSocketPeer struct {
 	// the abstract namespace. Empty for the socket that dialed such a path and
 	// empty for both ends of a socketpair(2).
 	path string
+
+	// Whether listen(2) was called on this socket, from udiag_state; see
+	// UnixSocket.Listening for what it is good for.
+	listening bool
 }
 
 // Every unix domain socket in our network namespace, keyed by inode, as a
@@ -260,7 +274,7 @@ func parseUnixDiagRecord(data []byte) (string, unixSocketPeer, error) {
 	head := (*unixDiagMsg)(unsafe.Pointer(&data[0]))
 	inode := strconv.FormatUint(uint64(head.Ino), 10)
 
-	var peer unixSocketPeer
+	peer := unixSocketPeer{listening: head.State == tcpListen}
 	for _, attribute := range netlinkAttributes(data[headSize:]) {
 		switch attribute.kind {
 		case unixDiagPeer:

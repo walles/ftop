@@ -709,10 +709,16 @@ func TestUnixSocketConnections_linuxClientWithAPathOfItsOwnAndNoListenerInSight(
 	})
 }
 
-// Two bound datagram sockets, /dev/log's being the everyday server, which the
-// listening socket cannot settle: listen(2) is a stream and seqpacket call, so
-// neither end carries the flag however plainly one of them is the service.
+// Two bound datagram sockets, the syslog socket being the everyday server, which
+// the listening socket cannot settle: listen(2) is a stream and seqpacket call,
+// so neither end carries the flag however plainly one of them is the service.
 // Measured in a container, a datagram server has no SO_ACCEPTCON at all.
+//
+// That socket is bound at /run/systemd/journal/dev-log on a machine journald
+// serves, which is what this listing is, /dev/log being a symlink to it there.
+// Where rsyslog serves it instead it is bound at /dev/log itself, which is the
+// spelling TestUnixSocketConnections_linuxRestrictedKernelPointersNamedByPeer
+// uses. Both were measured in a container; either can turn up in a listing.
 //
 // A client reaches this shape by binding deliberately, wanting a reply — measured
 // in the same container, one that only connects and sends stays nameless, the
