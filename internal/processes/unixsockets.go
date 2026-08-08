@@ -66,6 +66,24 @@ type UnixSocket struct {
 	// allowed to inspect. Either way a peer with no Device gets no line.
 	PeerDevice string
 
+	// The inode of the socket at the other end, "14602". Linux only, straight
+	// from the netlink dump, which names a peer by its inode and knows nothing of
+	// kernel addresses.
+	//
+	// This rather than PeerDevice is what identifies a peer on Linux, lsof's
+	// device being no identity there whenever the kernel withholds its pointers.
+	// /proc/net/unix prints them with "%pK", which comes out
+	// "0x0000000000000000" for a reader without CAP_SYSLOG under
+	// kernel.kptr_restrict=1 — what Ubuntu ships in
+	// /etc/sysctl.d/10-kernel-hardening.conf. Every unix socket on the machine
+	// then has the same device and none of them a usable one, while the inodes
+	// stay distinct.
+	//
+	// Empty for a socket with no peer, and for a peer we cannot see: naming one
+	// takes an lsof record we don't have for a process we aren't allowed to
+	// inspect.
+	PeerInode string
+
 	// The path this socket is bound to, "/tmp/probe.sock", or "@name" for one in
 	// the abstract namespace, which is Linux only. Carried by a listener and by
 	// every socket accepted on it, empty for a socket that dialed one of those
