@@ -36,8 +36,8 @@ const (
 	DirectionOutgoing
 
 	// No telling. Every UDP connection is this, UDP having no listening state
-	// to compare a port against, and so is every anonymous pipe on macOS, whose
-	// lsof reports no access mode for one.
+	// to compare a port against, and so is a pipe we could establish no access
+	// mode for either end of; see PipeAccess.
 	DirectionUnknown
 )
 

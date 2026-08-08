@@ -9,8 +9,8 @@ import (
 )
 
 // macOS names each end of a pipe by its peer's kernel address, and that address
-// is what the peer's device field says. Which end writes it won't say, so
-// neither can we.
+// is what the peer's device field says. Matching two ends that way takes no
+// access modes at all, and with none to be had there is no arrow either.
 func TestPipeConnections_macOsPair(t *testing.T) {
 	me := &Process{Pid: 1234, Cmdline: "grep"}
 	peer := &Process{Pid: 5678, Cmdline: "sort"}
@@ -128,9 +128,9 @@ func TestPipeConnections_duplicatedDescriptors(t *testing.T) {
 }
 
 // The same pipe end on two descriptors, the way macOS spells it: one device,
-// and one pipe. The Linux sibling of this test tells the ends apart by their
-// access modes, which macOS doesn't report, so what identifies an end here is
-// its device alone.
+// and one pipe. The Linux sibling of this test tells its ends apart by their
+// access modes, where these ends carry none, so the device alone has to be
+// enough to recognize the repeat by.
 func TestPipeConnections_duplicatedDescriptorsOnMacOs(t *testing.T) {
 	me := &Process{Pid: 1234, Cmdline: "grep"}
 	peer := &Process{Pid: 5678, Cmdline: "sort"}
@@ -403,9 +403,9 @@ func TestPipeConnections_selfPipeWithAccessModes(t *testing.T) {
 	})
 }
 
-// The same pipe on macOS, where lsof won't say which end writes. Still one pipe
-// and still one line, reported by whichever end this picks as long as it picks
-// the same one every time.
+// The same pipe with no access mode on either end, so there is no telling which
+// of them writes. Still one pipe and still one line, reported by whichever end
+// this picks as long as it picks the same one every time.
 func TestPipeConnections_selfPipeWithoutAccessModes(t *testing.T) {
 	me := &Process{Pid: 1234, Cmdline: "grep"}
 

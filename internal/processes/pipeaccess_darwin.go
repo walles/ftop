@@ -49,7 +49,7 @@ import (
 //
 // Cheap enough not to think about. One syscall per anonymous pipe end, 317 of
 // them on that same laptop, came in under the resolution of /usr/bin/time
-// against the 0.39 s the lsof fork above it spends.
+// against the 0.39 s the lsof listing that produced the map spends.
 //
 // Degrades to PipeAccessUnknown per end, which is what the map already held, so
 // a failure costs the arrow and nothing else. proc_pidfdinfo() enforces a
@@ -69,7 +69,15 @@ func fillInAccessModes(pipeEndsByPid map[int][]PipeEnd) {
 				continue
 			}
 
-			end.Access = kernelAccessMode(pid, *end)
+			access := kernelAccessMode(pid, *end)
+			if access == PipeAccessUnknown {
+				// Leave whatever lsof reported rather than overwriting it with
+				// nothing. Nothing is what it reported for these ends today, so
+				// this costs no arrow anybody would otherwise have seen.
+				continue
+			}
+
+			end.Access = access
 		}
 	}
 }

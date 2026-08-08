@@ -12,9 +12,9 @@ import (
 // How a pipe end is open, as lsof spells it.
 //
 // Empty where neither source would say. lsof leaves it blank for every
-// anonymous pipe on macOS, where fillInAccessModes() fills it in from the
-// kernel instead, so what is left empty is the end that source could not reach
-// either — a process that exited between the two.
+// anonymous pipe on macOS, where the kernel is asked instead, so what stays
+// empty is an end neither one could account for — a process that exited
+// mid-listing being the common way to get there.
 type PipeAccess string
 
 const (
