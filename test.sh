@@ -31,8 +31,11 @@ echo
 echo "Type checking prod+tests..."
 echo "  Linux..."
 GOOS=linux go vet ./...
-echo "  macOS..."
-GOOS=darwin go vet ./...
+if [ "$(go env GOHOSTOS)" = "darwin" ]; then
+  # Needs CGO, won't work on not-macOS
+  echo "  macOS..."
+  GOOS=darwin go vet ./...
+fi
 
 # Ensure we can build for all platforms we release for
 #
