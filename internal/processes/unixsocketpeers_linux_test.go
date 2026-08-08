@@ -48,7 +48,7 @@ func TestUnixSocketPeersByInode(t *testing.T) {
 
 	// A listener has a path and nobody to talk to, which is why it makes no
 	// connection and gets no line
-	assert.Equal(t, peersByInode[socketInode(t, listener)], unixSocketPeer{path: path})
+	assert.Equal(t, peersByInode[socketInode(t, listener)], unixSocketPeer{path: path, listening: true})
 }
 
 // A socketpair(2) has no path on either end, which is what makes its direction
