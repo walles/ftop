@@ -9,7 +9,14 @@ import (
 // The connections between this process and other processes on this machine.
 //
 // Connections to remote hosts, and the ports we listen on, go into the Network
-// Connections section instead.
+// Connections section instead. The partition is Peer.Pid != 0 and nothing else: a
+// listening socket has no peer at all, so it lands in Network, directly above the
+// incoming connections it explains.
+//
+// No line naming the kinds of IPC this section covers, unix sockets and pipes
+// included. "<No connections found>" is true of them too — we found none, having
+// looked — and every tool has limits it doesn't recite. A listing that failed does
+// say so, that being the one gap specific enough to earn a line.
 func (u *Ui) ipcConnectionsForPaging(
 	currentProcess *processes.Process,
 	allProcesses []*processes.Process,

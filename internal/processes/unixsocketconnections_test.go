@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/walles/ftop/internal/assert"
@@ -63,6 +62,181 @@ func TestUnixSocketConnections_server(t *testing.T) {
 			Protocol:  ProtocolUnix,
 			Direction: DirectionIncoming,
 			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// The same client and server as reported on Linux, where a netlink peer edge is
+// symmetric: both ends name each other, so the naming says nothing about who
+// dialed and the arrow comes off the paths instead.
+func TestUnixSocketConnections_linuxClient(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222"}},
+		1: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionOutgoing,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// That same Linux listing from the server's side, which is one connection and not
+// two however many ends of it name each other.
+func TestUnixSocketConnections_linuxServer(t *testing.T) {
+	me := &Process{Pid: 1, Cmdline: "dockerd"}
+	client := &Process{Pid: 42, Cmdline: "curl"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222"}},
+		1: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "curl", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionIncoming,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// lsof's device column for every unix socket on a machine whose kernel withholds
+// its pointers, read off "lsof -n -w -U -F pfndi0" under kernel.kptr_restrict=1
+// in a container. /proc/net/unix prints the kernel address that column comes from
+// with "%pK", which is this for any reader without CAP_SYSLOG, so every socket on
+// such a machine reports the same device and none of them an identity.
+//
+// Sixteen digits because the kernel zero pads "%pK" to twice a pointer's width,
+// and lsof passes that text through with an "0x" in front of it rather than
+// reformatting it. A 32 bit kernel spells the same thing "0x00000000", which
+// nothing here needs to know: these tests need every socket to report the same
+// device, not a particular one.
+const restrictedDevice = "0x0000000000000000"
+
+// A client and its server on a machine that withholds kernel pointers, which is
+// what Ubuntu ships. The devices are all the same and identify nothing, so the
+// inodes are what the two ends of the connection are found by.
+//
+// Every Linux record carries an inode, lsof's "i" column, and the netlink dump
+// names a peer by inode as well — so the whole matching can be done without ever
+// consulting a device, which is what makes this listing come out the same as an
+// unrestricted one.
+func TestUnixSocketConnections_linuxRestrictedKernelPointers(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: restrictedDevice, Inode: "7423", PeerInode: "2201"}},
+		1: {
+			{Fd: "3", Device: restrictedDevice, Inode: "2196", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: restrictedDevice, Inode: "2201", PeerInode: "7423", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionOutgoing,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// A connection only the other end names, on that same machine: our socket names
+// nobody, so the one line it deserves is found by the scan for sockets naming
+// ours rather than by looking ours up.
+//
+// Which is a second thing to get right rather than the first one again. A
+// connection our socket names is an index lookup, and this is the other loop —
+// the one that has to recognize a socket of ours as the peer another socket
+// names, and so has to agree with that lookup about what identifies a socket.
+//
+// This is a datagram server, /dev/log being the everyday one: the netlink peer
+// edge is symmetric for stream and seqpacket sockets, but a connected datagram
+// socket names its server while the server names nobody back. So it is the shape
+// that reaches this loop and no other, on Linux, however unrestricted the kernel
+// pointers are.
+func TestUnixSocketConnections_linuxRestrictedKernelPointersNamedByPeer(t *testing.T) {
+	me := &Process{Pid: 1, Cmdline: "syslogd"}
+	client := &Process{Pid: 42, Cmdline: "cron"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Device: restrictedDevice, Inode: "7423", PeerInode: "2196"}},
+		1:  {{Fd: "3", Device: restrictedDevice, Inode: "2196", Path: "/dev/log"}},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "cron", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionIncoming,
+			Path:      "/dev/log",
+			Count:     1,
+		},
+	})
+}
+
+// A process holding nothing but a socketpair of its own, on that same machine,
+// alongside two processes connected to each other. It gets the one line its
+// socketpair is worth and no line about them.
+//
+// The listing is what makes this worth pinning: the devices say all five sockets
+// are the same socket, so a peer looked up by device lands on whichever of them
+// the listing happened to keep — a stranger, over a path this process neither
+// serves nor dialed. Its own socketpair is the answer, and both ends of it are
+// held right here.
+func TestUnixSocketConnections_linuxRestrictedKernelPointersUnrelatedProcess(t *testing.T) {
+	me := &Process{Pid: 99, Cmdline: "socat"}
+	client := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		99: {
+			{Fd: "5", Device: restrictedDevice, Inode: "16660", PeerInode: "16661"},
+			{Fd: "6", Device: restrictedDevice, Inode: "16661", PeerInode: "16660"},
+		},
+		42: {{Fd: "3", Device: restrictedDevice, Inode: "7423", PeerInode: "2201"}},
+		1: {
+			{Fd: "3", Device: restrictedDevice, Inode: "2196", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: restrictedDevice, Inode: "2201", PeerInode: "7423", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "socat", Pid: 99},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
 			Count:     1,
 		},
 	})
@@ -397,6 +571,186 @@ func TestUnixSocketConnections_selfConnection(t *testing.T) {
 	})
 }
 
+// The same self connection as reported on Linux, where the peer edge is symmetric
+// and so finds it twice over from either end.
+//
+// Which is what makes the direction of a self connection unknown here: the two
+// notes disagree about whose end carries the path, so both of them end up
+// carrying one. The answer has to be the same whichever order they arrive in,
+// map iteration order being what decides it.
+func TestUnixSocketConnections_linuxSelfConnection(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {
+			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
+			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+			{Fd: "5", Device: "0x3333", PeerDevice: "0x2222"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// A client that bound an address of its own before dialing carries a path just
+// like the socket it dialed, and the listening socket is what tells the two
+// apart: the path somebody listens on is the service, and the path nobody listens
+// on was bound to be replied to.
+//
+// So this reports the service we dialed rather than the address we dialed it
+// from, and an arrow to go with it. sd-bus clients dial this way, which makes it
+// an everyday shape rather than an exotic one — measured on a stock Debian 13
+// boot with no desktop on it, where both of the machine's two sd-bus clients,
+// systemd and systemd-logind, reached dbus-daemon from an abstract address of
+// their own.
+//
+// The listener carries the flag and neither end of the connection does, an
+// accepted socket being established rather than listening. So what this pins is a
+// lookup over the whole listing rather than anything readable off the two ends.
+//
+// A Linux listing, by inode: this shape cannot be seen on macOS, where lsof's one
+// name field is a path or a peer and never both — applyUnixSocketName() sets one
+// or the other, and 0 of 521 records on a laptop with a desktop session on it
+// carried the two together. Such a client is invisible there rather than
+// mismatched.
+func TestUnixSocketConnections_linuxClientWithAPathOfItsOwn(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
+		1: {
+			{Fd: "3", Inode: "2196", Path: "/var/run/docker.sock", Listening: true},
+			{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionOutgoing,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// That same listing from the server's side, which has to describe the connection
+// the way the client just did: one connection is one path and one arrow, whichever
+// end is being looked at.
+func TestUnixSocketConnections_linuxServerOfAClientWithAPathOfItsOwn(t *testing.T) {
+	me := &Process{Pid: 1, Cmdline: "dockerd"}
+	client := &Process{Pid: 42, Cmdline: "curl"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
+		1: {
+			{Fd: "3", Inode: "2196", Path: "/var/run/docker.sock", Listening: true},
+			{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "curl", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionIncoming,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// The same client and server with the listening socket nowhere in the listing,
+// which is what a socket activated service looks like from here: PID 1 holds the
+// listener and hands over the accepted socket alone, so a listing that skips PID
+// 1 has the connection without the evidence for it. A server that closed its
+// listener looks the same.
+//
+// Nothing then says which of the two paths is the service, and guessing is what
+// unixSocketDirection() promises never to do — a listen set missing its listener
+// is exactly what it holds against directionAndPort(). So this keeps the end we
+// are looking at and draws no arrow, the way it did before there was a flag to
+// read.
+func TestUnixSocketConnections_linuxClientWithAPathOfItsOwnAndNoListenerInSight(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
+		1:  {{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"}},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "@curl-4711",
+			Count:     1,
+		},
+	})
+}
+
+// Two bound datagram sockets, the syslog socket being the everyday server, which
+// the listening socket cannot settle: listen(2) is a stream and seqpacket call,
+// so neither end carries the flag however plainly one of them is the service.
+// Measured in a container, a datagram server has no SO_ACCEPTCON at all.
+//
+// That socket is bound at /run/systemd/journal/dev-log on a machine journald
+// serves, which is what this listing is, /dev/log being a symlink to it there.
+// Where rsyslog serves it instead it is bound at /dev/log itself, which is the
+// spelling TestUnixSocketConnections_linuxRestrictedKernelPointersNamedByPeer
+// uses. Both were measured in a container; either can turn up in a listing.
+//
+// A client reaches this shape by binding deliberately, wanting a reply — measured
+// in the same container, one that only connects and sends stays nameless, the
+// kernel autobinding nothing on its behalf.
+//
+// So this keeps the end we are looking at and draws no arrow, which leaves the
+// two ends describing the connection by different paths. That is a wart and not a
+// result: the peer edge does record which end is which here, a connected datagram
+// socket naming its server while the server names nobody back, and reading that
+// would settle both fields. Nothing reads it, so nothing here claims it.
+func TestUnixSocketConnections_linuxDatagramPathAtEachEnd(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "logger"}
+	server := &Process{Pid: 1, Cmdline: "systemd-journald"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@logger-4711"}},
+		1:  {{Fd: "3", Inode: "7423", Path: "/run/systemd/journal/dev-log"}},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "systemd-journald", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "@logger-4711",
+			Count:     1,
+		},
+	})
+}
+
 // lsof runs after the process listing, so a peer can be a process we have no
 // name for. Its PID is still worth showing.
 func TestUnixSocketConnections_namelessPeer(t *testing.T) {
@@ -431,19 +785,12 @@ func TestUnixSocketConnections_noUnixSocketsAtAll(t *testing.T) {
 	assert.SlicesEqual(t, connections, []Connection(nil))
 }
 
-// The real lsof should tell us enough about a real connected pair to match it.
+// A real listing should tell us enough about a real connected pair to match it,
+// on either platform.
 //
 // Both ends are held by this very process, so the connection this finds is one
 // to ourselves, over the path we made it on.
-//
-// macOS only, for the reason TestGetUnixSocketsByPid() gives: Linux lsof reports
-// no peer for a unix socket, so there is nothing here to match on until the
-// netlink collector lands.
 func TestUnixSocketConnections_realUnixSocket(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("lsof only reports a unix socket's peer on macOS")
-	}
-
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof not available: ", err)
 	}

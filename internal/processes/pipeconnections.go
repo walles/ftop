@@ -128,6 +128,27 @@ type pipeUsage struct {
 // the inode clause; every other end can, Linux identifying an anonymous pipe by
 // its inode and a named FIFO carrying one on both platforms.
 //
+// Each clause tests a condition the other platform cannot meet, measured rather
+// than assumed. On a quiet macOS laptop 358 of 358 PIPE records carried a
+// lowercase "d" device and not one carried an inode, so no macOS anonymous pipe
+// reaches the inode clause. In a Debian container all 20 FIFO records carried an
+// inode and not one was named "->...", Linux spelling an anonymous pipe "npipe"
+// and a named FIFO by its path, so no Linux pipe reaches the device clause.
+//
+// That first count is about the "d" field and does not carry over to the "->..."
+// name, which is the narrower of the two: on the same laptop later, 311 of 311
+// PIPE records carried a "d" but only 303 were named "->...". The other 8 are
+// pipes whose peer is gone, and they match nothing and get no line, which is what
+// PipeConnections() does with any pipe it can find no peer for.
+//
+// Do not swap this predicate for px's four index maps (px_ipc_map.py:191-220).
+// They exist to make its _get_other_end_pids() O(1) per file because Python makes
+// the scan expensive, while matching a couple of dozen of our own ends against a
+// few thousand pipe files is microseconds in Go. The indexes are also what forces
+// px's platform switch: a map key has to be one string, so its fifo_id() must
+// choose inode-or-name up front, where a predicate can just test both. px says
+// outright that a Linux pipe's name identifies nothing, at px_file.py:85-88.
+//
 // Testing PeerDevice rather than Device is not only about which platform reported
 // the end, which either field would settle. A macOS pipe keeps its Device once its
 // peer is gone, and then there is no other end left to name and nothing here for
@@ -139,6 +160,14 @@ type pipeUsage struct {
 // every end of a pipe shares its inode and two processes writing into one pipe are
 // not talking to each other. The device way needs neither, an end named that way
 // pointing at exactly one other end.
+//
+// Both of those extra tests were watched keeping something out, on Linux, against
+// three shells holding FIFO ends on two such tmpfs mounts plus one real pipeline.
+// Two shells holding an end of each FIFO reported one another as "pipe (×2)", and
+// a shell holding one FIFO for writing on one descriptor and for both on another
+// drew one line per peer plus a line to itself. Matching on the inode alone made
+// those same pages read "pipe" with no count and five lines instead of three, two
+// of them arrows the read-write end contradicts.
 //
 // This is no check that the two ends are distinct: an end open for reading and
 // writing both satisfies it against itself. A caller walking one process' own

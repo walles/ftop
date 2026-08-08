@@ -5,19 +5,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/walles/ftop/internal/assert"
 )
 
-// A client connected to a server over a path, which is the shape lsof reports
-// for every unix domain socket that was made over the file system.
+// A client connected to a server over a path, which is the shape macOS lsof
+// reports for every unix domain socket that was made over the file system.
 //
 // The server holds two sockets on that one path: the listener it accepts on,
 // and the socket that came of accepting. Neither of them names a peer. The
-// client names the accepted one and carries no path of its own, so the two ends
-// of a connection are told apart by which one does the naming.
+// client names the accepted one and carries no path of its own.
 func TestLsofUnixSocketParser_clientAndServer(t *testing.T) {
 	parser := newLsofUnixSocketParser()
 
@@ -39,6 +37,33 @@ func TestLsofUnixSocketParser_clientAndServer(t *testing.T) {
 	})
 	assert.SlicesEqual(t, parser.unixSocketsByPid[78881], []UnixSocket{
 		{Fd: "3", Device: "0x628a5982efaac095", PeerDevice: "0xd82e0ac85b8e6a97"},
+	})
+}
+
+// Linux lsof reports an inode on every unix socket record and names no peer
+// anywhere, and its name field is no path: " type=STREAM" comes along on a socket
+// bound to one, and a socket bound to nothing is named by that suffix alone.
+//
+// The same client and server as above, listener first. The suffix stays in Path,
+// which fillInPeersAndPaths() overwrites along with filling in the peer, so
+// nothing downstream ever sees it.
+func TestLsofUnixSocketParser_linuxClientAndServer(t *testing.T) {
+	parser := newLsofUnixSocketParser()
+
+	lines := []string{
+		"p250\x00",
+		"f4\x00d0x00000000d53f7360\x00i14598\x00n/tmp/probe.sock type=STREAM\x00",
+		"f5\x00d0x000000005b7e5c5a\x00i14602\x00ntype=STREAM\x00",
+		"f13\x00d0x0000000060561eb9\x00i14609\x00n/tmp/probe.sock type=STREAM\x00",
+	}
+	for _, line := range lines {
+		assert.Equal(t, parser.parseLine(line), nil)
+	}
+
+	assert.SlicesEqual(t, parser.unixSocketsByPid[250], []UnixSocket{
+		{Fd: "4", Device: "0x00000000d53f7360", Inode: "14598", Path: "/tmp/probe.sock type=STREAM"},
+		{Fd: "5", Device: "0x000000005b7e5c5a", Inode: "14602", Path: "type=STREAM"},
+		{Fd: "13", Device: "0x0000000060561eb9", Inode: "14609", Path: "/tmp/probe.sock type=STREAM"},
 	})
 }
 
@@ -129,25 +154,20 @@ func TestLsofUnixSocketParser_unparseablePid(t *testing.T) {
 	assert.Equal(t, err != nil, true)
 }
 
-// The real lsof should report a real connected pair the way the parser tests
-// above say it does: the server's accepted socket named by its path, and the
-// client naming that socket's device.
+// A real connected pair should come out of the real collector with a path on the
+// socket that was accepted and a peer on the socket that dialed it, which is what
+// a connection is made of.
 //
 // Both ends are held by this very process, which is exactly what a self
 // connection is and costs the test nothing: the listing does not care which
 // process holds which end.
 //
-// macOS only, unlike the real-lsof pipe tests, and not for lack of trying to
-// write it platform independently. The peer edge is the whole of what this
-// asserts, and on Linux there is none to assert: lsof reports a unix socket's
-// own kernel address and stops there, that field being /proc/net/unix's Num
-// column reformatted, and neither source knows a peer. Supplying it from a
-// netlink sock_diag dump is a slice of its own.
+// Runs on both platforms, and asserts the same two facts on each, though it takes
+// two sources to have them on Linux: lsof alone reports a unix socket's own kernel
+// address and stops there, that field being /proc/net/unix's Num column
+// reformatted, and the peer comes from a netlink dump. So this is where the join
+// between the two of them gets exercised for real.
 func TestGetUnixSocketsByPid(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("lsof only reports a unix socket's peer on macOS")
-	}
-
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof not available: ", err)
 	}
@@ -187,20 +207,24 @@ func TestGetUnixSocketsByPid(t *testing.T) {
 
 	ourSockets := unixSocketsByPid[os.Getpid()]
 
-	// The listener and the socket accepted on it, both named by the path
+	// The listener and the socket accepted on it, both named by the path.
+	//
+	// Identified the way the matching identifies a socket, which is by inode on
+	// Linux and by kernel address on macOS, so that this asks the same question of
+	// both platforms.
 	ourPath := map[string]bool{}
 	for _, socket := range ourSockets {
 		if socket.Path != path {
 			continue
 		}
 
-		ourPath[socket.Device] = true
+		ourPath[unixSocketIdentity(socket)] = true
 	}
 
 	// The client's socket, which carries no path and names one of those two
 	namesOurPath := false
 	for _, socket := range ourSockets {
-		if !ourPath[socket.PeerDevice] {
+		if !ourPath[unixSocketPeerIdentity(socket)] {
 			continue
 		}
 
