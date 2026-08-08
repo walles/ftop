@@ -20,7 +20,7 @@ lsof is a means, not the design. Pick the source per kind of IPC and per platfor
 and let them differ: lsof where it is the best fit, netlink where it carries an
 edge lsof cannot see, `proc_pidfdinfo` where the kernel knows something lsof
 drops. Unix domain sockets on Linux already left lsof for the second of those
-reasons, and the pipe direction work below would leave it for the third.
+reasons, and pipe direction on macOS for the third.
 
 **Fork count is not a design constraint.** Don't fork inside a loop — that is the
 shape that scales with the machine. Beyond that, fork as many times as the job
@@ -105,67 +105,3 @@ measurement.
   Connections about half the time. Direction inference elsewhere survives it,
   since `listenSets()` reads the raw listing rather than the deduplicated one.
   Predates UDP; cheap to close.
-- **The no-op darwin half of `fillInPeersAndPaths()` — flagged for a look.**
-  `unixsocketpeers_linux.go` takes the peer edge and the path from a netlink dump,
-  and `unixsocketpeers_darwin.go` exists only to say there is nothing to do there,
-  its whole body being `return nil`. That is a file per platform where the repo's
-  other splits — `io_darwin.go`/`io_linux.go`,
-  `sysload_darwin.go`/`sysload_linux.go` — have both halves doing real work, and
-  all the seam buys is one call in `GetUnixSocketsByPid()`.
-
-  Two alternatives, and one non-alternative. A `//go:build !linux` file would at
-  least cover a platform nobody has added yet, where `_darwin.go` leaves the build
-  broken for one. Giving each platform its own `GetUnixSocketsByPid()` keeps the
-  seam out of the shared code and duplicates the lsof fork and its error handling
-  instead. What is out is doing it in the shared file behind a `runtime.GOOS`
-  test: the netlink constants, `unix.NlMsghdr` and `syscall.ParseNetlinkMessage`
-  don't exist in a darwin build, so the file wouldn't compile.
-- **Pipe direction on macOS, taken from the kernel rather than from lsof.** macOS
-  lsof reports no access mode for a `PIPE` record, so every anonymous pipe there
-  is `DirectionUnknown` and renders `<?>`. `tail -f /etc/services | sort | nl`
-  shows as `tail(40504) <?> sort(40505)  pipe` when the truth is plainly
-  `tail --> sort`. Linux reports the modes and gets its arrows already.
-
-  **Not a matter of asking lsof for the right field.** `+fg` is lsof's file-flag
-  option, and it fills that column in for `CHR` and `REG` while leaving it blank
-  for `PIPE`; the FD number carries no `r`/`w` suffix either. Both ends of a real
-  pipeline, on macOS lsof 4.91:
-
-  ```
-  tail  40697  0r  CHR   R;SH          /dev/null     <- flags reported
-  tail  40697  1   PIPE                ->0x8512...   <- blank
-  sort  40698  0   PIPE                ->0xe272...   <- blank
-  sort  40698  2w  CHR   W,0x10000;SH  /dev/null     <- flags reported
-  ```
-
-  **The kernel knows.** `proc_pidfdinfo(pid, fd, PROC_PIDFDPIPEINFO)` fills in a
-  `proc_fileinfo` whose `fi_openflags` carries FREAD/FWRITE, verified against
-  that same pipeline:
-
-  ```
-  tail(40697) fd 1  fi_openflags=0x10002  FWRITE  handle=0xe272559b6a8c5e34  peer=0x8512e4a289d94ded
-  sort(40698) fd 0  fi_openflags=0x1      FREAD   handle=0x8512e4a289d94ded  peer=0xe272559b6a8c5e34
-  ```
-
-  `pipe_handle` and `pipe_peerhandle` are the same two numbers lsof prints as the
-  `DEVICE` and the `->` name, so this is the pipe end we already have with the
-  direction attached, not a second identity to join on.
-
-  Cheaper than a new data source usually is. cgo is already a macOS dependency —
-  `test.sh` builds both darwin targets with `CGO_ENABLED=1`, and
-  `sysload_darwin.go` is the established `//go:build darwin` plus inline C
-  pattern. The change lands entirely in `GetPipeEndsByPid()`, filling in the
-  `Access` lsof left empty, so `arePipeEnds()`, `pipeDirection()` and every one of
-  their tests are untouched. Linux keeps taking the access mode from lsof and
-  needs nothing. Cost is one syscall per pipe end, around 300 on a quiet laptop,
-  against the 0.36 s the unfiltered lsof already spends.
-
-  Guard the race between the lsof fork and the syscall by requiring the returned
-  `pipe_handle` to equal the `Device` lsof reported — an fd can be closed and
-  reopened in between, and then the flags describe some other file entirely.
-
-  Unverified: how this degrades for processes we don't own. `proc_pidfdinfo`
-  enforces a same-uid-or-root check, so EPERM and a fall back to
-  `DirectionUnknown` is what to expect, matching how lsof already degrades — but
-  the laptop this was measured on had no root-owned process holding a pipe to
-  probe, so that is reasoning rather than a measurement.

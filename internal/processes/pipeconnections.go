@@ -111,8 +111,7 @@ type peerPipe struct {
 
 // What our own ends of one pipe, taken together, let us do with it.
 //
-// Both false for a pipe lsof reports no access mode for, which is every anonymous
-// pipe on macOS.
+// Both false for a pipe we got no access mode for at all, see PipeAccess.
 type pipeUsage struct {
 	canWrite bool
 	canRead  bool
@@ -187,7 +186,7 @@ func arePipeEnds(ours PipeEnd, theirs PipeEnd) bool {
 
 	// An end that can write pairs with an end that can read, which makes an end
 	// open for both a peer of readers, writers and other such ends alike. An end
-	// lsof reports no mode for can do neither as far as we know, and pairs with
+	// we got no mode for can do neither as far as we know, and pairs with
 	// nothing.
 	return canWrite(ours) && canRead(theirs) || canRead(ours) && canWrite(theirs)
 }
@@ -197,7 +196,7 @@ func arePipeEnds(ours PipeEnd, theirs PipeEnd) bool {
 //
 // DirectionUnknown where they let us do both, since then an arrow either way is a
 // claim the other direction contradicts, and where they let us do neither, which
-// is what lsof naming no access mode comes to.
+// is what an end with no access mode comes to.
 func pipeDirection(usage pipeUsage) Direction {
 	if usage.canWrite && !usage.canRead {
 		return DirectionOutgoing
@@ -214,9 +213,9 @@ func pipeDirection(usage pipeUsage) Direction {
 // by the process we are reporting on.
 //
 // Such a pipe is one pipe and deserves one line, so one of the two ends has to
-// stand for it. The writing one does, data flowing from there, and where lsof
-// won't say which end writes it goes by whichever end sorts first: arbitrary,
-// but the same end every time the page is opened.
+// stand for it. The writing one does, data flowing from there, and where we have
+// no access mode to tell which end writes it goes by whichever end sorts first:
+// arbitrary, but the same end every time the page is opened.
 //
 // False for an end against itself, which is also what keeps a lone end open for
 // reading and writing both out of the listing as its own peer: arePipeEnds()

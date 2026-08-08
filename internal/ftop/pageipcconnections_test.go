@@ -110,8 +110,10 @@ func TestIpcConnectionsForPagingListsPipes(t *testing.T) {
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
-// macOS lsof won't say which end of a pipe writes, so there a pipe gets a
-// question mark instead of an arrow, the way a UDP connection does.
+// A pipe we could establish no access mode for gets a question mark instead of
+// an arrow, the way a UDP connection does. Both ends here are shaped the way
+// macOS lsof reports an anonymous pipe, which is the listing that carries no
+// access modes of its own.
 func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
 	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
 		42:   {{Fd: "1", Device: "0xaaaa", PeerDevice: "0xbbbb"}},
