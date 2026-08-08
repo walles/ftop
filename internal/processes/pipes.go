@@ -11,7 +11,10 @@ import (
 
 // How a pipe end is open, as lsof spells it.
 //
-// Empty when lsof won't say, which is every anonymous pipe on macOS.
+// Empty where neither source would say. lsof leaves it blank for every
+// anonymous pipe on macOS, where the kernel is asked instead, so what stays
+// empty is an end neither one could account for — a process that exited
+// mid-listing being the common way to get there.
 type PipeAccess string
 
 const (
@@ -72,6 +75,9 @@ type PipeEnd struct {
 // from the map, so expect only a fraction of the running processes when not
 // running as root. Processes without any pipes are missing as well.
 //
+// The access modes come from lsof where lsof reports them and from the kernel
+// where it doesn't, see fillInAccessModes(). Everything else is lsof's.
+//
 // This forks lsof without a filter, since lsof has no flag for selecting pipes,
 // so it costs about twice what the filtered socket listing does: measured on a
 // quiet macOS laptop, non-root, median of three, 0.39 s for 1.4 MB of output
@@ -101,19 +107,19 @@ func GetPipeEndsByPid() (map[int][]PipeEnd, error) {
 
 	// Locale intentionally left alone, matching GetCwdsByPid()
 	err := util.ExecInUsersLocale(commandline, parser.parseLine)
-	if err == nil {
-		return parser.pipeEndsByPid, nil
+	if err != nil {
+		// lsof exits non-zero as soon as anything at all went wrong, and failing
+		// to inspect some process is business as usual. Whatever it did manage
+		// to report is still good, so only give up if we got nothing.
+		if len(parser.pipeEndsByPid) == 0 {
+			return nil, err
+		}
+
+		log.Infof("Listing pipes partially failed, got %d processes' worth: %v",
+			len(parser.pipeEndsByPid), err)
 	}
 
-	// lsof exits non-zero as soon as anything at all went wrong, and failing to
-	// inspect some process is business as usual. Whatever it did manage to
-	// report is still good, so only give up if we got nothing.
-	if len(parser.pipeEndsByPid) == 0 {
-		return nil, err
-	}
-
-	log.Infof("Listing pipes partially failed, got %d processes' worth: %v",
-		len(parser.pipeEndsByPid), err)
+	fillInAccessModes(parser.pipeEndsByPid)
 
 	return parser.pipeEndsByPid, nil
 }

@@ -229,6 +229,54 @@ func TestGetPipeEndsByPid(t *testing.T) {
 	assert.Equal(t, foundWriter, true)
 }
 
+// The two ends of an anonymous pipe are open opposite ways, and each end has to
+// come back saying which way its own is: an end we can only write into is one
+// our data flows out through, and that is the arrow the IPC page draws.
+func TestGetPipeEndsByPid_anonymousPipeAccessModes(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof not available: ", err)
+	}
+
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = reader.Close()
+		_ = writer.Close()
+	}()
+
+	readerFd := strconv.Itoa(int(reader.Fd()))
+	writerFd := strconv.Itoa(int(writer.Fd()))
+
+	pipeEndsByPid, err := GetPipeEndsByPid()
+	if err != nil {
+		t.Fatalf("listing pipes failed: %v", err)
+	}
+
+	var readerEnd *PipeEnd
+	var writerEnd *PipeEnd
+	for _, end := range pipeEndsByPid[os.Getpid()] {
+		switch end.Fd {
+		case readerFd:
+			readerEnd = &end
+
+		case writerFd:
+			writerEnd = &end
+		}
+	}
+
+	if readerEnd == nil || writerEnd == nil {
+		t.Fatalf("lsof reported %v, missing fd %s or %s",
+			pipeEndsByPid[os.Getpid()], readerFd, writerFd)
+	}
+
+	// os.Pipe() hands out one end of each kind, so these are the two modes a
+	// pipe end can be in. Read-write is a FIFO thing and cannot happen here.
+	assert.Equal(t, readerEnd.Access, PipeAccessRead)
+	assert.Equal(t, writerEnd.Access, PipeAccessWrite)
+}
+
 // The real lsof should tell us enough about the two ends of a named FIFO for
 // arePipeEnds() to match them, on whatever platform and lsof version this is.
 //
