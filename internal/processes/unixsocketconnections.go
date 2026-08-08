@@ -211,12 +211,19 @@ func noteUnixSocketMatch(
 // own — noting that connection from either end fills both paths in with the
 // accepted end's, which makes us the dialer and the dialed at once — or a client
 // that bound an address of its own before dialing, which the abstract namespace
-// makes cheap enough that some D-Bus and X11 clients do it.
+// makes cheap enough that sd-bus clients do it. Measured on a stock Debian 13
+// boot with no desktop on it, where both of the machine's sd-bus clients —
+// systemd and systemd-logind — reached dbus-daemon from an abstract address of
+// their own. libdbus and Xlib clients do
+// not, whatever their reputation — dbus-monitor, gdbus, xeyes, xclock and xlogo
+// were all measured dialing from no address at all.
 //
-// That last one is a real client whose arrow we decline to draw, and the listing
-// gives us nothing better: a bound address looks the same whether it was bound to
-// be dialed or bound to be replied to, so the only way to tell would be knowing
-// who called listen(2), which neither lsof nor the dump reports.
+// That last one is a real client whose arrow we decline to draw, though not for
+// want of the fact: a bound address looks the same whether it was bound to be
+// dialed or bound to be replied to, so telling them apart takes knowing who
+// called listen(2) — which the netlink dump does report, in the udiag_state that
+// parseUnixDiagRecord() decodes and drops on the floor. Reading it is what
+// UnixSocket.Listening is there for, and nothing fills that in yet.
 //
 // Never a backwards arrow, whatever we cannot see: both ends have to be in the
 // listing for there to be a match at all, so a connection with an invisible end

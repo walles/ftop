@@ -603,28 +603,97 @@ func TestUnixSocketConnections_linuxSelfConnection(t *testing.T) {
 }
 
 // A client that bound an address of its own before dialing carries a path just
-// like the socket it dialed, and then there is no telling which of the two is the
-// server. The connection is still worth a line — it is the arrow that goes
-// missing, not the peer.
+// like the socket it dialed, and the listening socket is what tells the two
+// apart: the path somebody listens on is the service, and the path nobody listens
+// on was bound to be replied to.
 //
-// Binding first is cheap in the abstract namespace and some D-Bus and X11 clients
-// do it. Telling this apart from a server would take knowing who called listen(2),
-// which neither lsof nor the netlink dump reports; see unixSocketDirection().
+// So this reports the service we dialed rather than the address we dialed it
+// from, and an arrow to go with it. sd-bus clients dial this way, which makes it
+// an everyday shape rather than an exotic one — measured on a stock Debian 13
+// boot with no desktop on it, where both of the machine's two sd-bus clients,
+// systemd and systemd-logind, reached dbus-daemon from an abstract address of
+// their own.
 //
-// The path reported is our own bound address rather than the server's, both ends
-// having one and our own being the one preferred. Whoever is looked at gets their
-// own, so the two ends of this connection describe it differently — the same
-// missing fact as the direction, showing up in the other field.
-func TestUnixSocketConnections_clientWithAPathOfItsOwn(t *testing.T) {
+// The listener carries the flag and neither end of the connection does, an
+// accepted socket being established rather than listening. So what this pins is a
+// lookup over the whole listing rather than anything readable off the two ends.
+//
+// A Linux listing, by inode: this shape cannot be seen on macOS, where lsof's one
+// name field is a path or a peer and never both — applyUnixSocketName() sets one
+// or the other, and 0 of 521 records on a laptop with a desktop session on it
+// carried the two together. Such a client is invisible there rather than
+// mismatched.
+func TestUnixSocketConnections_linuxClientWithAPathOfItsOwn(t *testing.T) {
 	me := &Process{Pid: 42, Cmdline: "curl"}
 	server := &Process{Pid: 1, Cmdline: "dockerd"}
 
 	unixSockets := map[int][]UnixSocket{
-		42: {{Fd: "3", Device: "0x3333", PeerDevice: "0x2222", Path: "@curl-4711"}},
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
 		1: {
-			{Fd: "3", Device: "0x1111", Path: "/var/run/docker.sock"},
-			{Fd: "4", Device: "0x2222", PeerDevice: "0x3333", Path: "/var/run/docker.sock"},
+			{Fd: "3", Inode: "2196", Path: "/var/run/docker.sock", Listening: true},
+			{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"},
 		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "dockerd", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionOutgoing,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// That same listing from the server's side, which has to describe the connection
+// the way the client just did: one connection is one path and one arrow, whichever
+// end is being looked at.
+func TestUnixSocketConnections_linuxServerOfAClientWithAPathOfItsOwn(t *testing.T) {
+	me := &Process{Pid: 1, Cmdline: "dockerd"}
+	client := &Process{Pid: 42, Cmdline: "curl"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
+		1: {
+			{Fd: "3", Inode: "2196", Path: "/var/run/docker.sock", Listening: true},
+			{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"},
+		},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, client}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "curl", Pid: 42},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionIncoming,
+			Path:      "/var/run/docker.sock",
+			Count:     1,
+		},
+	})
+}
+
+// The same client and server with the listening socket nowhere in the listing,
+// which is what a socket activated service looks like from here: PID 1 holds the
+// listener and hands over the accepted socket alone, so a listing that skips PID
+// 1 has the connection without the evidence for it. A server that closed its
+// listener looks the same.
+//
+// Nothing then says which of the two paths is the service, and guessing is what
+// unixSocketDirection() promises never to do — a listen set missing its listener
+// is exactly what it holds against directionAndPort(). So this keeps the end we
+// are looking at and draws no arrow, the way it did before there was a flag to
+// read.
+func TestUnixSocketConnections_linuxClientWithAPathOfItsOwnAndNoListenerInSight(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "curl"}
+	server := &Process{Pid: 1, Cmdline: "dockerd"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@curl-4711"}},
+		1:  {{Fd: "4", Inode: "7423", PeerInode: "16660", Path: "/var/run/docker.sock"}},
 	}
 
 	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
@@ -635,6 +704,42 @@ func TestUnixSocketConnections_clientWithAPathOfItsOwn(t *testing.T) {
 			Protocol:  ProtocolUnix,
 			Direction: DirectionUnknown,
 			Path:      "@curl-4711",
+			Count:     1,
+		},
+	})
+}
+
+// Two bound datagram sockets, /dev/log's being the everyday server, which the
+// listening socket cannot settle: listen(2) is a stream and seqpacket call, so
+// neither end carries the flag however plainly one of them is the service.
+// Measured in a container, a datagram server has no SO_ACCEPTCON at all.
+//
+// A client reaches this shape by binding deliberately, wanting a reply — measured
+// in the same container, one that only connects and sends stays nameless, the
+// kernel autobinding nothing on its behalf.
+//
+// So this keeps the end we are looking at and draws no arrow, which leaves the
+// two ends describing the connection by different paths. That is a wart and not a
+// result: the peer edge does record which end is which here, a connected datagram
+// socket naming its server while the server names nobody back, and reading that
+// would settle both fields. Nothing reads it, so nothing here claims it.
+func TestUnixSocketConnections_linuxDatagramPathAtEachEnd(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "logger"}
+	server := &Process{Pid: 1, Cmdline: "systemd-journald"}
+
+	unixSockets := map[int][]UnixSocket{
+		42: {{Fd: "3", Inode: "16660", PeerInode: "7423", Path: "@logger-4711"}},
+		1:  {{Fd: "3", Inode: "7423", Path: "/run/systemd/journal/dev-log"}},
+	}
+
+	connections := UnixSocketConnections(me, []*Process{me, server}, unixSockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{
+			Peer:      Peer{Name: "systemd-journald", Pid: 1},
+			Protocol:  ProtocolUnix,
+			Direction: DirectionUnknown,
+			Path:      "@logger-4711",
 			Count:     1,
 		},
 	})

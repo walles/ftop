@@ -15,12 +15,16 @@ import (
 // process, the descriptor, the device and the inode, and a sock_diag netlink dump
 // supplies the peer and the path on top of that; see fillInPeersAndPaths().
 //
-// Which fields are populated says what the socket is: a socket bound to a path
-// carries it, which is a listener and every socket accepted on one, and the
-// socket that dialed such a path carries none. So the end without a path is the
-// end that dialed, and that is what UnixSocketConnections() reads a connection's
-// direction off. Neither end of a socketpair(2) has a path, which is exactly the
-// case it can draw no arrow for.
+// Which fields are populated says most of what the socket is: a socket bound to
+// a path carries it, which is a listener and every socket accepted on one, and
+// the socket that dialed such a path usually carries none. So the end without a
+// path is the end that dialed, and that is what UnixSocketConnections() reads a
+// connection's direction off. Neither end of a socketpair(2) has a path, which is
+// exactly the case it can draw no arrow for.
+//
+// Usually rather than always, because a client is free to bind an address of its
+// own before dialing, and then both ends carry one. Listening is what tells those
+// two apart on Linux.
 //
 // Which end names which says nothing about direction, the two platforms
 // disagreeing about it: a macOS client names the socket it dialed and nothing
@@ -88,9 +92,28 @@ type UnixSocket struct {
 
 	// The path this socket is bound to, "/tmp/probe.sock", or "@name" for one in
 	// the abstract namespace, which is Linux only. Carried by a listener and by
-	// every socket accepted on it, empty for a socket that dialed one of those
-	// and empty for both ends of a socketpair(2).
+	// every socket accepted on it, empty for both ends of a socketpair(2), and
+	// empty for a socket that dialed one of those unless it bound an address of
+	// its own first.
 	Path string
+
+	// Whether listen(2) was called on this socket, which is what makes its Path a
+	// service address rather than an address somebody bound to be replied to.
+	//
+	// Linux only, from the netlink dump's udiag_state. Always false on macOS,
+	// where lsof reports no such thing — and where nothing needs it, a socket
+	// there never being reported with a peer and a Path both; see
+	// UnixSocketConnections().
+	//
+	// True on the listening socket alone, never on the sockets accepted from it,
+	// so this is no use read off the two ends of a connection: neither of those
+	// ends is the listener. What it identifies is the Path, and a service Path is
+	// the one some socket in the listing listens on.
+	//
+	// False for a datagram socket however much of a service it is: listen(2) is a
+	// stream and seqpacket call, so /dev/log has nothing to set this by. Measured
+	// in a container: a datagram server carries no SO_ACCEPTCON.
+	Listening bool
 }
 
 // Maps PIDs to the unix domain sockets held open by the corresponding
