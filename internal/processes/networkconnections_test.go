@@ -311,6 +311,30 @@ func TestNetworkConnections_deduplicatesOneSocketOnSeveralFileDescriptors(t *tes
 	})
 }
 
+// A program that listens on a port and also dials out from it, the way a peer to
+// peer client does with SO_REUSEADDR, holds a listener and a bound but not yet
+// connected socket on one and the same address. Those two carry the same protocol,
+// the same local address and no remote at all, and only their listening state
+// tells them apart. Taking them for one socket costs the listening row.
+func TestNetworkConnections_listenerAlongsideABoundSocketOnItsAddress(t *testing.T) {
+	me := &Process{Pid: 42, Cmdline: "picked"}
+
+	sockets := map[int][]Socket{
+		42: {
+			// The bound socket is listed first, so a listener mistaken for a repeat
+			// of it is the one that would be dropped.
+			{Fd: "3", Protocol: ProtocolTcp, Local: "127.0.0.1:8080"},
+			{Fd: "4", Protocol: ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+		},
+	}
+
+	connections := NetworkConnections(me, []*Process{me}, sockets)
+
+	assert.SlicesEqual(t, connections, []Connection{
+		{Protocol: ProtocolTcp, Direction: DirectionIncoming, Port: 8080, Listening: true, Count: 1},
+	})
+}
+
 // A process talking to itself holds both ends of the connection. That is one
 // connection and gets one line, even though we can see it from both sides.
 func TestNetworkConnections_selfConnectionIsShownOnce(t *testing.T) {
