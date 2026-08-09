@@ -81,6 +81,11 @@ func (ui *Ui) MainLoop() {
 		// holds ftop open until they quit it.
 		if initialProc := ui.takeInitialPageProcess(); initialProc != nil && !ui.done.Load() {
 			ui.pageProcessInfo(initialProc)
+
+			// Leaving the pager should feel like having arrowed down to that
+			// process, so that killing it or looking at it again is one
+			// keypress away.
+			ui.pickProcessAtTop(initialProc)
 		}
 
 		procs := processes.Filter(ui.allProcesses, ui.filter)

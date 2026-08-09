@@ -112,3 +112,13 @@ func (ui *Ui) takeInitialPageProcess() *processes.Process {
 	log.Infof("No process with PID %d, showing it as a filter only", pid)
 	return nil
 }
+
+// Select proc, on the top line of the interactive process list.
+//
+// The selection outranks the sort order: as long as proc is alive and matches
+// the filter, the list rendering keeps it on the top line.
+func (ui *Ui) pickProcessAtTop(proc *processes.Process) {
+	topLine := 0
+	ui.pickedLine = &topLine
+	ui.pickedProcess = proc
+}

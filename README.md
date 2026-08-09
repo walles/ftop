@@ -61,7 +61,7 @@ for, `ftop firefox` starts with `firefox` as the active filter.
 
 Give it a PID and you go one step further: `ftop 7619` opens the process info
 page for that process right away. Leave that page and you're in the interactive
-view, filtered on `7619`.
+view, filtered on `7619` with that process selected on the top line.
 
 To exit `ftop`, press `q`.
 

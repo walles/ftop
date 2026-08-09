@@ -82,3 +82,20 @@ func TestTakeInitialPageProcess_PaddedNumberIsJustAFilter(t *testing.T) {
 	assert.Equal(t, ui.takeInitialPageProcess(), (*processes.Process)(nil))
 	assert.Equal(t, ui.allProcesses[0].Matches(ui.filter), false)
 }
+
+// Leaving the process info page lands the user on that process, on the top
+// line of the interactive list, no matter where the sort order would otherwise
+// have put it.
+func TestPickProcessAtTop(t *testing.T) {
+	ui := makeTestUi()
+	procs := []processes.Process{
+		{Pid: 1234, Cmdline: "busy", CpuTime: toDuration(100)},
+		{Pid: 7619, Cmdline: "idle", CpuTime: toDuration(1)},
+	}
+
+	ui.pickProcessAtTop(&procs[1])
+	ui.syncPickedProcess(procs, -1)
+
+	assert.Equal(t, *ui.pickedLine, 0)
+	assert.Equal(t, ui.pickedProcess.Pid, 7619)
+}
