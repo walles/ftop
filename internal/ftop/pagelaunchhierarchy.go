@@ -76,8 +76,6 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 	boldSuffix := twin.StyleDefault.RenderUpdateFrom(bold, twin.ColorCount24bit)
 
 	for i, e := range entries {
-		padding := strings.Repeat(" ", maxWidth-utf8.RuneCountInString(e.line))
-
 		username := e.process.Username
 		switch username {
 		case currentUsername:
@@ -88,7 +86,7 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 			username = boldPrefix + username + boldSuffix
 		}
 
-		treeLines[i] = e.fancyLine + padding + "  " + username
+		treeLines[i] = rightPadded(e.line, e.fancyLine, maxWidth) + "  " + username
 	}
 
 	for _, line := range treeLines {

@@ -54,14 +54,8 @@ func (u *Ui) writeConnectionLines(
 	us := currentProcess.String()
 	fancyUs := u.highlight(us)
 
-	// What to call the peer of a connection, plain and styled. A process at both
-	// ends of a connection is its own peer, and it is the process the page is
-	// about wherever it turns up, so that peer is highlighted the way we are.
-	//
-	// By PID rather than by label: the two spell a process the same way today,
-	// and a peer is the same process or it isn't, whatever either of them decides
-	// to call it. Pid 0 is no process at all, which is how the Network
-	// Connections page spells a peer that is a remote host.
+	// By PID rather than by label: a peer is the same process or it isn't,
+	// whatever either of them decides to call it. Pid 0 is no process at all.
 	styledPeerLabel := func(peer processes.Peer) (string, string) {
 		label := peerLabel(peer)
 		if peer.Pid == 0 || peer.Pid != currentProcess.Pid {
@@ -157,17 +151,4 @@ func connectionDescription(connection processes.Connection) string {
 	}
 
 	return description
-}
-
-// The styled text fancy, with spaces appended until it fills width columns, or
-// fancy alone if it fills them already.
-//
-// plain is fancy without the styling, and is what the padding is measured over:
-// the escape sequences fancy carries take up no columns, so counting them would
-// leave a styled name short of where an unstyled one of the same length lands.
-// Pass the same string twice for text with no styling to it.
-func rightPadded(plain string, fancy string, width int) string {
-	padding := max(0, width-utf8.RuneCountInString(plain))
-
-	return fancy + strings.Repeat(" ", padding)
 }

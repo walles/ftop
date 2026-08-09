@@ -59,6 +59,19 @@ func (pt *pageText) writeTitle(title string) {
 	)
 }
 
+// The styled text fancy, with spaces appended until it fills width columns, or
+// fancy alone if it fills them already.
+//
+// plain is fancy without the styling, and is what the padding is measured over:
+// the escape sequences fancy carries take up no columns, so counting them would
+// leave a styled string short of where an unstyled one of the same length lands.
+// Pass the same string twice for text with no styling to it.
+func rightPadded(plain string, fancy string, width int) string {
+	padding := max(0, width-utf8.RuneCountInString(plain))
+
+	return fancy + strings.Repeat(" ", padding)
+}
+
 // Wraps s in the theme's highlight color, ending in whatever style the line
 // started out in.
 func (u *Ui) highlight(s string) string {
