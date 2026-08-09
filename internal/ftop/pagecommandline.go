@@ -9,7 +9,7 @@ import (
 )
 
 func (u *Ui) commandLineForPaging(proc *processes.Process, pt *pageText) {
-	pt.writeTitle("Command Line")
+	pt.writeTitle("Command Line for " + proc.String())
 
 	split := proc.DisplayCommandLine()
 	if len(split) == 0 {
