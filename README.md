@@ -59,6 +59,10 @@ go install github.com/walles/ftop/cmd/ftop@latest
 Just type `ftop`, that's a good start! If you already know what you're looking
 for, `ftop firefox` starts with `firefox` as the active filter.
 
+Give it a PID and you go one step further: `ftop 7619` opens the process info
+page for that process right away. Leave that page and you're in the interactive
+view, filtered on `7619`.
+
 To exit `ftop`, press `q`.
 
 Also try `ftop --help` to see what else is available.
