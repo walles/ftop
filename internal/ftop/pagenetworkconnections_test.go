@@ -82,6 +82,33 @@ func TestNetworkConnectionsForPagingListsRemotePeers(t *testing.T) {
 	assert.Equal(t, stringsContains(page.String(), "──Network Connections──"), true)
 }
 
+// The picked process is highlighted on every line, and nothing else is. The
+// peers here are remote hosts rather than processes, so none of them is the
+// process this page is about however it is spelled — not the address in the left
+// hand column, and not the host name in the middle one.
+func TestNetworkConnectionsForPagingHighlightsThePickedProcessOnly(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:8080", Listening: true},
+			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:8080", Remote: "1.2.3.4:1000"},
+			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "192.168.50.32:50000", Remote: "140.82.114.25:443"},
+		},
+	}}
+	fakeDns(t, map[string]string{"140.82.114.25": "api.github.com"})
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.networkConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
+
+	assert.Equal(t, strings.Count(page.String(), ui.highlight("picked(42)")), 3)
+	assert.Equal(t, stringsContains(page.String(), ui.highlight("1.2.3.4")), false)
+	assert.Equal(t, stringsContains(page.String(), ui.highlight("api.github.com")), false)
+}
+
 // UDP says nothing about who dialed whom, so its lines get a question mark rather
 // than an arrow. That marker is as wide as the arrow, so a section holding both
 // kinds of line still lines up.
