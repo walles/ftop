@@ -377,26 +377,68 @@ func TestIpcConnectionsForPagingHighlightsBothEndsOfASelfConnection(t *testing.T
 	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, noSockets, pipes, noUnixSockets, &pt)
 
 	assert.Equal(t, sectionBody(page.String()), "picked(42) ──▶ picked(42)  pipe\n")
-	assert.Equal(t, strings.Count(page.String(), ui.highlight("picked(42)")), 2)
+
+	bothHighlighted := ui.highlight("picked(42)") + " ──▶ " + ui.highlight("picked(42)")
+	assert.Equal(t, stringsContains(page.String(), bothHighlighted), true)
 }
 
-// A self connection sharing the section with connections to other processes:
-// both of its ends are highlighted, and the columns line up the way they do on
-// any other page. Highlighting is no excuse for losing the alignment, the
-// styling being invisible to a reader counting columns.
-func TestIpcConnectionsForPagingSelfConnectionAlignment(t *testing.T) {
+// A self connection the other way around: the picked process dialed a port of
+// its own, so it is the one in the left hand column as well, and both ends are
+// highlighted there too.
+//
+// Which of the two sockets a self connection is reported by decides which column
+// the peer lands in, see isTheFarEndOfOurOwnConnection(): a service port that
+// sorts before the ephemeral one, as 3000 does before 32768, leaves the accepted
+// socket to report it and makes the line an incoming one.
+func TestIpcConnectionsForPagingHighlightsBothEndsOfAnIncomingSelfConnection(t *testing.T) {
 	sockets := socketListing{byPid: map[int][]processes.Socket{
 		42: {
-			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
-			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
-			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"},
-			{Fd: "6", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54322"},
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:3000", Listening: true},
+			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:3000", Remote: "127.0.0.1:32768"},
+			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:32768", Remote: "127.0.0.1:3000"},
 		},
-		999: {{Fd: "7", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:8080"}},
 	}}
 
 	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
-	allProcesses := []*processes.Process{picked, {Pid: 999, Cmdline: "elaborately-named-curl"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, noPipes, noUnixSockets, &pt)
+
+	assert.Equal(t, sectionBody(page.String()), "picked(42) ──▶ picked(42)  tcp 3000\n")
+
+	bothHighlighted := ui.highlight("picked(42)") + " ──▶ " + ui.highlight("picked(42)")
+	assert.Equal(t, stringsContains(page.String(), bothHighlighted), true)
+}
+
+// A self connection sharing the section with connections to other processes,
+// with a highlighted name in each of the two columns: the columns line up the
+// way they do on any other page. Both widths are measured over the plain names,
+// the styling being invisible to a reader counting columns.
+func TestIpcConnectionsForPagingSelfConnectionAlignment(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:3000", Listening: true},
+			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:3000", Remote: "127.0.0.1:32768"},
+			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:32768", Remote: "127.0.0.1:3000"},
+			{Fd: "6", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:3000", Remote: "127.0.0.1:54322"},
+			{Fd: "7", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54323", Remote: "127.0.0.1:22"},
+		},
+		999: {{Fd: "8", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:3000"}},
+		1: {
+			{Fd: "9", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Listening: true},
+			{Fd: "10", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Remote: "127.0.0.1:54323"},
+		},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{
+		picked,
+		{Pid: 999, Cmdline: "elaborately-named-curl"},
+		{Pid: 1, Cmdline: "sshd"},
+	}
 
 	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
 	var page strings.Builder
@@ -405,10 +447,11 @@ func TestIpcConnectionsForPagingSelfConnectionAlignment(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, noUnixSockets, &pt)
 
 	expected := "" +
-		"elaborately-named-curl(999) ──▶ picked(42)                 tcp 8080\n" +
-		"                                picked(42) ──▶ picked(42)  tcp 8080\n"
+		"elaborately-named-curl(999) ──▶ picked(42)              tcp 3000\n" +
+		"picked(42)                  ──▶ picked(42)              tcp 3000\n" +
+		"                                picked(42) ──▶ sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
-	assert.Equal(t, strings.Count(page.String(), ui.highlight("picked(42)")), 3)
+	assert.Equal(t, strings.Count(page.String(), ui.highlight("picked(42)")), 4)
 }
 
 // lsof runs after the process listing, so a peer can be a process we have no
