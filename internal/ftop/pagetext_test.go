@@ -32,6 +32,35 @@ func TestPageTextWritesThrough(t *testing.T) {
 	assert.Equal(t, string(early), "early\n")
 }
 
+// Everything above the first blank line, unstyled: the title and its border.
+func titleLine(page string) string {
+	line, _, _ := strings.Cut(stripAnsi(page), "\n")
+	return line
+}
+
+// A title fills 80 columns, border included, so that the titles of a page's
+// several sections all end in the same place.
+func TestWriteTitleWidth(t *testing.T) {
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	pt.writeTitle("Launch Hierarchy")
+
+	assert.Equal(t, titleLine(page.String()), "──Launch Hierarchy"+strings.Repeat("─", 62))
+}
+
+// The border is measured in terminal columns rather than in characters, so a
+// title naming a process with a CJK name — two columns per character — gets a
+// correspondingly shorter border instead of one running past 80 columns.
+func TestWriteTitleWidthWithWideCharacters(t *testing.T) {
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	pt.writeTitle("写真整理(42)")
+
+	assert.Equal(t, titleLine(page.String()), "──写真整理(42)"+strings.Repeat("─", 66))
+}
+
 func stringsContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)
 }

@@ -454,6 +454,75 @@ func TestIpcConnectionsForPagingSelfConnectionAlignment(t *testing.T) {
 	assert.Equal(t, strings.Count(page.String(), ui.highlight("picked(42)")), 4)
 }
 
+// Column widths are measured in terminal columns rather than in characters. A
+// CJK name takes two columns per character, so a line carrying one is wider than
+// its character count says, and the description column lines up with the others
+// only if the padding knows that.
+func TestIpcConnectionsForPagingWideCharactersInAPeerWeDialed(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:22"}},
+		1: {
+			{Fd: "9", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Listening: true},
+			{Fd: "10", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:22", Remote: "127.0.0.1:54322"},
+		},
+	}}
+
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		42:  {{Fd: "1", Access: processes.PipeAccessWrite, Inode: "16466"}},
+		999: {{Fd: "0", Access: processes.PipeAccessRead, Inode: "16466"}},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{
+		picked,
+		{Pid: 1, Cmdline: "sshd"},
+		{Pid: 999, Cmdline: "写真整理"},
+	}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, noUnixSockets, &pt)
+
+	expected := "" +
+		"picked(42) ──▶ 写真整理(999)  pipe\n" +
+		"picked(42) ──▶ sshd(1)        tcp 22\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
+// The column of processes that dialed us is measured in terminal columns too, so
+// a CJK name there decides where the arrows of every line start.
+func TestIpcConnectionsForPagingWideCharactersInAPeerThatDialedUs(t *testing.T) {
+	sockets := socketListing{byPid: map[int][]processes.Socket{
+		42: {
+			{Fd: "3", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Listening: true},
+			{Fd: "4", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54321"},
+			{Fd: "5", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:8080", Remote: "127.0.0.1:54322"},
+		},
+		999:  {{Fd: "7", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54321", Remote: "127.0.0.1:8080"}},
+		1234: {{Fd: "8", Protocol: processes.ProtocolTcp, Local: "127.0.0.1:54322", Remote: "127.0.0.1:8080"}},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{
+		picked,
+		{Pid: 999, Cmdline: "写真整理"},
+		{Pid: 1234, Cmdline: "curl"},
+	}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, noUnixSockets, &pt)
+
+	expected := "" +
+		"curl(1234)    ──▶ picked(42)  tcp 8080\n" +
+		"写真整理(999) ──▶ picked(42)  tcp 8080\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+}
+
 // lsof runs after the process listing, so a peer can be a process we have no
 // name for. Its PID is still worth showing.
 func TestIpcConnectionsForPagingNamelessPeer(t *testing.T) {

@@ -85,6 +85,17 @@ func (p *Process) Children() []*Process {
 	return p.children
 }
 
+// For tests only: Makes child one of p's children, and p the parent of child.
+//
+// Not in a _test.go file, since tests in other packages would not see it there.
+//
+// Links only, no PID bookkeeping, so the result is a hierarchy and not a
+// complete stand-in for what GetAll() reports.
+func (p *Process) AddChild(child *Process) {
+	child.parent = p
+	p.children = append(p.children, child)
+}
+
 func (p *Process) StartTime() time.Time {
 	return p.startTime
 }
