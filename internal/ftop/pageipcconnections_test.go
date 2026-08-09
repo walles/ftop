@@ -57,9 +57,9 @@ func TestIpcConnectionsForPagingListsProcessPeers(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, noUnixSockets, &pt)
 
 	expected := "" +
-		"curl(999) --> picked(42)                   tcp 8080\n" +
-		"              picked(42) --> sshd(1)       tcp 22\n" +
-		"              picked(42) <?> dnsmasq(777)  udp 53\n"
+		"curl(999) ──▶ picked(42)                   tcp 8080\n" +
+		"              picked(42) ──▶ sshd(1)       tcp 22\n" +
+		"              picked(42) ◀?▶ dnsmasq(777)  udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 
 	assert.Equal(t, stringsContains(page.String(), "──Inter Process Communication──"), true)
@@ -104,9 +104,9 @@ func TestIpcConnectionsForPagingListsPipes(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, noUnixSockets, &pt)
 
 	expected := "" +
-		"grep(1234) --> picked(42)                 pipe\n" +
-		"               picked(42) --> sort(5678)  pipe\n" +
-		"               picked(42) --> sshd(1)     tcp 22\n"
+		"grep(1234) ──▶ picked(42)                 pipe\n" +
+		"               picked(42) ──▶ sort(5678)  pipe\n" +
+		"               picked(42) ──▶ sshd(1)     tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -129,7 +129,7 @@ func TestIpcConnectionsForPagingPipeOfUnknownDirection(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, noUnixSockets, &pt)
 
-	expected := "picked(42) <?> sort(5678)  pipe\n"
+	expected := "picked(42) ◀?▶ sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -156,7 +156,7 @@ func TestIpcConnectionsForPagingSeveralPipesToOnePeer(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, noUnixSockets, &pt)
 
-	expected := "picked(42) --> sort(5678)  pipe (×2)\n"
+	expected := "picked(42) ──▶ sort(5678)  pipe (×2)\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -183,7 +183,7 @@ func TestIpcConnectionsForPagingListsUnixSockets(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, noPipes, unixSockets, &pt)
 
-	expected := "picked(42) --> dockerd(1)  unix /var/run/docker.sock\n"
+	expected := "picked(42) ──▶ dockerd(1)  unix /var/run/docker.sock\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -208,7 +208,7 @@ func TestIpcConnectionsForPagingUnixSocketServerSide(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, noPipes, unixSockets, &pt)
 
-	expected := "curl(999) --> picked(42)  unix /var/run/docker.sock\n"
+	expected := "curl(999) ──▶ picked(42)  unix /var/run/docker.sock\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -230,7 +230,7 @@ func TestIpcConnectionsForPagingUnixSocketPair(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, noPipes, unixSockets, &pt)
 
-	expected := "picked(42) <?> worker(5678)  unix\n"
+	expected := "picked(42) ◀?▶ worker(5678)  unix\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -257,7 +257,7 @@ func TestIpcConnectionsForPagingSeveralUnixSocketsToOnePeer(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, noPipes, unixSockets, &pt)
 
-	expected := "picked(42) --> dockerd(1)  unix /var/run/docker.sock (×2)\n"
+	expected := "picked(42) ──▶ dockerd(1)  unix /var/run/docker.sock (×2)\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -306,11 +306,11 @@ func TestIpcConnectionsForPagingListsEveryKind(t *testing.T) {
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, pipes, unixSockets, &pt)
 
 	expected := "" +
-		"curl(999) --> picked(42)                   tcp 8080\n" +
-		"              picked(42) --> sort(5678)    pipe\n" +
-		"              picked(42) --> sshd(1)       tcp 22\n" +
-		"              picked(42) --> sshd(1)       unix /var/run/dbus.sock\n" +
-		"              picked(42) <?> dnsmasq(777)  udp 53\n"
+		"curl(999) ──▶ picked(42)                   tcp 8080\n" +
+		"              picked(42) ──▶ sort(5678)    pipe\n" +
+		"              picked(42) ──▶ sshd(1)       tcp 22\n" +
+		"              picked(42) ──▶ sshd(1)       unix /var/run/dbus.sock\n" +
+		"              picked(42) ◀?▶ dnsmasq(777)  udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -334,7 +334,7 @@ func TestIpcConnectionsForPagingUnixSocketListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list unix sockets: boom>\n" +
-		"picked(42) --> sort(5678)  pipe\n"
+		"picked(42) ──▶ sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -377,7 +377,7 @@ func TestIpcConnectionsForPagingNamelessPeer(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, []*processes.Process{picked}, sockets, noPipes, noUnixSockets, &pt)
 
-	expected := "PID 999 --> picked(42)  tcp 8080\n"
+	expected := "PID 999 ──▶ picked(42)  tcp 8080\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -398,7 +398,7 @@ func TestIpcConnectionsForPagingOutgoingOnly(t *testing.T) {
 
 	ui.ipcConnectionsForPaging(picked, allProcesses, sockets, noPipes, noUnixSockets, &pt)
 
-	expected := "picked(42) --> sshd(1)  tcp 22\n"
+	expected := "picked(42) ──▶ sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -459,7 +459,7 @@ func TestIpcConnectionsForPagingPipeListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list pipes: boom>\n" +
-		"picked(42) --> sshd(1)  tcp 22\n"
+		"picked(42) ──▶ sshd(1)  tcp 22\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 
@@ -500,6 +500,6 @@ func TestIpcConnectionsForPagingSocketListingFailed(t *testing.T) {
 
 	expected := "" +
 		"<Unable to list sockets: boom>\n" +
-		"picked(42) --> sort(5678)  pipe\n"
+		"picked(42) ──▶ sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }

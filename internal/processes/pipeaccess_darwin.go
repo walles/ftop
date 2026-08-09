@@ -38,7 +38,7 @@ import (
 //
 // This is what gets macOS its arrows: without it every anonymous pipe is
 // DirectionUnknown, so `tail -f /etc/services | sort` renders
-// `tail(40504) <?> sort(40505)` where the truth is plainly `tail --> sort`.
+// `tail(40504) ◀?▶ sort(40505)` where the truth is plainly `tail ──▶ sort`.
 //
 // Not a matter of asking lsof for the right field. lsof's file-flag option +fg
 // fills that column in for CHR and REG while leaving it blank for PIPE, and the

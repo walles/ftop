@@ -75,8 +75,8 @@ func TestNetworkConnectionsForPagingListsRemotePeers(t *testing.T) {
 
 	expected := "" +
 		"            picked(42)                     tcp 8080 (listening)\n" +
-		"1.2.3.4 --> picked(42)                     tcp 8080 (×12)\n" +
-		"            picked(42) --> api.github.com  tcp 443 (×7)\n"
+		"1.2.3.4 ──▶ picked(42)                     tcp 8080 (×12)\n" +
+		"            picked(42) ──▶ api.github.com  tcp 443 (×7)\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 
 	assert.Equal(t, stringsContains(page.String(), "──Network Connections──"), true)
@@ -103,8 +103,8 @@ func TestNetworkConnectionsForPagingUndeterminedDirection(t *testing.T) {
 	ui.networkConnectionsForPaging(picked, []*processes.Process{picked}, sockets, &pt)
 
 	expected := "" +
-		"picked(42) --> api.github.com  tcp 443\n" +
-		"picked(42) <?> dns.google      udp 53\n"
+		"picked(42) ──▶ api.github.com  tcp 443\n" +
+		"picked(42) ◀?▶ dns.google      udp 53\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
 

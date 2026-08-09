@@ -12,7 +12,7 @@ import (
 // processes.Direction means them: from whoever dialed to whoever was dialed for a
 // socket, which tells the reader which side is the service, and from the writer
 // to the reader for a pipe, which is the way the data goes. Connections nobody
-// can tell the direction of, every UDP one included, get "<?>" instead of an
+// can tell the direction of, every UDP one included, get "◀?▶" instead of an
 // arrow.
 //
 // peerLabel is what to call the peer of a connection. It is never asked about a
@@ -69,13 +69,9 @@ func (u *Ui) writeConnectionLines(
 		default:
 			// All three markers are the same number of columns wide, so which one
 			// a line gets doesn't disturb the alignment of the lines around it.
-			arrow := " --> "
+			arrow := " ──▶ "
 			if connection.Direction == processes.DirectionUnknown {
-				// Not "<->", which draws an arrow pointing both ways and so
-				// claims data flows both ways. That is a different fact from not
-				// knowing which way it flows, and for a pipe it is plainly false:
-				// a pipe carries data one way, we just can't always say which.
-				arrow = " <?> "
+				arrow = " ◀?▶ "
 			}
 
 			peer := peerLabel(connection.Peer)
@@ -92,7 +88,7 @@ func (u *Ui) writeConnectionLines(
 	for _, line := range lines {
 		dialer := ""
 		if dialerWidth > 0 {
-			arrow := " --> "
+			arrow := " ──▶ "
 			if line.dialer == "" {
 				arrow = strings.Repeat(" ", utf8.RuneCountInString(arrow))
 			}
