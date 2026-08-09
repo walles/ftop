@@ -10,7 +10,7 @@ type commandLine struct {
 	Version       bool      `help:"show version information"`
 	Theme         ThemeName `help:"auto, dark or light" default:"auto"`
 	Debug         bool      `help:"print debug logs after exit"`
-	InitialFilter string    `arg:"" optional:"" name:"filter" help:"initial process filter"`
+	InitialFilter string    `arg:"" optional:"" name:"filter" help:"initial process filter, a PID goes straight to that process' info page"`
 
 	// Hidden options for development use
 	Profile bool `help:"generate profile-*.out files before exiting" hidden:"true"`

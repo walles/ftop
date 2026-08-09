@@ -71,6 +71,18 @@ func (ui *Ui) MainLoop() {
 		}
 
 		ui.allProcesses = procsTracker.Processes()
+
+		// Before the first Render() rather than after it, so that a PID on the
+		// command line takes the user straight into the pager. Coming back out
+		// of it lands them in the interactive view, filtered on that PID.
+		//
+		// Not while shutting down: a goroutine crashing before we get here
+		// should get the user an exit and a crash report, not a pager that
+		// holds ftop open until they quit it.
+		if initialProc := ui.takeInitialPageProcess(); initialProc != nil && !ui.done.Load() {
+			ui.pageProcessInfo(initialProc)
+		}
+
 		procs := processes.Filter(ui.allProcesses, ui.filter)
 		ui.Render(procs, ioTracker.Stats(), procsTracker.Launches())
 	}
