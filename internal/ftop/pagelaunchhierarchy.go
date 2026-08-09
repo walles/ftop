@@ -3,8 +3,8 @@ package ftop
 import (
 	"slices"
 	"strings"
-	"unicode/utf8"
 
+	"github.com/rivo/uniseg"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/util"
 	"github.com/walles/moor/v2/twin"
@@ -40,7 +40,7 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 			fancyLine = line
 		}
 		entries[depth] = entry{line, fancyLine, p}
-		maxWidth = max(maxWidth, utf8.RuneCountInString(line))
+		maxWidth = max(maxWidth, uniseg.StringWidth(line))
 	}
 
 	// Append children of the current process recursively (sorted by command then PID, like px)
@@ -57,7 +57,7 @@ func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {
 		for _, child := range children {
 			line := strings.Repeat("  ", depth) + child.String()
 			entries = append(entries, entry{line, line, child})
-			maxWidth = max(maxWidth, utf8.RuneCountInString(line))
+			maxWidth = max(maxWidth, uniseg.StringWidth(line))
 			appendChildren(child, depth+1)
 		}
 	}

@@ -3,8 +3,8 @@ package ftop
 import (
 	"io"
 	"strings"
-	"unicode/utf8"
 
+	"github.com/rivo/uniseg"
 	"github.com/walles/moor/v2/twin"
 )
 
@@ -41,7 +41,7 @@ func (pt *pageText) writeLine(line string) {
 
 func (pt *pageText) writeTitle(title string) {
 	const width = 80
-	trailerLength := max(2, width-2-utf8.RuneCountInString(title))
+	trailerLength := max(2, width-2-uniseg.StringWidth(title))
 	trailer := strings.Repeat("─", trailerLength)
 
 	// "24 bit" is fine here, if the terminal doesn't support it, the pager will
@@ -64,10 +64,10 @@ func (pt *pageText) writeTitle(title string) {
 //
 // plain is fancy without the styling, and is what the padding is measured over:
 // the escape sequences fancy carries take up no columns, so counting them would
-// leave a styled string short of where an unstyled one of the same length lands.
+// leave a styled string short of where an unstyled one of the same width lands.
 // Pass the same string twice for text with no styling to it.
 func rightPadded(plain string, fancy string, width int) string {
-	padding := max(0, width-utf8.RuneCountInString(plain))
+	padding := max(0, width-uniseg.StringWidth(plain))
 
 	return fancy + strings.Repeat(" ", padding)
 }

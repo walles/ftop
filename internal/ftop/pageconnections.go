@@ -3,8 +3,8 @@ package ftop
 import (
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
+	"github.com/rivo/uniseg"
 	"github.com/walles/ftop/internal/processes"
 )
 
@@ -96,8 +96,8 @@ func (u *Ui) writeConnectionLines(
 			line.fancyMiddle = fancyUs + arrow + fancyPeer
 		}
 
-		dialerWidth = max(dialerWidth, utf8.RuneCountInString(line.dialer))
-		middleWidth = max(middleWidth, utf8.RuneCountInString(line.middle))
+		dialerWidth = max(dialerWidth, uniseg.StringWidth(line.dialer))
+		middleWidth = max(middleWidth, uniseg.StringWidth(line.middle))
 
 		lines = append(lines, line)
 	}
@@ -107,7 +107,7 @@ func (u *Ui) writeConnectionLines(
 		if dialerWidth > 0 {
 			arrow := " ──▶ "
 			if line.dialer == "" {
-				arrow = strings.Repeat(" ", utf8.RuneCountInString(arrow))
+				arrow = strings.Repeat(" ", uniseg.StringWidth(arrow))
 			}
 
 			dialer = rightPadded(line.dialer, line.fancyDialer, dialerWidth) + arrow
