@@ -18,6 +18,11 @@ import (
 // peerLabel is what to call the peer of a connection. It is never asked about a
 // listening port, since nobody is at the other end of one of those.
 //
+// currentProcess is highlighted wherever it turns up, which includes the peer
+// column when it is connected to itself. A peer is that process when it carries
+// its PID, so a caller whose peers are not local processes, and which therefore
+// leaves Peer.Pid at 0, never gets a highlighted peer.
+//
 // The connections are written in the order they come in, so hand them over
 // sorted, see processes.SortConnections().
 //
@@ -36,7 +41,8 @@ func (u *Ui) writeConnectionLines(
 	// launchHierarchyForPaging() idiom
 	type connectionLine struct {
 		// Whoever dialed us, empty unless somebody did
-		dialer string
+		dialer      string
+		fancyDialer string
 
 		// Us, plus whoever we dialed
 		middle      string
@@ -47,6 +53,23 @@ func (u *Ui) writeConnectionLines(
 
 	us := currentProcess.String()
 	fancyUs := u.highlight(us)
+
+	// What to call the peer of a connection, plain and styled. A process at both
+	// ends of a connection is its own peer, and it is the process the page is
+	// about wherever it turns up, so that peer is highlighted the way we are.
+	//
+	// By PID rather than by label: the two spell a process the same way today,
+	// and a peer is the same process or it isn't, whatever either of them decides
+	// to call it. Pid 0 is no process at all, which is how the Network
+	// Connections page spells a peer that is a remote host.
+	styledPeerLabel := func(peer processes.Peer) (string, string) {
+		label := peerLabel(peer)
+		if peer.Pid == 0 || peer.Pid != currentProcess.Pid {
+			return label, label
+		}
+
+		return label, u.highlight(label)
+	}
 
 	lines := make([]connectionLine, 0, len(connections))
 	dialerWidth := 0
@@ -64,7 +87,7 @@ func (u *Ui) writeConnectionLines(
 			// Nobody has dialed in yet, and nobody has been dialed
 
 		case connection.Direction == processes.DirectionIncoming:
-			line.dialer = peerLabel(connection.Peer)
+			line.dialer, line.fancyDialer = styledPeerLabel(connection.Peer)
 
 		default:
 			// All three markers are the same number of columns wide, so which one
@@ -74,9 +97,9 @@ func (u *Ui) writeConnectionLines(
 				arrow = " ◀?▶ "
 			}
 
-			peer := peerLabel(connection.Peer)
+			peer, fancyPeer := styledPeerLabel(connection.Peer)
 			line.middle = us + arrow + peer
-			line.fancyMiddle = fancyUs + arrow + peer
+			line.fancyMiddle = fancyUs + arrow + fancyPeer
 		}
 
 		dialerWidth = max(dialerWidth, utf8.RuneCountInString(line.dialer))
@@ -93,10 +116,10 @@ func (u *Ui) writeConnectionLines(
 				arrow = strings.Repeat(" ", utf8.RuneCountInString(arrow))
 			}
 
-			dialer = rightPadded(line.dialer, dialerWidth) + arrow
+			dialer = rightPadded(line.dialer, line.fancyDialer, dialerWidth) + arrow
 		}
 
-		middle := line.fancyMiddle + strings.Repeat(" ", middleWidth-utf8.RuneCountInString(line.middle))
+		middle := rightPadded(line.middle, line.fancyMiddle, middleWidth)
 
 		// Two spaces between columns, matching launchHierarchyForPaging()
 		pt.writeLine(dialer + middle + "  " + line.description)
@@ -136,10 +159,15 @@ func connectionDescription(connection processes.Connection) string {
 	return description
 }
 
-// s with spaces appended until it is width columns wide, or s itself if it is
-// that wide already.
-func rightPadded(s string, width int) string {
-	padding := max(0, width-utf8.RuneCountInString(s))
+// The styled text fancy, with spaces appended until it fills width columns, or
+// fancy alone if it fills them already.
+//
+// plain is fancy without the styling, and is what the padding is measured over:
+// the escape sequences fancy carries take up no columns, so counting them would
+// leave a styled name short of where an unstyled one of the same length lands.
+// Pass the same string twice for text with no styling to it.
+func rightPadded(plain string, fancy string, width int) string {
+	padding := max(0, width-utf8.RuneCountInString(plain))
 
-	return s + strings.Repeat(" ", padding)
+	return fancy + strings.Repeat(" ", padding)
 }
