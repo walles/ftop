@@ -24,8 +24,6 @@ func withWallFromAndMonotonicFrom(wallSource, monotonicSource time.Time) time.Ti
 	return *(*time.Time)(unsafe.Pointer(&combined))
 }
 
-const TEN_MB = 10 * 1024 * 1024
-
 func TestGetAll(t *testing.T) {
 	procs, err := GetAll()
 	assert.Equal(t, err, nil)
@@ -54,10 +52,16 @@ func TestGetAll(t *testing.T) {
 	// Validate RssKb field
 	assert.Equal(t, true, self.RssKb > 0)
 
-	// If this is not enough, feel free to increase it. But it should be low
-	// enough to catch unreasonable values. Locally on my machine I have seen
-	// 30MB.
-	assert.Equal(t, true, (self.RssKb*1024) < 5*TEN_MB)
+	// This ceiling is here to catch values that are wrong by an order of
+	// magnitude, like bytes or pages reported as kilobytes, not to track how
+	// much memory the test binary actually needs. That number grows as this
+	// package gets more tests; with -race it was already at 46MB in August
+	// 2026, so keep the headroom generous.
+	const ONE_MB = 1024 * 1024
+	const maxReasonableRssMb = 250
+	if self.RssKb*1024 >= maxReasonableRssMb*ONE_MB {
+		t.Errorf("Expected RSS below %dMB, was %dkB", maxReasonableRssMb, self.RssKb)
+	}
 
 	// If this is too little, feel free to increase it. But it should be low
 	// enough to catch unreasonable values.
