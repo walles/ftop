@@ -16,6 +16,11 @@ type Theme struct {
 	// FIXME: Split into terminalForeground and fallbackForeground?
 	foreground twin.Color
 
+	// Marks a peer process that turns up more than once in the same
+	// connections listing, so that a reader can tell its lines apart from an
+	// unrelated process with a similar name.
+	duplicatePeer twin.Color
+
 	loadBarMaxCpu twin.Color
 	loadBarMaxRam twin.Color
 	loadBarMaxIO  twin.Color
@@ -58,6 +63,7 @@ func newDarkTheme(bg *twin.Color) Theme {
 		foreground:         twin.NewColorHex(0xdddddd),
 
 		highlightedForeground: twin.NewColorHex(0xbdebbe),
+		duplicatePeer:         twin.NewColorHex(0x8ab4f8),
 
 		loadBarMaxCpu: twin.NewColorHex(0x5f1f22),
 		loadBarMaxRam: twin.NewColorHex(0x1e3568),
@@ -75,6 +81,7 @@ func newLightTheme(bg *twin.Color) Theme {
 		foreground:         twin.NewColorHex(0x000000),
 
 		highlightedForeground: twin.NewColorHex(0x009000),
+		duplicatePeer:         twin.NewColorHex(0x2060c0),
 
 		loadBarMaxCpu: twin.NewColorHex(0xffcccc),
 		loadBarMaxRam: twin.NewColorHex(0xccccff),
@@ -102,6 +109,10 @@ func (t Theme) FadedForeground() twin.Color {
 
 func (t Theme) HighlightedForeground() twin.Color {
 	return t.highlightedForeground
+}
+
+func (t Theme) DuplicatePeer() twin.Color {
+	return t.duplicatePeer
 }
 
 func (t Theme) LoadBarMin() twin.Color {
