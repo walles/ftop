@@ -75,7 +75,17 @@ func rightPadded(plain string, fancy string, width int) string {
 // Wraps s in the theme's highlight color, ending in whatever style the line
 // started out in.
 func (u *Ui) highlight(s string) string {
-	colored := twin.StyleDefault.WithForeground(u.theme.HighlightedForeground())
+	return colorize(s, u.theme.HighlightedForeground())
+}
+
+// Wraps s in the theme's duplicate-peer color, ending in whatever style the
+// line started out in.
+func (u *Ui) highlightDuplicate(s string) string {
+	return colorize(s, u.theme.DuplicatePeer())
+}
+
+func colorize(s string, color twin.Color) string {
+	colored := twin.StyleDefault.WithForeground(color)
 	notColored := twin.StyleDefault
 
 	// "24 bit" is fine here, if the terminal doesn't support it, the pager will

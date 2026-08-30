@@ -668,3 +668,36 @@ func TestIpcConnectionsForPagingSocketListingFailed(t *testing.T) {
 		"picked(42) ──▶ sort(5678)  pipe\n"
 	assert.Equal(t, sectionBody(page.String()), expected)
 }
+
+// A peer connected via more than one channel, a bidirectional pipe pair here,
+// shows up on more than one line. Both get the duplicate-peer highlight
+// instead of the plain foreground, so a reader can tell they are the same
+// process rather than two unrelated ones with similar names.
+func TestIpcConnectionsForPagingHighlightsARepeatedPeer(t *testing.T) {
+	pipes := pipeListing{byPid: map[int][]processes.PipeEnd{
+		42: {
+			{Fd: "0", Access: processes.PipeAccessRead, Inode: "1000"},
+			{Fd: "1", Access: processes.PipeAccessWrite, Inode: "2000"},
+		},
+		5678: {
+			{Fd: "1", Access: processes.PipeAccessWrite, Inode: "1000"},
+			{Fd: "0", Access: processes.PipeAccessRead, Inode: "2000"},
+		},
+	}}
+
+	picked := &processes.Process{Pid: 42, Cmdline: "picked"}
+	allProcesses := []*processes.Process{picked, {Pid: 5678, Cmdline: "peer"}}
+
+	ui := NewUi(twin.NewFakeScreen(80, 24), themes.NewTheme("auto", nil), "")
+	var page strings.Builder
+	pt := pageText{out: &page}
+
+	ui.ipcConnectionsForPaging(picked, allProcesses, noSockets, pipes, noUnixSockets, &pt)
+
+	expected := "" +
+		"peer(5678) ──▶ picked(42)                 pipe\n" +
+		"               picked(42) ──▶ peer(5678)  pipe\n"
+	assert.Equal(t, sectionBody(page.String()), expected)
+
+	assert.Equal(t, strings.Count(page.String(), ui.highlightDuplicate("peer(5678)")), 2)
+}

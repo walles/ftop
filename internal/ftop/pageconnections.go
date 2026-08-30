@@ -54,15 +54,30 @@ func (u *Ui) writeConnectionLines(
 	us := currentProcess.String()
 	fancyUs := u.highlight(us)
 
+	// A peer PID seen on more than one line gets called out, so that e.g. two
+	// same-named processes with different PIDs don't read as one.
+	peerPidCounts := make(map[int]int, len(connections))
+	for _, connection := range connections {
+		if connection.Listening || connection.Peer.Pid == 0 || connection.Peer.Pid == currentProcess.Pid {
+			continue
+		}
+
+		peerPidCounts[connection.Peer.Pid]++
+	}
+
 	// By PID rather than by label: a peer is the same process or it isn't,
 	// whatever either of them decides to call it. Pid 0 is no process at all.
 	styledPeerLabel := func(peer processes.Peer) (string, string) {
 		label := peerLabel(peer)
-		if peer.Pid == 0 || peer.Pid != currentProcess.Pid {
-			return label, label
+		if peer.Pid != 0 && peer.Pid == currentProcess.Pid {
+			return label, u.highlight(label)
 		}
 
-		return label, u.highlight(label)
+		if peerPidCounts[peer.Pid] > 1 {
+			return label, u.highlightDuplicate(label)
+		}
+
+		return label, label
 	}
 
 	lines := make([]connectionLine, 0, len(connections))

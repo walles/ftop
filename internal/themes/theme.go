@@ -16,6 +16,11 @@ type Theme struct {
 	// FIXME: Split into terminalForeground and fallbackForeground?
 	foreground twin.Color
 
+	// Marks a peer process that turns up more than once in the same
+	// connections listing, so that a reader can tell its lines apart from an
+	// unrelated process with a similar name.
+	duplicatePeer twin.Color
+
 	loadBarMaxCpu twin.Color
 	loadBarMaxRam twin.Color
 	loadBarMaxIO  twin.Color
@@ -52,12 +57,16 @@ func NewTheme(name string, bg *twin.Color) Theme {
 }
 
 func newDarkTheme(bg *twin.Color) Theme {
+	const foregroundHex = 0xdddddd
+	const highlightedForegroundHex = 0xbdebbe
+
 	return Theme{
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0x000000),
-		foreground:         twin.NewColorHex(0xdddddd),
+		foreground:         twin.NewColorHex(foregroundHex),
 
-		highlightedForeground: twin.NewColorHex(0xbdebbe),
+		highlightedForeground: twin.NewColorHex(highlightedForegroundHex),
+		duplicatePeer:         twin.NewColorHex(pickDuplicatePeerColor(foregroundHex, highlightedForegroundHex)),
 
 		loadBarMaxCpu: twin.NewColorHex(0x5f1f22),
 		loadBarMaxRam: twin.NewColorHex(0x1e3568),
@@ -69,12 +78,16 @@ func newDarkTheme(bg *twin.Color) Theme {
 }
 
 func newLightTheme(bg *twin.Color) Theme {
+	const foregroundHex = 0x000000
+	const highlightedForegroundHex = 0x009000
+
 	return Theme{
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0xffffff),
-		foreground:         twin.NewColorHex(0x000000),
+		foreground:         twin.NewColorHex(foregroundHex),
 
-		highlightedForeground: twin.NewColorHex(0x009000),
+		highlightedForeground: twin.NewColorHex(highlightedForegroundHex),
+		duplicatePeer:         twin.NewColorHex(pickDuplicatePeerColor(foregroundHex, highlightedForegroundHex)),
 
 		loadBarMaxCpu: twin.NewColorHex(0xffcccc),
 		loadBarMaxRam: twin.NewColorHex(0xccccff),
@@ -102,6 +115,10 @@ func (t Theme) FadedForeground() twin.Color {
 
 func (t Theme) HighlightedForeground() twin.Color {
 	return t.highlightedForeground
+}
+
+func (t Theme) DuplicatePeer() twin.Color {
+	return t.duplicatePeer
 }
 
 func (t Theme) LoadBarMin() twin.Color {
