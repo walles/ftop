@@ -1,6 +1,10 @@
 package themes
 
-import "math"
+import (
+	"math"
+
+	"github.com/walles/twin"
+)
 
 // Picks a color for marking a peer process that recurs within one connections
 // listing, derived from a theme's own foreground and self-highlight colors.
@@ -9,11 +13,9 @@ import "math"
 // hue rotation of it. Hue is chosen to sit as far as possible from whichever of
 // the two colors have a hue at all — an achromatic color (gray, black, white)
 // has none, and contributes nothing to that choice.
-//
-// All three colors are 24 bit RGB, packed as 0xRRGGBB.
-func pickDuplicatePeerColor(foregroundHex uint32, selfHex uint32) uint32 {
-	foregroundHue, foregroundSaturation, _ := rgbToHsv(foregroundHex)
-	selfHue, selfSaturation, selfValue := rgbToHsv(selfHex)
+func pickDuplicatePeerColor(foreground twin.Color, self twin.Color) twin.Color {
+	foregroundHue, foregroundSaturation, _ := rgbToHsv(foreground)
+	selfHue, selfSaturation, selfValue := rgbToHsv(self)
 
 	var hues []float64
 	if foregroundSaturation > 0 {
@@ -65,15 +67,16 @@ func hueFarthestFrom(from []float64) float64 {
 	}
 }
 
-// Converts a 24 bit RGB color, packed as 0xRRGGBB, into hue (degrees, 0-360),
-// saturation and value (both 0-1).
+// Converts a color into hue (degrees, 0-360), saturation and value (both
+// 0-1).
 //
 // Hue is 0 for a fully desaturated color, same as for red: no hue is what zero
 // saturation means, red is only ever a coincidence of the formula.
-func rgbToHsv(rgb uint32) (hue float64, saturation float64, value float64) {
-	r := float64((rgb>>16)&0xff) / 255
-	g := float64((rgb>>8)&0xff) / 255
-	b := float64(rgb&0xff) / 255
+func rgbToHsv(rgbColor twin.Color) (hue float64, saturation float64, value float64) {
+	r16, g16, b16, _ := rgbColor.RGBA()
+	r := float64(uint8(r16>>8)) / 255
+	g := float64(uint8(g16>>8)) / 255
+	b := float64(uint8(b16>>8)) / 255
 
 	max := math.Max(r, math.Max(g, b))
 	min := math.Min(r, math.Min(g, b))
@@ -102,9 +105,9 @@ func rgbToHsv(rgb uint32) (hue float64, saturation float64, value float64) {
 	return hue, saturation, value
 }
 
-// Converts hue (degrees, 0-360), saturation and value (both 0-1) into a 24 bit
-// RGB color, packed as 0xRRGGBB.
-func hsvToRgb(hue float64, saturation float64, value float64) uint32 {
+// Converts hue (degrees, 0-360), saturation and value (both 0-1) into a
+// color.
+func hsvToRgb(hue float64, saturation float64, value float64) twin.Color {
 	c := value * saturation
 	x := c * (1 - math.Abs(math.Mod(hue/60, 2)-1))
 	m := value - c
@@ -125,9 +128,9 @@ func hsvToRgb(hue float64, saturation float64, value float64) uint32 {
 		r, g, b = c, 0, x
 	}
 
-	red := uint32(math.Round((r + m) * 255))
-	green := uint32(math.Round((g + m) * 255))
-	blue := uint32(math.Round((b + m) * 255))
+	red := uint8(math.Round((r + m) * 255))
+	green := uint8(math.Round((g + m) * 255))
+	blue := uint8(math.Round((b + m) * 255))
 
-	return red<<16 | green<<8 | blue
+	return twin.NewColor24Bit(red, green, blue)
 }

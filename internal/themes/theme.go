@@ -57,16 +57,16 @@ func NewTheme(name string, bg *twin.Color) Theme {
 }
 
 func newDarkTheme(bg *twin.Color) Theme {
-	const foregroundHex = 0xdddddd
-	const highlightedForegroundHex = 0xbdebbe
+	foreground := twin.NewColorHex(0xdddddd)
+	highlightedForeground := twin.NewColorHex(0xbdebbe)
 
 	return Theme{
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0x000000),
-		foreground:         twin.NewColorHex(foregroundHex),
+		foreground:         foreground,
 
-		highlightedForeground: twin.NewColorHex(highlightedForegroundHex),
-		duplicatePeer:         twin.NewColorHex(pickDuplicatePeerColor(foregroundHex, highlightedForegroundHex)),
+		highlightedForeground: highlightedForeground,
+		duplicatePeer:         pickDuplicatePeerColor(foreground, highlightedForeground),
 
 		loadBarMaxCpu: twin.NewColorHex(0x5f1f22),
 		loadBarMaxRam: twin.NewColorHex(0x1e3568),
@@ -78,16 +78,16 @@ func newDarkTheme(bg *twin.Color) Theme {
 }
 
 func newLightTheme(bg *twin.Color) Theme {
-	const foregroundHex = 0x000000
-	const highlightedForegroundHex = 0x009000
+	foreground := twin.NewColorHex(0x000000)
+	highlightedForeground := twin.NewColorHex(0x009000)
 
 	return Theme{
 		terminalBackground: bg,
 		fallbackBackground: twin.NewColorHex(0xffffff),
-		foreground:         twin.NewColorHex(foregroundHex),
+		foreground:         foreground,
 
-		highlightedForeground: twin.NewColorHex(highlightedForegroundHex),
-		duplicatePeer:         twin.NewColorHex(pickDuplicatePeerColor(foregroundHex, highlightedForegroundHex)),
+		highlightedForeground: highlightedForeground,
+		duplicatePeer:         pickDuplicatePeerColor(foreground, highlightedForeground),
 
 		loadBarMaxCpu: twin.NewColorHex(0xffcccc),
 		loadBarMaxRam: twin.NewColorHex(0xccccff),
