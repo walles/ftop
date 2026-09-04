@@ -6,7 +6,7 @@ import (
 	"github.com/walles/ftop/internal/io"
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // Replace current event handle with another one. This is basically a mode
@@ -59,10 +59,10 @@ func (ui *Ui) MainLoop() {
 			ui.eventHandler = event.new
 
 		case twin.EventRune:
-			ui.eventHandler.onRune(event.Rune())
+			ui.eventHandler.onRune(event.Rune)
 
 		case twin.EventKeyCode:
-			ui.eventHandler.onKeyCode(event.KeyCode())
+			ui.eventHandler.onKeyCode(event.KeyCode)
 		}
 
 		if len(ui.events) > 0 {

@@ -7,6 +7,7 @@ require (
 	github.com/jbenet/go-detect-race v0.0.0-20150302022421-3463798d9574
 	github.com/rivo/uniseg v0.4.7
 	github.com/walles/moor/v2 v2.16.2
+	github.com/walles/twin v0.9.0
 	golang.org/x/sys v0.47.0
 )
 

@@ -9,7 +9,7 @@ import (
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/moor/v2/pkg/moor"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 const DISPLAY_TIME_FORMAT = "2006-01-02 Mon 15:04:05MST"

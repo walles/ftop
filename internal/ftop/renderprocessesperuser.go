@@ -6,7 +6,7 @@ import (
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func renderPerUser(screen twin.Screen, theme themes.Theme, x0, y0, x1, y1 int, table [][]string, widths []int, users []userStats, pickedUsername string) {

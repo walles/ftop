@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/sysload"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func renderSysload(screen twin.Screen, theme themes.Theme, width int) {

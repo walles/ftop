@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/assert"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func TestRender_ShowsProcessInfoPaneImmediatelyFromPickedLine(t *testing.T) {

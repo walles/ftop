@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func (u *Ui) renderProcessInfoPane(y0, y1 int) {

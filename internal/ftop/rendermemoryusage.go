@@ -8,7 +8,7 @@ import (
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
 	"github.com/walles/ftop/internal/util"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func renderMemoryUsage(screen twin.Screen, theme themes.Theme, width int) {

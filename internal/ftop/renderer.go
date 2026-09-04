@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // Found through experimentation, all narrow columns fit at this width when I

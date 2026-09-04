@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 type ColorRamp struct {

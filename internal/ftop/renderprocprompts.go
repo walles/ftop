@@ -1,7 +1,7 @@
 package ftop
 
 import (
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func (ui *Ui) renderHeaderHints(x0 int, y int, x1 int, pickDownArrow bool, pickUpArrow bool) {
@@ -90,7 +90,7 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 			// No filter, but in edit mode, use plain foreground color to
 			// indicate text entry
 			style := twin.StyleDefault.WithForeground(ui.theme.Foreground())
-			x += ui.screen.SetCell(x, y, twin.NewStyledRune('F', style.WithAttr(twin.AttrReverse)))
+			x += ui.screen.SetCell(x, y, twin.StyledRune{Rune: 'F', Style: style.WithAttr(twin.AttrReverse)})
 			x += drawText(ui.screen, x, y, x1, "ilter", style.WithAttr(twin.AttrUnderline))
 			ui.screen.SetCell(x, y, twin.StyledRune{
 				Style: ui.theme.PromptKey(),

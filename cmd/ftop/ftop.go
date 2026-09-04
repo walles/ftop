@@ -14,7 +14,7 @@ import (
 	"github.com/walles/ftop/internal/ftop"
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/themes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 const missingVersion = "<build with ./build.sh to get a version number here>"
@@ -55,8 +55,6 @@ func main() {
 	if versionString == "" {
 		versionString = missingVersion
 	}
-
-	twin.SetLogger(&twinLoggerAdapter{})
 
 	argsParser, err := newArgsParser()
 	if err != nil {
@@ -158,7 +156,9 @@ func profilingMainLoop(pleasePanic bool) int {
 
 // Named return so that the panic recovery below can make us exit non-zero.
 func mainLoop(pleasePanic bool) (exitCode int) {
-	screen, err := twin.NewScreen()
+	screen, err := twin.NewScreen(twin.Options{
+		Logger: &twinLoggerAdapter{},
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error creating screen:", err)
 		return 1

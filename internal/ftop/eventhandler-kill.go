@@ -10,7 +10,7 @@ import (
 
 	"github.com/walles/ftop/internal/log"
 	"github.com/walles/ftop/internal/processes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // This controls the framerate of the waiting-for-process-to-die progress bar

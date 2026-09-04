@@ -1,6 +1,6 @@
 package ftop
 
-import "github.com/walles/moor/v2/twin"
+import "github.com/walles/twin"
 
 type eventHandlerFilter struct {
 	ui *Ui

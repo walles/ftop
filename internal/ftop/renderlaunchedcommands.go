@@ -7,7 +7,7 @@ import (
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // Excluding borders
