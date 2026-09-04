@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/rivo/uniseg"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 type pageText struct {

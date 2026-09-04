@@ -5,7 +5,7 @@ import (
 
 	"github.com/walles/ftop/internal/assert"
 	"github.com/walles/ftop/internal/themes"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // Shutdown requests come from goroutines that just crashed, and the main loop

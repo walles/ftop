@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/walles/ftop/internal/ui"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // NOTE: The framerate of the progress bar is controlled by deathPollFramerate

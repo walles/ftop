@@ -1,6 +1,6 @@
 package ftop
 
-import "github.com/walles/moor/v2/twin"
+import "github.com/walles/twin"
 
 // Returns the number of cells covered
 //

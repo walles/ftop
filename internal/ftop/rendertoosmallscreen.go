@@ -3,7 +3,7 @@ package ftop
 import (
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/ui"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func renderTooSmallScreen(screen twin.Screen, theme themes.Theme) {

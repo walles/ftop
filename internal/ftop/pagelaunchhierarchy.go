@@ -7,7 +7,7 @@ import (
 	"github.com/rivo/uniseg"
 	"github.com/walles/ftop/internal/processes"
 	"github.com/walles/ftop/internal/util"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func (u *Ui) launchHierarchyForPaging(proc *processes.Process, pt *pageText) {

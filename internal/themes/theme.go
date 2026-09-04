@@ -3,7 +3,7 @@ package themes
 import (
 	"fmt"
 
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // NOTE: Use some online OKLCH color picker for experimenting with colors

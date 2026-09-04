@@ -2,6 +2,10 @@ module github.com/walles/ftop
 
 go 1.25.5
 
+require github.com/walles/twin v0.0.0-00010101000000-000000000000
+
+replace github.com/walles/twin => ../twin
+
 require (
 	github.com/alecthomas/kong v1.13.0
 	github.com/jbenet/go-detect-race v0.0.0-20150302022421-3463798d9574

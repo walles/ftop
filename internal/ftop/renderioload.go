@@ -6,7 +6,7 @@ import (
 	"github.com/walles/ftop/internal/io"
 	"github.com/walles/ftop/internal/themes"
 	"github.com/walles/ftop/internal/util"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 // Renders max current device BPS vs highest measured BPS

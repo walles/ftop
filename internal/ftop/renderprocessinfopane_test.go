@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/walles/ftop/internal/assert"
-	"github.com/walles/moor/v2/twin"
+	"github.com/walles/twin"
 )
 
 func TestTruncateToLength(t *testing.T) {
