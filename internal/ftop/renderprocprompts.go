@@ -90,8 +90,8 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 			// No filter, but in edit mode, use plain foreground color to
 			// indicate text entry
 			style := twin.StyleDefault.WithForeground(ui.theme.Foreground())
-			x += ui.screen.SetCell(x, y, twin.StyledRune{Rune: 'F', Style: style.WithAttr(twin.AttrReverse)})
-			x += drawText(ui.screen, x, y, x1, "ilter", style.WithAttr(twin.AttrUnderline))
+			ui.screen.ShowCursor(x, y)
+			x += drawText(ui.screen, x, y, x1, "Filter", style.WithAttr(twin.AttrUnderline))
 			ui.screen.SetCell(x, y, twin.StyledRune{
 				Style: ui.theme.PromptKey(),
 				Rune:  '⏎',
@@ -114,10 +114,7 @@ func (ui *Ui) renderFilterPrompt(x0 int, y int, x1 int) {
 			x += drawText(ui.screen, x, y, x1, ui.filter, style.WithAttr(twin.AttrUnderline))
 
 			// Cursor
-			x += ui.screen.SetCell(x, y, twin.StyledRune{
-				Style: style.WithAttr(twin.AttrReverse),
-				Rune:  ' ',
-			})
+			ui.screen.ShowCursor(x, y)
 
 			// Fill with underlined characters to match the length of the
 			// edit-mode-without-filter text, so the end marker doesn't jump
